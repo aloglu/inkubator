@@ -2,7 +2,7 @@
 
 Inkubator helps you organize your fountain pens, inks, and swatches in one place.
 
-This repository starts afresh, but if you need to take a peek on how it'd look like with some pens, inks, and swatches in it, you can visit [here](https://alog.lu/inkubator).
+This repository starts afresh, but if you need to get an idea on how it'd look like with some pens, inks, and swatches, you can take a look at [my own collection](https://alog.lu/inkubator).
 
 It is designed so you can:
 

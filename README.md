@@ -2,7 +2,7 @@
 
 Inkubator helps you organize your fountain pens, inks, and swatches in one place.
 
-This repository starts with an empty library (`data.json`) so every user can begin fresh.
+This repository starts afresh, but if you need to take a peek on how it'd look like with some pens, inks, and swatches in it, you can visit [here](https://alog.lu/inkubator).
 
 It is designed so you can:
 
@@ -46,30 +46,12 @@ It is designed so you can:
 ### Publish your collection
 
 - Use the built-in static showcase mode
-- Host online so others can view your collection (read-only)
+- Host online so others can view your collection (read-only):
 
-## Typical User Workflow
-
-1. Add your pens and inks
-2. Upload photos (optional but recommended)
-3. Mark pens as currently inked
-4. Add swatches for your favorite inks
-5. Use filters to explore your collection
-6. Publish the showcase when you want to share
-
-## Unsigned App Notice
-
-Current releases are unsigned.
-
-That means you may see security warnings:
-
-- Windows: "Unknown publisher"
-- macOS: app blocked on first open
-
-If this happens:
-
-- Windows: click **More info** -> **Run anyway**
-- macOS: right-click app -> **Open** (or allow in System Settings > Privacy & Security)
+> [!IMPORTANT]
+> You will need the following files uploaded to your static website host:
+> - `index.html`, `style.css`, `renderer.js`, and `data.json` files,
+> - `/images` and `/renderer` folders.
 
 ## For Developers
 ### Desktop App

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>InkSwatch.com - Search by specific ink</title>
+<meta name="description" content="An online tool for comparing fountain pen inks.  Use this page to display the nearest matches from our collection to a specific color of your choosing." />
+<meta name="keywords" content="InkSwatch,InkSwatch.com,fountain pen ink,ink comparison,swab,swatch,reviews,color comparison,brand comparison,color code search" />
+
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<link href="css/fonts.css" rel="stylesheet">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.13.1/css/all.css">
+<link href="css/styles.css?v=1.5" rel="stylesheet" type="text/css" media="all" />
+<script src="js/scripts.js?v=1.4"></script>
+</head>
+
+<body onload="fetchBrandsDropdown();loadFromUrl('ink');">
+<div class="bodyContainer">
+<!-- header -->
+	<div class="header" id="fpink_header_div">
+		<h1><a href="index.html">InkSwatch.com</a></h1>
+		<ul>
+			<li><a href="color.html">Compare by Color Family</a><span class="header_separator">/</span></li>
+			<li><a href="brand.html">Compare by Brand</a><span class="header_separator">/</span></li>
+			<li><a href="ink.html" class="active">Compare to a Specific Ink</a><span class="header_separator">/</span></li>
+			<li><a href="choice.html">Compare to a Color of Your Choice</a><span class="header_separator">/</span></li>
+			<li><a href="names.html">Compare Ink Names</a></li>
+			<li class="header_aboutus"><a href="about.html">About Us</a><span class="header_separator">/</span></li>
+			<li class="header_contact"><a href="contact.html">Contact and Contribute</a><span class="header_separator">/</span></li>
+			<li class="header_search" onclick="showSearchModal();"><span><i class="header_search_icon fas fa-search"></i></span><a>Search InkSwatch.com</a></li>
+		</ul>
+	</div>
+<!-- //header -->
+
+<!-- main body -->
+	<div class="fpink_body">
+		<div class="display_conatiner">
+			<div id="fpink_box" class="fpink_box">
+				<h2>Compare to an ink of your choice.</h2>
+				<h3>Search our database of color swatches to find the closest matches to an ink of your choosing.</h3>
+				<p>This page may help you find alternatives to inks that are hard to find where you live or to find cheaper alternatives to colors you like.</p>
+				<div class="brandPickerContainer">
+					<h4>Brand Selector</h4>
+					<span class="brandDropdown" id="brandDropdown"></span>
+				</div>
+				<div class="inkPickerContainer">
+					<h4>Ink Selector</h4>
+					<span class="inkDropdown" id="inkDropdown"><select class="inkDropdownSelector" id="inkDropdownSelector"><option>Select a brand first...</option></select></span>
+				</div>
+			</div>
+			<div id="fpink_display" class="fpink_box">
+			</div>
+		</div>
+	</div>
+<!-- main body -->
+
+<!-- footer -->
+	<div class="footer">
+		<a href="about.html">About Us</a><br />
+		<a href="contact.html">Contact and Contribute</a><br />
+		<a class="footer_social" target="_blank" href="https://www.facebook.com/InkSwatchcom-111164303987676"><i class="fab fa-facebook-square"></i></a><a class="footer_social" target="_blank" href="https://twitter.com/inkswatchweb"><i class="fab fa-twitter-square"></i></a><a class="footer_social" target="_blank" href="https://www.instagram.com/inkswatch"><i class="fab fa-instagram-square"></i></a><br />
+		Problems with our site? Suggestions? Email <a href="mailto:webmaster@inkswatch.com">webmaster@inkswatch.com</a><br />
+		© <script type="text/javascript">document.write( new Date().getFullYear() );</script> InkSwatch.com. All rights reserved.<br />
+		<a href="privacy.html">Privacy Policy</a>
+	</div>
+<!-- //footer -->
+
+<!-- //Modal Pop Up -->
+<div id="myModal" class="modal" onclick="closeOnClickOutside(event);">
+	<div class="modal-content">
+		<span class="close" onclick="hideModal();">&times;</span><br />
+		<h4 id="modalHeader" class="modal_name_and_brand"></h4>
+		<p><img id="modalSwatch" src="" alt="" title="">
+		<img id="modalWR" src="" alt="" title=""></p>
+		<span id="modalHexCode" class="modal_fpink_info"><br /></span>
+		<span id="modalHSL" class="modal_fpink_info"><br /></span>
+		<span id="modalHSV" class="modal_fpink_info"><br /></span>
+		<span id="modalShimmer" class="modal_fpink_info"><br /></span>
+		<span id="modalIrongall" class="modal_fpink_info"><br /></span>
+		<span id="modalReview" class="modal_fpink_info"></span>
+	</div>
+</div>
+<!-- //Modal Pop Up -->
+
+<!-- //Search Modal Pop Up -->
+<div id="searchModal" class="searchModal" onclick="closeOnClickOutside(event);">
+	<div class="searchModalContent">
+		<span class="close" onclick="hideSearchModal();">&times;</span><br />
+		<h2 id="searchModalHeader">Search InkSwatch.com</h2>
+		<p class="searchModalText">Enter the name of an ink to search InkSwatch.com.  Up to 10 results will be displayed below.  Clicking on a result will take you to the comparison page for that ink.</p>
+		<div id="searchContainer">
+			<span><i class="modal_search_icon fas fa-search"></i></span>
+			<div oninput="sendQuery();" id="search_results_container" class="search_results_container">
+				<div><input type="text" id="searchTextBox" class="searchTextBox" placeholder="Search InkSwatch.com..."></div>
+				<div class="search_results_box" id="searchResults"></div>
+			</div>
+		</div>
+	
+	</div>
+</div>
+<!-- //Search Modal Pop Up -->
+</div>
+</body>
+</html>

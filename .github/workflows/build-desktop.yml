@@ -1,0 +1,112 @@
+﻿name: Build Desktop Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+          - os: macos-latest
+            target: mac
+          - os: ubuntu-latest
+            target: linux
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Detect signing availability
+        id: signing
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          signed=false
+          reason="No signing secrets configured."
+
+          if [[ "${{ matrix.target }}" == "mac" ]]; then
+            if [[ -n "${CSC_LINK}" && -n "${CSC_KEY_PASSWORD}" && -n "${APPLE_ID}" && -n "${APPLE_APP_SPECIFIC_PASSWORD}" && -n "${APPLE_TEAM_ID}" ]]; then
+              signed=true
+              reason="macOS signing + notarization secrets found."
+            else
+              reason="Missing one or more macOS signing/notarization secrets."
+            fi
+          elif [[ "${{ matrix.target }}" == "win" ]]; then
+            if [[ -n "${WIN_CSC_LINK}" && -n "${WIN_CSC_KEY_PASSWORD}" ]] || [[ -n "${CSC_LINK}" && -n "${CSC_KEY_PASSWORD}" ]]; then
+              signed=true
+              reason="Windows signing secrets found."
+            else
+              reason="Missing Windows signing secrets."
+            fi
+          else
+            reason="Linux build runs unsigned in this workflow."
+          fi
+
+          echo "signed=${signed}" >> "$GITHUB_OUTPUT"
+          echo "reason=${reason}" >> "$GITHUB_OUTPUT"
+
+      - name: Build signed (${{ matrix.target }})
+        if: steps.signing.outputs.signed == 'true'
+        run: npm run build:${{ matrix.target }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "true"
+
+      - name: Build unsigned fallback (${{ matrix.target }})
+        if: steps.signing.outputs.signed != 'true'
+        run: npm run build:${{ matrix.target }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload artifact bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: inkubator-${{ matrix.target }}
+          path: dist/**
+          if-no-files-found: error
+
+      - name: Publish release assets (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**
+
+      - name: Build mode summary
+        run: |
+          echo "Signed build: ${{ steps.signing.outputs.signed }}"
+          echo "Reason: ${{ steps.signing.outputs.reason }}"

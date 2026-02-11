@@ -1,0 +1,112 @@
+{
+  "name": "pen-station",
+  "version": "1.0.0",
+  "description": "A beautiful fountain pen tracker and showcase generator.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "showcase": "serve .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder --win --mac --linux",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "fountain-pens",
+    "tracker",
+    "electron"
+  ],
+  "author": {
+    "name": "Abdullah Aloğlu",
+    "email": "contact@alog.lu"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^24.13.3",
+    "serve": "^14.2.5"
+  },
+  "dependencies": {
+    "fs-extra": "^11.3.3",
+    "onnxruntime-node": "^1.24.1",
+    "sharp": "^0.34.5"
+  },
+  "build": {
+    "appId": "com.inkubator.app",
+    "productName": "Inkubator",
+    "directories": {
+      "output": "dist"
+    },
+    "asar": true,
+    "files": [
+      "index.html",
+      "style.css",
+      "renderer.js",
+      "remote_scripts.js",
+      "main.js",
+      "preload.js",
+      "ink_page.html",
+      "package.json",
+      "data.json",
+      "assets/**/*",
+      "images/**/*",
+      "lib/**/*",
+      "renderer/**/*"
+    ],
+    "extraMetadata": {
+      "main": "main.js"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Inkubator-${version}-win-${arch}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "artifactName": "Inkubator-${version}-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "maintainer": "Abdullah Aloğlu <contact@alog.lu>",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Utility",
+      "artifactName": "Inkubator-${version}-linux-${arch}.${ext}"
+    }
+  }
+}

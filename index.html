@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inked | Fountain Pen Collection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation (Collapsible) -->
+        <aside class="sidebar glass-panel">
+            <div class="logo">
+                <i class="ph-fill ph-pen-nib"></i>
+                <span class="logo-text">Inkubator</span>
+            </div>
+
+            <nav class="ink-nav-list">
+                <a href="#" class="nav-item active" id="nav-dashboard">
+                    <i class="ph ph-squares-four"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-pens">
+                    <i class="ph ph-pen"></i>
+                    <span>Pens</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-inks">
+                    <i class="ph ph-drop"></i>
+                    <span>Inks</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-swatches">
+                    <i class="ph ph-palette"></i>
+                    <span>Swatches</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <div id="view-dashboard">
+                <!-- Header -->
+                <header>
+                    <div class="header-text">
+                        <h1>Dashboard</h1>
+                    </div>
+                    <div id="backup-actions" style="display: flex; align-items: center; gap: 10px;">
+                        <span id="backup-status"
+                            style="font-size: 12px; color: #666; padding: 0 4px; min-width: 170px; text-align: right;">Backup:
+                            checking...</span>
+                        <button class="btn-glass" id="btn-export-backup">
+                            <i class="ph ph-upload-simple"></i>
+                            <span>Export Backup</span>
+                        </button>
+                        <button class="btn-glass" id="btn-import-backup">
+                            <i class="ph ph-download-simple"></i>
+                            <span>Import Backup</span>
+                        </button>
+                    </div>
+
+                </header>
+
+                <!-- Stats/Highlights -->
+                <section class="stats-grid">
+                    <div class="stat-card glass-panel">
+                        <div class="stat-icon combined"><i class="ph ph-pen-nib"></i></div>
+                        <div class="stat-data">
+                            <span class="number" id="stat-inked">0</span>
+                            <span class="label">Pens</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-panel">
+                        <div class="stat-icon combined"><i class="ph ph-drop-half-bottom"></i></div>
+                        <div class="stat-data">
+                            <span class="number" id="stat-bottles">0</span>
+                            <span class="label">Inks</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-panel">
+                        <div class="stat-icon combined"><i class="ph ph-palette"></i></div>
+                        <div class="stat-data">
+                            <span class="number" id="stat-swatches">0</span>
+                            <span class="label">Swatches</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Currently Inked Section -->
+                <section class="section-container">
+                    <div class="section-header">
+                        <h2 id="currently-inked-summary">You have <span style="font-weight: 800;">0</span> inked pens</h2>
+                        <!-- Action button can go here later if needed -->
+                    </div>
+
+                    <div class="inked-grid" id="inked-grid">
+                        <!-- Cards will be injected here by renderer.js -->
+                        <div style="padding: 20px; text-align: center; color: #888;">Loading collection...</div>
+                    </div>
+                </section>
+
+                <!-- Collection Preview -->
+                <section class="section-container">
+                    <div class="recents-grid">
+                        <!-- Recent Pens -->
+                        <div class="recent-list glass-panel">
+                            <h3><i class="ph ph-pen-nib"></i> Recent Pens</h3>
+                            <div id="recent-pens-list">
+                                <!-- Pens injected here -->
+                            </div>
+                        </div>
+
+                        <!-- Recent Inks -->
+                        <div class="recent-list glass-panel">
+                            <h3><i class="ph ph-drop"></i> Recent Inks</h3>
+                            <div id="recent-inks-list">
+                                <!-- Inks injected here -->
+                            </div>
+                        </div>
+
+                        <!-- Recent Swatches -->
+                        <div class="recent-list glass-panel">
+                            <h3><i class="ph ph-image"></i> Recent Swatches</h3>
+                            <div id="recent-swatches-list">
+                                <!-- Swatches injected here -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- PENS VIEW (Hidden by default) -->
+            <div id="view-pens" style="display: none;">
+                <header>
+                    <div class="header-text">
+                        <h1>My Pens</h1>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <div class="search-wrapper">
+                            <i class="ph ph-magnifying-glass"></i>
+                            <input type="text" id="search-pens" placeholder="Search pens...">
+                        </div>
+                        <div style="position: relative;">
+                            <button class="btn-glass" id="btn-sort-pens">
+                                <i class="ph ph-sort-ascending"></i>
+                                <span>Sort</span>
+                            </button>
+                            <div id="sort-dropdown-pens" class="glass-panel dropdown-menu"
+                                style="display: none; top: calc(100% + 10px); left: 0; min-width: 180px;">
+                                <a href="#" class="sort-option-pens" data-sort="model-asc"><i class="ph ph-text-aa"></i>
+                                    Model
+                                    (A-Z)</a>
+                                <a href="#" class="sort-option-pens" data-sort="model-desc"><i
+                                        class="ph ph-text-aa"></i> Model
+                                    (Z-A)</a>
+                                <a href="#" class="sort-option-pens" data-sort="brand-asc"><i
+                                        class="ph ph-buildings"></i>
+                                    Brand (A-Z)</a>
+                                <a href="#" class="sort-option-pens" data-sort="brand-desc"><i
+                                        class="ph ph-buildings"></i>
+                                    Brand (Z-A)</a>
+                                <a href="#" class="sort-option-pens" data-sort="newest"><i class="ph ph-clock"></i>
+                                    Newest
+                                    First</a>
+                                <a href="#" class="sort-option-pens" data-sort="oldest"><i
+                                        class="ph ph-clock-counter-clockwise"></i> Oldest
+                                    First</a>
+                            </div>
+                        </div>
+
+                        <button class="btn-glass" id="btn-filter-pens">
+                            <i class="ph ph-funnel"></i>
+                            <span>Filter</span>
+                        </button>
+
+                        <button class="btn-glass" id="btn-add-pen-header">
+                            <i class="ph ph-plus"></i>
+                            <span>Add Pen</span>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Pen Filter Sidebar -->
+                <div id="filter-sidebar-pens" class="sidebar-right glass-panel"
+                    style="display: none; z-index: 5000; overflow: hidden;">
+                    <header
+                        style="padding: 16px 32px; margin-bottom: 0; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                        <div class="header-text">
+                            <h1
+                                style="font-family: var(--font-heading); font-size: 36px; margin: 0; color: var(--color-text-main);">
+                                Filters</h1>
+                        </div>
+                        <button id="close-filters-pens" class="icon-btn-small"
+                            style="background: transparent; border: none; cursor: pointer; color: #888; font-size: 32px; display: flex; align-items: center; justify-content: center;">
+                            <i class="ph ph-x"></i>
+                        </button>
+                    </header>
+                    <div class="filter-content" id="pen-filter-options-container"
+                        style="flex: 1; overflow-y: auto; padding: 16px 32px 32px 32px;">
+                        <!-- Pen filters injected here -->
+                    </div>
+                    <div class="filter-footer"
+                        style="padding: 24px 32px; border-top: 1px solid rgba(0,0,0,0.05); background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); display: flex; justify-content: flex-end; align-items: center; position: relative; z-index: 20;">
+                        <button id="reset-filters-pens"
+                            style="background: transparent; color: #e74c3c; border: none; cursor: pointer; font-weight: 500; font-size: 14px; text-decoration: none; padding: 0;">Reset
+                            All Filters</button>
+                    </div>
+                </div>
+
+                <div class="inked-grid" id="pens-grid">
+                    <!-- Pens Injected Here -->
+                    <div class="empty-state">No pens found.</div>
+                </div>
+            </div>
+
+            <!-- INKS VIEW -->
+            <div id="view-inks" style="display: none;">
+                <header>
+                    <div class="header-text">
+                        <h1>My Inks</h1>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <div class="search-wrapper">
+                            <i class="ph ph-magnifying-glass"></i>
+                            <input type="text" id="search-inks" placeholder="Search inks...">
+                        </div>
+                        <div style="position: relative;">
+                            <button class="btn-glass" id="btn-sort-inks">
+                                <i class="ph ph-sort-ascending"></i>
+                                <span>Sort</span>
+                            </button>
+                            <div id="sort-dropdown" class="glass-panel dropdown-menu"
+                                style="display: none; top: calc(100% + 10px); left: 0; min-width: 180px;">
+                                <a href="#" class="sort-option" data-sort="name-asc"><i class="ph ph-text-aa"></i> Name
+                                    (A-Z)</a>
+                                <a href="#" class="sort-option" data-sort="name-desc"><i class="ph ph-text-aa"></i> Name
+                                    (Z-A)</a>
+                                <a href="#" class="sort-option" data-sort="brand-asc"><i class="ph ph-buildings"></i>
+                                    Brand (A-Z)</a>
+                                <a href="#" class="sort-option" data-sort="brand-desc"><i class="ph ph-buildings"></i>
+                                    Brand (Z-A)</a>
+                                <a href="#" class="sort-option" data-sort="newest"><i class="ph ph-clock"></i> Newest
+                                    First</a>
+                                <a href="#" class="sort-option" data-sort="oldest"><i
+                                        class="ph ph-clock-counter-clockwise"></i> Oldest
+                                    First</a>
+                            </div>
+                        </div>
+
+                        <button class="btn-glass" id="btn-filter-inks">
+                            <i class="ph ph-funnel"></i>
+                            <span>Filter</span>
+                        </button>
+
+                        <button class="btn-glass" id="btn-add-ink-header">
+                            <i class="ph ph-plus"></i>
+                            <span>Add Ink</span>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Filter Sidebar (Glassy) -->
+                <div id="filter-sidebar" class="sidebar-right glass-panel"
+                    style="display: none; z-index: 5000; overflow: hidden;">
+                    <header
+                        style="padding: 16px 32px; margin-bottom: 0; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                        <div class="header-text">
+                            <h1
+                                style="font-family: var(--font-heading); font-size: 36px; margin: 0; color: var(--color-text-main);">
+                                Filters</h1>
+                        </div>
+                        <button id="close-filters" class="icon-btn-small"
+                            style="background: transparent; border: none; cursor: pointer; color: #888; font-size: 32px; display: flex; align-items: center; justify-content: center;">
+                            <i class="ph ph-x"></i>
+                        </button>
+                    </header>
+                    <div class="filter-content" id="filter-options-container"
+                        style="flex: 1; overflow-y: auto; padding: 16px 32px 32px 32px;">
+                        <!-- Filters injected here -->
+                    </div>
+                    <div class="filter-footer"
+                        style="padding: 24px 32px; border-top: 1px solid rgba(0,0,0,0.05); background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); display: flex; justify-content: flex-end; align-items: center; position: relative; z-index: 20;">
+                        <button id="reset-filters"
+                            style="background: transparent; color: #e74c3c; border: none; cursor: pointer; font-weight: 500; font-size: 14px; text-decoration: none; padding: 0;">Reset
+                            All Filters</button>
+                    </div>
+                </div>
+                <div class="inked-grid" id="inks-grid">
+                    <div class="empty-state">No inks found.</div>
+                </div>
+            </div>
+
+            <!-- SWATCHES VIEW -->
+            <div id="view-swatches" style="display: none;">
+                <header>
+                    <div class="header-text">
+                        <h1>My Swatches</h1>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <div class="search-wrapper">
+                            <i class="ph ph-magnifying-glass"></i>
+                            <input type="text" id="search-swatches" placeholder="Search swatches...">
+                        </div>
+                        <div style="position: relative;">
+                            <button class="btn-glass" id="btn-sort-swatches">
+                                <i class="ph ph-sort-ascending"></i>
+                                <span>Sort</span>
+                            </button>
+                            <div id="sort-dropdown-swatches" class="glass-panel dropdown-menu"
+                                style="display: none; top: calc(100% + 10px); left: 0; min-width: 180px;">
+                                <a href="#" class="sort-option-swatches" data-sort="name-asc"><i
+                                        class="ph ph-text-aa"></i> Name (A-Z)</a>
+                                <a href="#" class="sort-option-swatches" data-sort="name-desc"><i
+                                        class="ph ph-text-aa"></i> Name (Z-A)</a>
+                                <a href="#" class="sort-option-swatches" data-sort="brand-asc"><i
+                                        class="ph ph-buildings"></i> Brand (A-Z)</a>
+                                <a href="#" class="sort-option-swatches" data-sort="brand-desc"><i
+                                        class="ph ph-buildings"></i> Brand (Z-A)</a>
+                                <a href="#" class="sort-option-swatches" data-sort="newest"><i class="ph ph-clock"></i>
+                                    Newest First</a>
+                                <a href="#" class="sort-option-swatches" data-sort="oldest"><i
+                                        class="ph ph-clock-counter-clockwise"></i> Oldest First</a>
+                            </div>
+                        </div>
+
+                        <button class="btn-glass" id="btn-filter-swatches">
+                            <i class="ph ph-funnel"></i>
+                            <span>Filter</span>
+                        </button>
+
+                        <button class="btn-glass" id="btn-add-swatch-header">
+                            <i class="ph ph-plus"></i>
+                            <span>Add Swatch</span>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Swatch Filter Sidebar -->
+                <div id="filter-sidebar-swatches" class="sidebar-right glass-panel"
+                    style="display: none; z-index: 5000; overflow: hidden;">
+                    <header
+                        style="padding: 16px 32px; margin-bottom: 0; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                        <div class="header-text">
+                            <h1
+                                style="font-family: var(--font-heading); font-size: 36px; margin: 0; color: var(--color-text-main);">
+                                Filters</h1>
+                        </div>
+                        <button id="close-filters-swatches" class="icon-btn-small"
+                            style="background: transparent; border: none; cursor: pointer; color: #888; font-size: 32px; display: flex; align-items: center; justify-content: center;">
+                            <i class="ph ph-x"></i>
+                        </button>
+                    </header>
+                    <div class="filter-content" id="swatch-filter-options-container"
+                        style="flex: 1; overflow-y: auto; padding: 16px 32px 32px 32px;">
+                        <!-- Swatch filters injected here -->
+                    </div>
+                    <div class="filter-footer"
+                        style="padding: 24px 32px; border-top: 1px solid rgba(0,0,0,0.05); background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); display: flex; justify-content: flex-end; align-items: center; position: relative; z-index: 20;">
+                        <button id="reset-filters-swatches"
+                            style="background: transparent; color: #e74c3c; border: none; cursor: pointer; font-weight: 500; font-size: 14px; text-decoration: none; padding: 0;">Reset
+                            All Filters</button>
+                    </div>
+                </div>
+                <div class="inked-grid" id="swatches-grid">
+                    <div style="padding: 40px; text-align: center; color: #888;">No swatches found.</div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Add Ink Modal -->
+        <div class="modal-overlay" id="modal-ink" style="display: none;">
+            <div class="modal modal-wide glass-panel">
+                <div class="modal-header">
+                    <h2 id="ink-modal-title">Edit Ink</h2>
+                    <button class="btn-icon close-modal"><i class="ph ph-x"></i></button>
+                </div>
+
+                <div class="modal-body custom-ink-grid">
+                    <!-- Row 1 -->
+                    <div class="input-group">
+                        <label>Brand</label>
+                        <div class="custom-autocomplete-wrapper">
+                            <input type="text" id="ink-brand-input" class="autocomplete-input"
+                                placeholder="e.g. Pilot Iroshizuku" autocomplete="off">
+                            <div id="ink-brand-list-custom" class="custom-options"></div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Ink Name</label>
+                        <div class="custom-autocomplete-wrapper">
+                            <input type="text" id="ink-name-input" class="autocomplete-input"
+                                placeholder="e.g. Yama-budo" autocomplete="off">
+                            <div id="ink-name-list-custom" class="custom-options"></div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Ink Line</label>
+                        <div class="custom-autocomplete-wrapper">
+                            <input type="text" id="ink-line-input" class="autocomplete-input"
+                                placeholder="e.g. Standard" autocomplete="off">
+                            <div id="ink-line-list-custom" class="custom-options"></div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2 -->
+                    <div class="input-group">
+                        <label>Type</label>
+                        <div class="custom-select-wrapper-outer" id="ink-type-wrapper">
+                            <div class="custom-select-trigger" tabindex="0">
+                                <span class="current-value">Bottle</span>
+                                <i class="ph ph-caret-down"></i>
+                            </div>
+                            <div class="custom-options" data-target="ink-type-input">
+                                <div class="custom-option" data-value="Bottle">Bottle</div>
+                                <div class="custom-option" data-value="Sample">Sample</div>
+                                <div class="custom-option" data-value="Cartridge">Cartridge</div>
+                                <div class="custom-option" data-value="Other">Other</div>
+                            </div>
+                            <input type="hidden" id="ink-type-input" value="Bottle">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Volume (cl)</label>
+                        <div class="custom-autocomplete-wrapper">
+                            <input type="text" id="ink-cl-input" class="autocomplete-input" placeholder="e.g. 50"
+                                autocomplete="off">
+                            <div id="ink-cl-list-custom" class="custom-options"></div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Amount</label>
+                        <input type="number" id="ink-amount-input" placeholder="e.g. 1">
+                    </div>
+
+                    <!-- Row 3 -->
+                    <div class="input-group span-2">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; height: 24px; margin-bottom: 8px;">
+                            <label style="margin: 0 !important; line-height: 1 !important;">Ink Image</label>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <input type="checkbox" id="ink-is-swatch-checkbox"
+                                    style="width: 14px; height: 14px; cursor: pointer; margin: 0;">
+                                <label for="ink-is-swatch-checkbox"
+                                    style="font-size: 14px; font-weight: 500; cursor: pointer; color: #666; margin: 0 !important; line-height: 1 !important;">Add
+                                    to Swatches</label>
+                            </div>
+                        </div>
+                        <div class="image-upload-area" id="ink-image-area">
+                            <i class="ph ph-camera" style="font-size: 24px; color: #888;"></i>
+                            <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">Click to upload image</p>
+                            <img id="ink-image-preview" src="" style="display: none;">
+                        </div>
+                    </div>
+                    <input type="file" id="ink-image-input" accept="image/*" style="display: none;">
+
+                    <div class="input-group">
+                        <div style="display: flex; align-items: center; height: 24px; margin-bottom: 8px;">
+                            <label style="margin: 0 !important; line-height: 1 !important;">Ink Colors</label>
+                        </div>
+                        <div class="dynamic-colors-list" id="ink-colors-list">
+                            <!-- Dynamic Color Slots -->
+                            <div id="ink-add-color-wrapper" class="dynamic-color-slot add-slot">
+                                <div id="btn-add-ink-color" class="add-color-btn" title="Add Color">
+                                    <i class="ph ph-plus"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 4 -->
+                    <div class="input-group">
+                        <label>Shading</label>
+                        <div class="custom-select-wrapper-outer" id="ink-shading-wrapper">
+                            <div class="custom-select-trigger" tabindex="0">
+                                <span class="current-value">None</span>
+                                <i class="ph ph-caret-down"></i>
+                            </div>
+                            <div class="custom-options" data-target="ink-shading">
+                                <div class="custom-option" data-value="None">None</div>
+                                <div class="custom-option" data-value="Low">Low</div>
+                                <div class="custom-option" data-value="Medium">Medium</div>
+                                <div class="custom-option" data-value="High">High</div>
+                            </div>
+                            <input type="hidden" id="ink-shading" value="None">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Sheen</label>
+                        <div class="custom-select-wrapper-outer" id="ink-sheen-wrapper">
+                            <div class="custom-select-trigger" tabindex="0">
+                                <span class="current-value">None</span>
+                                <i class="ph ph-caret-down"></i>
+                            </div>
+                            <div class="custom-options" data-target="ink-sheen">
+                                <div class="custom-option" data-value="None">None</div>
+                                <div class="custom-option" data-value="Low">Low</div>
+                                <div class="custom-option" data-value="Medium">Medium</div>
+                                <div class="custom-option" data-value="High">High</div>
+                                <div class="custom-option" data-value="Monster">Monster</div>
+                            </div>
+                            <input type="hidden" id="ink-sheen" value="None">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Shimmer</label>
+                        <div class="custom-select-wrapper-outer" id="ink-shimmer-wrapper">
+                            <div class="custom-select-trigger" tabindex="0">
+                                <span class="current-value">None</span>
+                                <i class="ph ph-caret-down"></i>
+                            </div>
+                            <div class="custom-options" data-target="ink-shimmer">
+                                <div class="custom-option" data-value="None">None</div>
+                                <div class="custom-option" data-value="Gold">Gold</div>
+                                <div class="custom-option" data-value="Silver">Silver</div>
+                                <div class="custom-option" data-value="Multiple">Multiple</div>
+                                <div class="custom-option" data-value="Other">Other</div>
+                            </div>
+                            <input type="hidden" id="ink-shimmer" value="None">
+                        </div>
+                    </div>
+
+                    <!-- Row 5 -->
+                    <div class="input-group">
+                        <label>Flow</label>
+                        <div class="custom-select-wrapper-outer" id="ink-flow-wrapper">
+                            <div class="custom-select-trigger" tabindex="0">
+                                <span class="current-value">Average</span>
+                                <i class="ph ph-caret-down"></i>
+                            </div>
+                            <div class="custom-options" data-target="ink-flow">
+                                <div class="custom-option" data-value="Very Dry">Very Dry</div>
+                                <div class="custom-option" data-value="Dry">Dry</div>
+                                <div class="custom-option" data-value="Average">Average</div>
+                                <div class="custom-option" data-value="Wet">Wet</div>
+                                <div class="custom-option" data-value="Very Wet">Very Wet</div>
+                            </div>
+                            <input type="hidden" id="ink-flow" value="Average">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Lubrication</label>
+                        <div class="custom-select-wrapper-outer" id="ink-lubrication-wrapper">
+                            <div class="custom-select-trigger" tabindex="0">
+                                <span class="current-value">Low</span>
+                                <i class="ph ph-caret-down"></i>
+                            </div>
+                            <div class="custom-options" data-target="ink-lubrication">
+                                <div class="custom-option" data-value="Low">Low</div>
+                                <div class="custom-option" data-value="Medium">Medium</div>
+                                <div class="custom-option" data-value="High">High</div>
+                            </div>
+                            <input type="hidden" id="ink-lubrication" value="Low">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Dry Time</label>
+                        <div class="custom-autocomplete-wrapper">
+                            <input type="text" id="ink-dry-time" class="autocomplete-input" placeholder="e.g. 15s"
+                                autocomplete="off">
+                            <div id="ink-dry-time-list-custom" class="custom-options"></div>
+                        </div>
+                    </div>
+
+                    <!-- Row 6 -->
+
+
+                    <div class="input-group">
+                        <label>Base Type</label>
+                        <button class="multiselect-header" type="button" popovertarget="base-type-popover"
+                            id="base-type-header">
+                            <span class="placeholder" data-default="e.g. Dye, Pigment">e.g. Dye, Pigment</span>
+                            <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div id="base-type-popover" popover class="multiselect-options">
+                            <label><input type="checkbox" value="Dye"> Dye</label>
+                            <label><input type="checkbox" value="Pigment"> Pigment</label>
+                            <label><input type="checkbox" value="Iron Gall"> Iron Gall</label>
+                            <label><input type="checkbox" value="Scented"> Scented</label>
+                            <label><input type="checkbox" value="Shimmer"> Shimmer</label>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Permanence</label>
+                        <div class="custom-select-wrapper-outer" id="ink-permanence-wrapper">
+                            <div class="custom-select-trigger" tabindex="0">
+                                <span class="current-value">None</span>
+                                <i class="ph ph-caret-down"></i>
+                            </div>
+                            <div class="custom-options" data-target="ink-permanence">
+                                <div class="custom-option" data-value="None">None</div>
+                                <div class="custom-option" data-value="Archival">Archival</div>
+                                <div class="custom-option" data-value="Water Resistant">Water Resistant</div>
+                                <div class="custom-option" data-value="Waterproof">Waterproof</div>
+                            </div>
+                            <input type="hidden" id="ink-permanence" value="None">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Paper Compatibility</label>
+                        <button class="multiselect-header" type="button" popovertarget="paper-compatibility-popover"
+                            id="paper-compatibility-header">
+                            <span class="placeholder" data-default="e.g. Friendly, Average">e.g. Friendly,
+                                Average</span>
+                            <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div id="paper-compatibility-popover" popover class="multiselect-options">
+                            <label><input type="checkbox" value="Friendly"> Friendly</label>
+                            <label><input type="checkbox" value="Average"> Average</label>
+                            <label><input type="checkbox" value="Feathering"> Feathering</label>
+                            <label><input type="checkbox" value="Bleeding"> Bleeding</label>
+                            <label><input type="checkbox" value="Show Through"> Show Through</label>
+                        </div>
+                    </div>
+
+                    <!-- Row 7 -->
+                    <div class="input-group full-width">
+                        <label>Notes</label>
+                        <textarea id="ink-notes" placeholder="Detailed observations about this ink..."
+                            style="width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; font-family: inherit; font-size: 13px;"></textarea>
+                    </div>
+
+                    <div class="modal-footer full-width">
+                        <button class="btn-text" id="btn-delete-ink"
+                            style="color: #e74c3c; display: none; margin-right: auto;">Delete</button>
+                        <span class="validation-msg" id="ink-validation-msg"
+                            style="color: #e74c3c; font-size: 13px; font-weight: 500; margin-right: 15px; display: none;"></span>
+                        <button class="btn-text cancel-modal">Cancel</button>
+                        <button class="btn-primary" id="btn-save-ink">Save to Collection</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Pen Modal -->
+        <div class="modal-overlay" id="modal-pen" style="display: none;">
+            <div class="modal modal-wide glass-panel">
+                <div class="modal-header">
+                    <h2>Add New Pen</h2>
+                    <button class="btn-icon close-modal"><i class="ph ph-x"></i></button>
+                </div>
+
+                <div class="modal-body pen-form-layout">
+                    <div class="pen-top-layout">
+                        <!-- Left: Photo -->
+                        <div class="pen-image-column">
+                            <div class="input-group full-width">
+                                <label>Pen Photo</label>
+                                <div class="image-upload-area" id="upload-pen-photo-area">
+                                    <i class="ph ph-camera" id="pen-photo-icon"></i>
+                                    <p id="pen-photo-text">Click to upload photo</p>
+                                    <img id="upload-pen-preview" src="">
+
+                                    <!-- Control Overlay (Visible on Hover) -->
+                                    <div class="photo-controls" id="pen-photo-controls">
+                                        <button id="btn-rotate-pen" class="photo-control-btn rotate" title="Rotate Image"
+                                            type="button">
+                                            <i class="ph ph-arrow-clockwise"></i>
+                                        </button>
+                                        <button id="btn-remove-pen-photo" class="photo-control-btn remove"
+                                            title="Remove Photo" type="button">
+                                            <i class="ph ph-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Core Details -->
+                        <div class="pen-info-column custom-pen-grid">
+
+                        <!-- Row 2 -->
+                        <div class="input-group">
+                            <label>Brand</label>
+                            <div class="custom-autocomplete-wrapper">
+                                <input type="text" id="pen-brand-input" class="autocomplete-input"
+                                    placeholder="e.g. Lamy" autocomplete="off">
+                                <div id="pen-brand-list-custom" class="custom-options"></div>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Model</label>
+                            <div class="custom-autocomplete-wrapper">
+                                <input type="text" id="pen-model-input" class="autocomplete-input"
+                                    placeholder="e.g. 2000" autocomplete="off">
+                                <div id="pen-model-list-custom" class="custom-options"></div>
+                            </div>
+                        </div>
+
+                        <!-- Row 2 -->
+                        <div class="input-group">
+                            <label>Nib Material</label>
+                            <div class="custom-autocomplete-wrapper">
+                                <input type="text" id="pen-nib-material-input" class="autocomplete-input"
+                                    placeholder="e.g. Gold, Steel" autocomplete="off">
+                                <div id="pen-nib-material-list-custom" class="custom-options"></div>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Nib Size</label>
+                            <div class="custom-autocomplete-wrapper">
+                                <input type="text" id="pen-nib-input" class="autocomplete-input"
+                                    placeholder="e.g. EF, M, 1.1 Stub" autocomplete="off">
+                                <div id="pen-nib-size-list-custom" class="custom-options"></div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3 -->
+                        <div class="input-group">
+                            <label>Body Material</label>
+                            <div class="custom-autocomplete-wrapper">
+                                <input type="text" id="pen-material-input" class="autocomplete-input"
+                                    placeholder="e.g. Makrolon, Resin" autocomplete="off">
+                                <div id="pen-body-material-list-custom" class="custom-options"></div>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Filling System</label>
+                            <div class="custom-autocomplete-wrapper">
+                                <input type="text" id="pen-filling-system-input" class="autocomplete-input"
+                                    placeholder="e.g. Piston, Converter" autocomplete="off">
+                                <div id="pen-filling-system-list-custom" class="custom-options"></div>
+                            </div>
+                        </div>
+
+                        <!-- Row 4 -->
+                        <div class="input-group">
+                            <label>Color</label>
+                            <div class="custom-autocomplete-wrapper">
+                                <input type="text" id="pen-color-input" class="autocomplete-input"
+                                    placeholder="e.g. Black, Demonstrator" autocomplete="off">
+                                <div id="pen-color-list-custom" class="custom-options"></div>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Price ($)</label>
+                            <input type="number" id="pen-price-input" placeholder="e.g. 150" step="0.01">
+                        </div>
+
+                        <div class="input-group full-width">
+                            <label>Pen Colors</label>
+                            <div class="dynamic-colors-list" id="pen-colors-list">
+                                <!-- Dynamic Color Slots -->
+                                <div id="pen-add-color-wrapper" class="dynamic-color-slot add-slot">
+                                    <div id="btn-add-pen-color" class="add-color-btn" title="Add Color">
+                                        <i class="ph ph-plus"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        </div>
+                    </div>
+
+                    <div class="pen-bottom-layout">
+                        <div class="input-group full-width">
+                            <label>Currently Inked With</label>
+                            <div class="custom-select-wrapper-outer" id="pen-ink-select-wrapper">
+                                <div class="custom-select-trigger" tabindex="0">
+                                    <span class="current-value">Nothing (Clean)</span>
+                                    <i class="ph ph-caret-down"></i>
+                                </div>
+                                <div class="custom-options" id="pen-ink-select-options" data-target="pen-ink-select">
+                                    <div class="custom-option" data-value="">Nothing (Clean)</div>
+                                    <!-- Dynamically populated -->
+                                </div>
+                                <input type="hidden" id="pen-ink-select" value="">
+                            </div>
+                        </div>
+
+                        <div class="input-group full-width">
+                            <label>Notes</label>
+                            <textarea id="pen-notes-input" placeholder="Notes about this pen..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer full-width">
+                    <button class="btn-text" id="btn-delete-pen"
+                        style="color: #e74c3c; display: none; margin-right: auto;">Delete</button>
+                    <span class="validation-msg" id="pen-validation-msg"
+                        style="color: #e74c3c; font-size: 13px; font-weight: 500; margin-right: 15px; display: none;"></span>
+                    <button class="btn-text cancel-modal">Cancel</button>
+                    <button class="btn-primary" id="btn-save-pen">Add Pen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Add Swatch Modal (Unified Flow) -->
+    <div class="modal-overlay" id="modal-add-swatch" style="display: none;">
+        <div class="modal glass-panel swatch-unified-modal">
+            <div class="modal-header">
+                <h2>Add Swatch</h2>
+                <button class="btn-icon close-modal"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body swatch-unified-body">
+                <div class="swatch-unified-left">
+                    <div class="input-group">
+                        <label>Linked Ink</label>
+                        <div class="custom-select-wrapper-outer" id="fetch-swatch-ink-wrapper">
+                            <div class="custom-select-trigger" tabindex="0">
+                                <span class="current-value">Select an ink...</span>
+                                <i class="ph ph-caret-down"></i>
+                            </div>
+                            <div class="custom-options" id="fetch-swatch-ink-options">
+                                <!-- Populated dynamically -->
+                            </div>
+                            <input type="hidden" id="fetch-swatch-ink-input">
+                        </div>
+                        <small class="swatch-helper-text">Choose the ink this swatch belongs to.</small>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Source</label>
+                        <div class="swatch-source-toggle" id="swatch-source-toggle">
+                            <button type="button" class="swatch-source-btn active" data-source="auto">Auto Fetch</button>
+                            <button type="button" class="swatch-source-btn" data-source="manual">Manual URL</button>
+                            <button type="button" class="swatch-source-btn" data-source="upload">Upload File</button>
+                        </div>
+                    </div>
+
+                    <div class="swatch-source-panel">
+                        <div id="swatch-source-auto" class="swatch-source-content">
+                            <div class="swatch-source-main"></div>
+                            <div class="swatch-source-action">
+                                <div class="swatch-manual-row">
+                                    <input type="text" id="fetch-swatch-name-auto" class="swatch-source-input" placeholder="Matched Name" readonly>
+                                    <button type="button" class="btn-primary" id="btn-fetch-auto-swatch">Fetch</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="swatch-source-manual" class="swatch-source-content" style="display: none;">
+                            <div class="swatch-source-main"></div>
+                            <div class="swatch-source-action">
+                                <div class="swatch-manual-row">
+                                    <input type="text" id="fetch-swatch-url-manual" class="swatch-source-input" placeholder="https://example.com/swatch.jpg">
+                                    <button type="button" class="btn-primary" id="btn-load-manual-swatch">Load URL</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="swatch-source-upload" class="swatch-source-content" style="display: none;">
+                            <div class="swatch-source-main"></div>
+                            <div class="swatch-source-action">
+                                <button type="button" class="btn-primary" id="btn-choose-upload-swatch">Choose Image File</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="swatch-preview-card" id="swatch-preview-card">
+                        <div id="swatch-preview-empty" class="swatch-preview-empty">
+                            <i class="ph ph-image"></i>
+                            <p>Select an image source to preview your swatch.</p>
+                        </div>
+                        <div id="swatch-preview-loading" class="swatch-preview-loading" style="display: none;">
+                            <i class="ph ph-spinner-gap ph-spin"></i>
+                            <p>Loading image...</p>
+                        </div>
+                        <div id="swatch-preview-error" class="swatch-preview-error" style="display: none;">
+                            <i class="ph ph-warning-circle"></i>
+                            <p id="swatch-preview-error-text">Could not load image.</p>
+                        </div>
+                        <img id="swatch-preview-image" src="" style="display: none;">
+                    </div>
+                </div>
+
+                <div class="swatch-unified-right">
+                    <div class="input-group">
+                        <label>Paper</label>
+                        <input type="text" id="swatch-paper-input" placeholder="e.g. Tomoe River 52gsm">
+                    </div>
+                    <div class="input-group">
+                        <label>Nib Used</label>
+                        <input type="text" id="swatch-nib-input" placeholder="e.g. F, Stub 1.1">
+                    </div>
+                    <div class="input-group">
+                        <label>Date Sampled</label>
+                        <input type="date" id="swatch-date-input">
+                    </div>
+                    <div class="input-group">
+                        <label>Lighting</label>
+                        <div class="custom-select-wrapper-outer" id="swatch-lighting-wrapper">
+                            <div class="custom-select-trigger" tabindex="0">
+                                <span class="current-value">Unknown</span>
+                                <i class="ph ph-caret-down"></i>
+                            </div>
+                            <div class="custom-options" data-target="swatch-lighting-input">
+                                <div class="custom-option selected" data-value="Unknown">Unknown</div>
+                                <div class="custom-option" data-value="Natural">Natural</div>
+                                <div class="custom-option" data-value="Warm">Warm</div>
+                                <div class="custom-option" data-value="Cool">Cool</div>
+                                <div class="custom-option" data-value="Mixed">Mixed</div>
+                            </div>
+                            <input type="hidden" id="swatch-lighting-input" value="Unknown">
+                        </div>
+                    </div>
+                    <div class="input-group swatch-notes-group">
+                        <label>Observations</label>
+                        <textarea id="swatch-notes-input" class="swatch-notes-textarea" placeholder="Notes about this swatch..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="validation-msg" id="swatch-validation-msg"
+                    style="color: #e74c3c; font-size: 13px; font-weight: 500; margin-right: auto; display: none;"></span>
+                <button class="btn-text cancel-modal">Cancel</button>
+                <button class="btn-primary" id="btn-save-swatch-unified">Save Swatch</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Swatch Detail Modal (Showcase Viewer) -->
+    <div class="modal-overlay" id="modal-swatch-detail" style="display: none;">
+        <div id="swatch-detail-modal-container" class="modal glass-panel"
+            style="width: 800px; max-width: 95vw; padding: 0; overflow: hidden; height: auto;">
+            <div id="swatch-detail-layout" style="display: flex; flex-direction: row; height: auto; max-height: 90vh;">
+                <!-- Image Section -->
+                <div id="swatch-detail-image-container"
+                    style="flex: 1.2; background: #f0f0f0; position: relative; min-height: 400px;">
+                    <img id="swatch-detail-img" src=""
+                        style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                </div>
+
+                <!-- Content Section -->
+                <div id="swatch-detail-content"
+                    style="flex: 1; padding: 40px; display: flex; flex-direction: column; overflow-y: auto; background: #fff;">
+                    <div style="margin-bottom: auto;">
+                        <!-- Header Area: Brand + Name + Palette -->
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px;">
+                            <div>
+                                <div id="swatch-detail-brand"
+                                    style="font-family: var(--font-body); font-weight: 500; text-transform: uppercase; letter-spacing: 2px; color: var(--color-text-muted); font-size: 14px; margin-bottom: 8px;">
+                                    Brand</div>
+                                <h2 id="swatch-detail-name"
+                                    style="font-family: var(--font-heading); font-size: 42px; margin: 0; line-height: 1.1; color: var(--color-text-main);">
+                                    Ink Name</h2>
+                                <span id="swatch-detail-standalone-badge"
+                                    style="display: none; margin-top: 12px; padding: 5px 10px; border-radius: 999px; background: #fff4db; color: #8a5a00; border: 1px solid #f3d59a; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;">
+                                    Standalone Swatch
+                                </span>
+                            </div>
+                            <div id="swatch-detail-colors" style="display: flex; gap: 8px; padding-top: 10px;">
+                                <!-- Dynamic Color Chips -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="swatch-detail-metadata"
+                        style="margin-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px 15px;">
+                        <!-- Detailed Stats (Grid Layout) -->
+                    </div>
+
+                    <div id="swatch-detail-notes-area" style="margin-top: 24px; display: none;">
+                        <h4
+                            style="text-transform: uppercase; font-size: 11px; font-family: var(--font-body); letter-spacing: 1.5px; color: #aaa; margin: 0 0 6px 0; padding: 0; font-weight: 700; line-height: 1.2;">
+                            NOTES</h4>
+                        <p id="swatch-detail-notes"
+                            style="font-size: 15px; color: #555; line-height: 1.6; font-family: var(--font-body); margin: 0; padding: 0;">
+                        </p>
+                    </div>
+
+                    <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
+                        <button id="btn-delete-swatch-detail" class="btn-text"
+                            style="color: #e74c3c; display: none;">Delete Swatch</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pen Detail Modal (Showcase Viewer) -->
+    <div class="modal-overlay" id="modal-pen-detail" style="display: none;">
+        <div id="pen-detail-modal-container" class="modal glass-panel"
+            style="width: 800px; max-width: 95vw; padding: 0; overflow: hidden; height: auto;">
+            <div id="pen-detail-layout" style="display: flex; flex-direction: row; height: auto; max-height: 90vh;">
+                <!-- Visual Section -->
+                <div id="pen-detail-visual-container"
+                    style="flex: 1; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); position: relative; min-height: 400px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    <i id="pen-detail-placeholder-icon" class="ph ph-pen-nib"
+                        style="font-size: 120px; color: rgba(0,0,0,0.1);"></i>
+                    <img id="pen-detail-img" src=""
+                        style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                </div>
+
+                <!-- Content Section -->
+                <div id="pen-detail-content"
+                    style="flex: 1.2; padding: 40px; display: flex; flex-direction: column; overflow-y: auto; background: #fff;">
+                    <div style="margin-bottom: auto;">
+                        <!-- Header Area: Brand + Model -->
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px;">
+                            <div>
+                                <div id="pen-detail-brand"
+                                    style="font-family: var(--font-body); font-weight: 500; text-transform: uppercase; letter-spacing: 2px; color: var(--color-text-muted); font-size: 14px; margin-bottom: 8px;">
+                                    Brand</div>
+                                <h2 id="pen-detail-model"
+                                    style="font-family: var(--font-heading); font-size: 42px; margin: 0; line-height: 1.1; color: var(--color-text-main);">
+                                    Pen Model</h2>
+                            </div>
+                            <div id="pen-detail-colors" style="display: flex; gap: 8px; padding-top: 10px;">
+                                <!-- Dynamic Color Chips -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="pen-detail-metadata"
+                        style="margin-top: 14px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px 15px;">
+                        <!-- Detailed Stats (Grid Layout) -->
+                    </div>
+
+                    <div id="pen-detail-ink-area"
+                        style="margin-top: 32px; padding: 20px; border-radius: 12px; background: #f9f9f9; border: 1px solid #eee; display: none;">
+                        <h4
+                            style="text-transform: uppercase; font-size: 11px; font-family: var(--font-body); letter-spacing: 1.5px; color: #aaa; margin: 0 0 12px 0; font-weight: 700;">
+                            CURRENTLY INKED WITH</h4>
+                        <div id="pen-detail-ink-info" style="display: flex; align-items: center; gap: 15px;">
+                            <div id="pen-detail-ink-color"
+                                style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            </div>
+                            <div style="font-size: 16px; font-weight: 600; color: #333;" id="pen-detail-ink-name">
+                                Ink Name</div>
+                        </div>
+                    </div>
+
+                    <div id="pen-detail-notes-area" style="margin-top: 24px; display: none;">
+                        <h4
+                            style="text-transform: uppercase; font-size: 11px; font-family: var(--font-body); letter-spacing: 1.5px; color: #aaa; margin: 0 0 6px 0; padding: 0; font-weight: 700; line-height: 1.2;">
+                            NOTES</h4>
+                        <p id="pen-detail-notes"
+                            style="font-size: 15px; color: #555; line-height: 1.6; font-family: var(--font-body); margin: 0; padding: 0;">
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    </div>
+
+
+
+    <!-- Datalists for Autocomplete -->
+    <datalist id="ink-brand-list"></datalist>
+    <datalist id="ink-name-list"></datalist>
+    <datalist id="ink-line-list"></datalist>
+    <datalist id="ink-cl-list"></datalist>
+    <datalist id="ink-dry-time-list"></datalist>
+
+    <datalist id="pen-brand-list"></datalist>
+    <datalist id="pen-model-list"></datalist>
+    <datalist id="pen-nib-size-list"></datalist>
+    <datalist id="pen-nib-material-list"></datalist>
+    <datalist id="pen-body-material-list"></datalist>
+    <datalist id="pen-filling-system-list"></datalist>
+    <datalist id="pen-color-list"></datalist>
+
+    <script src="renderer/render-scheduler.js"></script>
+    <script src="renderer/modal-lifecycle.js"></script>
+    <script src="renderer.js"></script>
+</body>
+
+</html>

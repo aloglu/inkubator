@@ -26,7 +26,7 @@ It is designed so you can:
 - See your "Currently Inked" section at a glance
 - Open detailed cards to review each item
 
-## Use swatches in a practical way
+### Use swatches in a practical way
 
 - Link swatches to inks
 - Keep standalone swatches if needed

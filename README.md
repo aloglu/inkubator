@@ -38,10 +38,6 @@ You can view a live demonstration of the generated showcase at [alog.lu/inkubato
 ### Standalone Installation
 The simplest way to use Inkubator is to download the pre-compiled binaries for your operating system from the [Releases](https://github.com/aloglu/inkubator/releases) page.
 
-*   **Windows**: NSIS Installer (`.exe`)
-*   **macOS**: Universal Disk Image (`.dmg`) or Archive (`.zip`)
-*   **Linux**: AppImage or Debian Package (`.deb`)
-
 ### Development and Building from Source
 Follow these steps if you intend to modify the codebase or build the application manually.
 

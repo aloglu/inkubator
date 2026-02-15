@@ -598,9 +598,14 @@ h3 {
 .color-circle {
     width: 40px;
     height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    flex: 0 0 40px;
+    aspect-ratio: 1 / 1;
     border-radius: 50%;
     border: 2px solid white;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
 }
 
 .item-info {

@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const fs = require('fs-extra');
 const { normalizeAppData } = require('./lib/data-schema');
 
@@ -998,6 +999,16 @@ ipcMain.handle('backup:status', async () => {
   } catch (error) {
     console.error("Backup Status Error:", error);
     return { success: false, message: error.message, latest: null, count: 0 };
+  }
+});
+
+ipcMain.handle('images:base-url', async () => {
+  try {
+    await ensureAppStorage();
+    return pathToFileURL(getImagesPath()).href.replace(/\/$/, '');
+  } catch (error) {
+    console.error("Images Base URL Error:", error);
+    return null;
   }
 });
 

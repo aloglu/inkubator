@@ -21,7 +21,12 @@
         <!-- Sidebar Navigation (Collapsible) -->
         <aside class="sidebar glass-panel">
             <div class="logo">
-                <img src="assets/icons/inkubator-icon.svg" class="logo-mark" alt="Inkubator icon">
+                <svg class="logo-mark" viewBox="0 0 1024 1024" role="img" aria-label="Inkubator icon">
+                    <circle cx="512" cy="512" r="480" fill="#fff8e1"></circle>
+                    <path d="M512 140 220 432v202l292 250 292-250V432L512 140z" fill="#daa520" stroke="#9c6f0f" stroke-width="32" stroke-linejoin="round"></path>
+                    <path d="M382 462h260M512 462v200" stroke="#9c6f0f" stroke-width="36" stroke-linecap="round"></path>
+                    <circle cx="512" cy="600" r="42" fill="#9c6f0f"></circle>
+                </svg>
                 <span class="logo-text">Inkubator</span>
             </div>
 
@@ -130,7 +135,6 @@
                             <h3>
                                 <i class="ph ph-pen-nib"></i>
                                 Recent Pens
-                                <a href="#" id="recent-pens-view-all" class="view-all-inline">View All</a>
                             </h3>
                             <div id="recent-pens-list">
                                 <!-- Pens injected here -->
@@ -142,7 +146,6 @@
                             <h3>
                                 <i class="ph ph-drop"></i>
                                 Recent Inks
-                                <a href="#" id="recent-inks-view-all" class="view-all-inline">View All</a>
                             </h3>
                             <div id="recent-inks-list">
                                 <!-- Inks injected here -->
@@ -154,7 +157,6 @@
                             <h3>
                                 <i class="ph ph-image"></i>
                                 Recent Swatches
-                                <a href="#" id="recent-swatches-view-all" class="view-all-inline">View All</a>
                             </h3>
                             <div id="recent-swatches-list">
                                 <!-- Swatches injected here -->
@@ -166,7 +168,6 @@
                             <h3>
                                 <i class="ph ph-list-bullets"></i>
                                 Recent Activity
-                                <a href="#" id="recent-activity-view-all" class="view-all-inline">View All</a>
                             </h3>
                             <div id="recent-activity-list">
                                 <!-- Activity injected here -->

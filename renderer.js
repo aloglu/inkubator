@@ -28,10 +28,6 @@ const btnExportShowcase = document.getElementById('btn-export-showcase');
 const activityLogContainer = document.getElementById('activity-log-container');
 const recentActivityList = document.getElementById('recent-activity-list');
 const recentActivityCard = document.getElementById('recent-activity-card');
-const recentPensViewAll = document.getElementById('recent-pens-view-all');
-const recentInksViewAll = document.getElementById('recent-inks-view-all');
-const recentSwatchesViewAll = document.getElementById('recent-swatches-view-all');
-const recentActivityViewAll = document.getElementById('recent-activity-view-all');
 const toggleActivityVisible = document.getElementById('toggle-activity-visible');
 const toggleRecentActivityVisible = document.getElementById('toggle-recent-activity-visible');
 const activityRetentionSelect = document.getElementById('activity-retention-select');
@@ -53,6 +49,7 @@ const activityPageNextBtn = document.getElementById('activity-page-next');
 const activityPageStatus = document.getElementById('activity-page-status');
 // State
 let isElectron = false;
+let electronImagesBaseUrl = '';
 const MAX_ACTIVITY_ENTRIES = 5000;
 const DASHBOARD_RECENT_LIMIT = 5;
 let activityCurrentPage = 1;
@@ -208,6 +205,26 @@ function shouldHideActivityInShowcase() {
 
 function shouldHideRecentActivityInShowcase() {
     return !isElectron && !getPreferences().show_recent_activity;
+}
+
+function resolveImageSource(imagePath) {
+    if (!imagePath || typeof imagePath !== 'string') return '';
+    if (
+        imagePath.startsWith('data:') ||
+        imagePath.startsWith('blob:') ||
+        imagePath.startsWith('http://') ||
+        imagePath.startsWith('https://') ||
+        imagePath.startsWith('file://')
+    ) {
+        return imagePath;
+    }
+    const normalized = imagePath.startsWith('images/')
+        ? imagePath.slice('images/'.length)
+        : imagePath.replace(/^\/+/, '');
+    if (isElectron && electronImagesBaseUrl) {
+        return `${electronImagesBaseUrl}/${normalized}`;
+    }
+    return `images/${normalized}`;
 }
 
 function getActivityRetentionDays() {
@@ -550,6 +567,10 @@ async function init() {
         if (window.electronAPI) {
             isElectron = true;
             console.log("%c Mode: Electron (Manager) ", "background: #2c3e50; color: #fff; font-weight: bold;");
+            if (typeof window.electronAPI.getImagesBaseUrl === 'function') {
+                const baseUrl = await window.electronAPI.getImagesBaseUrl();
+                if (baseUrl) electronImagesBaseUrl = baseUrl;
+            }
             const data = await window.electronAPI.loadData();
             if (data) {
                 appData = ensureAppDataDefaults(data);
@@ -1074,7 +1095,7 @@ function renderPens() {
             }
 
             const imagePath = (pen.image && pen.image !== 'default_pen.png')
-                ? (pen.image.startsWith('data:') ? pen.image : `images/${pen.image}`)
+                ? resolveImageSource(pen.image)
                 : null;
 
             // If image is present, use a neutral background. 
@@ -1222,7 +1243,7 @@ function openInkModal(inkId = null) {
             if (document.getElementById('ink-amount-input')) document.getElementById('ink-amount-input').value = ink.amount || '1';
 
             if (ink.image && inkImagePreview) {
-                inkImagePreview.src = ink.image.startsWith('data:') ? ink.image : `images/${ink.image}`;
+                inkImagePreview.src = resolveImageSource(ink.image);
                 inkImagePreview.style.display = 'block';
                 inkImageArea.querySelector('i').style.display = 'none';
                 inkImageArea.querySelector('p').style.display = 'none';
@@ -1617,7 +1638,7 @@ function openPenModal(penId = null) {
 
             // Show existing image
             if (pen.image && pen.image !== 'default_pen.png') {
-                const imagePath = pen.image.startsWith('data:') ? pen.image : `images/${pen.image}`;
+                const imagePath = resolveImageSource(pen.image);
                 if (uploadPenPreview) {
                     uploadPenPreview.src = imagePath;
                     uploadPenPreview.style.display = 'block';
@@ -1870,8 +1891,7 @@ function openSwatchDetailModal(inkId, sourceView = 'swatches') {
 
     // 4. Handle Image and Layout Decision
     if (ink.image && img) {
-        // Use images/ prefix only for local filenames, not data URLs
-        const imagePath = ink.image.startsWith('data:') ? ink.image : `images/${ink.image}`;
+        const imagePath = resolveImageSource(ink.image);
 
         img.onload = () => {
             const ratio = img.naturalWidth / img.naturalHeight;
@@ -2024,7 +2044,7 @@ function openPenDetailModal(penId, sourceView = 'pens') {
 
     // Handle Image and Layout (Normalized to Vertical)
     if (pen.image && pen.image !== "default_pen.png" && penImg) {
-        const imagePath = pen.image.startsWith('data:') ? pen.image : `images/${pen.image}`;
+        const imagePath = resolveImageSource(pen.image);
 
         penImg.onload = () => {
             // Force Portrait (Side-by-side) for pens, as they are normalized vertical
@@ -2864,35 +2884,6 @@ if (navActivity) navActivity.addEventListener('click', (e) => {
     switchView('activity');
     renderActivityLogView();
 });
-if (recentActivityViewAll) {
-    recentActivityViewAll.addEventListener('click', (e) => {
-        e.preventDefault();
-        switchView('activity');
-        renderActivityLogView();
-    });
-}
-if (recentPensViewAll) {
-    recentPensViewAll.addEventListener('click', (e) => {
-        e.preventDefault();
-        switchView('pens');
-        renderPens();
-    });
-}
-if (recentInksViewAll) {
-    recentInksViewAll.addEventListener('click', (e) => {
-        e.preventDefault();
-        switchView('inks');
-        renderInks();
-    });
-}
-if (recentSwatchesViewAll) {
-    recentSwatchesViewAll.addEventListener('click', (e) => {
-        e.preventDefault();
-        switchView('swatches');
-        renderSwatches();
-    });
-}
-
 if (toggleActivityVisible) {
     toggleActivityVisible.addEventListener('change', () => {
         appData.preferences.show_activity_log = !!toggleActivityVisible.checked;
@@ -3580,7 +3571,7 @@ function renderSwatches() {
         card.style.cursor = 'pointer';
         card.onclick = () => openSwatchDetailModal(ink.id, 'swatches');
 
-        const imagePath = ink.image.startsWith('data:') ? ink.image : `images/${ink.image}`;
+        const imagePath = resolveImageSource(ink.image);
 
         card.innerHTML = `
             <div class="ink-swatch-bg" style="height: 150px; background-image: url('${imagePath}'); background-size: cover; background-position: center;"></div>
@@ -4986,4 +4977,5 @@ async function updateInkWithImage(inkId, filename, swatchMetadata = null) {
 }
 
 // DOM Elements
+
 

@@ -25,10 +25,6 @@ You can view a live demonstration of the generated showcase at [alog.lu/inkubato
 *   **Static Website**: Export your collection as a responsive, read-only website.
 *   **Navigation**: Optimized for both desktop and mobile browsing.
 
-> [!IMPORTANT]
-> You can now use **Export Showcase Folder** in the app to generate a ready-to-upload `showcase/` directory.
-> Upload the contents of that generated `showcase/` folder to your static hosting provider.
-
 ### Backups and Portability
 *   **Automated Backups (Data Only)**: Keeps up to 200 automatic snapshots of normalized collection data.
 *   **Full Backup Export/Import (Data + Images)**: Use manual export/import when you need complete portability including image files.

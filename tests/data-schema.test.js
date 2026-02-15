@@ -7,7 +7,13 @@ test('normalizeAppData returns empty canonical shape for invalid input', () => {
     assert.deepEqual(data, {
         pens: [],
         inks: [],
-        currently_inked: []
+        currently_inked: [],
+        activity_log: [],
+        preferences: {
+            show_activity_log: true,
+            show_recent_activity: true,
+            activity_retention_days: 365
+        }
     });
 });
 
@@ -15,7 +21,9 @@ test('normalizeAppData fills defaults while preserving existing values', () => {
     const data = normalizeAppData({
         pens: [{ id: 'p1', brand: 'Pilot', model: '823' }],
         inks: [{ id: 'i1', name: 'Kon-peki', brand: 'Iroshizuku', is_swatch: true }],
-        currently_inked: [{ id: 'c1', pen_id: 'p1', ink_id: 'i1' }]
+        currently_inked: [{ id: 'c1', pen_id: 'p1', ink_id: 'i1' }],
+        activity_log: [{ id: 'a1', action: 'created', category: 'pen', message: 'Added pen.' }],
+        preferences: { show_activity_log: false, show_recent_activity: false, activity_retention_days: 180 }
     });
 
     assert.equal(data.pens[0].id, 'p1');
@@ -32,13 +40,21 @@ test('normalizeAppData fills defaults while preserving existing values', () => {
     assert.equal(data.currently_inked[0].pen_id, 'p1');
     assert.equal(data.currently_inked[0].ink_id, 'i1');
     assert.equal(typeof data.currently_inked[0].date_inked, 'number');
+
+    assert.equal(data.activity_log[0].id, 'a1');
+    assert.equal(data.activity_log[0].category, 'pen');
+    assert.equal(typeof data.activity_log[0].timestamp, 'number');
+    assert.equal(data.preferences.show_activity_log, false);
+    assert.equal(data.preferences.activity_retention_days, 180);
 });
 
 test('normalizeAppData sanitizes non-array/non-object fields', () => {
     const data = normalizeAppData({
         pens: [{ id: 123, hex_colors: 'red' }],
         inks: [{ id: {}, base_type: 'dye', paper_compatibility: null }],
-        currently_inked: ['bad']
+        currently_inked: ['bad'],
+        activity_log: ['bad'],
+        preferences: { activity_retention_days: 999 }
     });
 
     assert.equal(typeof data.pens[0].id, 'string');
@@ -49,4 +65,7 @@ test('normalizeAppData sanitizes non-array/non-object fields', () => {
     assert.equal(data.currently_inked.length, 1);
     assert.equal(data.currently_inked[0].pen_id, '');
     assert.equal(data.currently_inked[0].ink_id, '');
+    assert.equal(data.activity_log.length, 1);
+    assert.equal(data.activity_log[0].category, 'system');
+    assert.equal(data.preferences.activity_retention_days, 365);
 });

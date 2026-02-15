@@ -1,8 +1,11 @@
 // DOM Elements (Updated)
 const viewDashboard = document.getElementById('view-dashboard');
 const viewPens = document.getElementById('view-pens');
+const viewActivity = document.getElementById('view-activity');
 const navDashboard = document.getElementById('nav-dashboard');
 const navPens = document.getElementById('nav-pens');
+const navActivity = document.getElementById('nav-activity');
+const navActivityDivider = document.getElementById('nav-activity-divider');
 const pensGrid = document.getElementById('pens-grid');
 
 const inkedGrid = document.getElementById('inked-grid');
@@ -21,9 +24,51 @@ const backupActions = document.getElementById('backup-actions');
 const backupStatus = document.getElementById('backup-status');
 const btnExportBackup = document.getElementById('btn-export-backup');
 const btnImportBackup = document.getElementById('btn-import-backup');
+const activityLogContainer = document.getElementById('activity-log-container');
+const recentActivityList = document.getElementById('recent-activity-list');
+const recentActivityCard = document.getElementById('recent-activity-card');
+const recentPensViewAll = document.getElementById('recent-pens-view-all');
+const recentInksViewAll = document.getElementById('recent-inks-view-all');
+const recentSwatchesViewAll = document.getElementById('recent-swatches-view-all');
+const recentActivityViewAll = document.getElementById('recent-activity-view-all');
+const toggleActivityVisible = document.getElementById('toggle-activity-visible');
+const toggleRecentActivityVisible = document.getElementById('toggle-recent-activity-visible');
+const activityRetentionSelect = document.getElementById('activity-retention-select');
+const activityDatePickerToggle = document.getElementById('activity-date-picker-toggle');
+const activityCalendarPopover = document.getElementById('activity-calendar-popover');
+const activityCalendarPrev = document.getElementById('activity-calendar-prev');
+const activityCalendarNext = document.getElementById('activity-calendar-next');
+const activityCalendarMonthLabel = document.getElementById('activity-calendar-month-label');
+const activityCalendarGrid = document.getElementById('activity-calendar-grid');
+const activityCalendarClear = document.getElementById('activity-calendar-clear');
+const activityCalendarToday = document.getElementById('activity-calendar-today');
+const activityDeleteOlderSelect = document.getElementById('activity-delete-older-select');
+const btnDeleteOlderActivity = document.getElementById('btn-delete-older-activity');
+const btnClearAllActivity = document.getElementById('btn-clear-all-activity');
+const activityPagination = document.getElementById('activity-pagination');
+const activityPageSizeSelect = document.getElementById('activity-page-size');
+const activityPagePrevBtn = document.getElementById('activity-page-prev');
+const activityPageNextBtn = document.getElementById('activity-page-next');
+const activityPageStatus = document.getElementById('activity-page-status');
 // State
 let isElectron = false;
-let appData = { pens: [], inks: [], currently_inked: [] };
+const MAX_ACTIVITY_ENTRIES = 5000;
+const DASHBOARD_RECENT_LIMIT = 5;
+let activityCurrentPage = 1;
+let activityPageSize = 20;
+let activityDateFilter = '';
+let activityCalendarViewDate = new Date();
+let appData = {
+    pens: [],
+    inks: [],
+    currently_inked: [],
+    activity_log: [],
+    preferences: {
+        show_activity_log: true,
+        show_recent_activity: true,
+        activity_retention_days: 365
+    }
+};
 
 let activeInksFilters = {
     brand: [],
@@ -68,6 +113,7 @@ let currentSwatchDetailInkId = null;
 let currentSwatchDetailSourceView = 'swatches';
 let currentPenDetailPenId = null;
 let currentPenDetailSourceView = 'pens';
+const ENABLE_DEMO_ACTIVITY_SEED = true;
 const renderScheduler = (window.PenStationRenderScheduler && window.PenStationRenderScheduler.createRenderScheduler)
     ? window.PenStationRenderScheduler.createRenderScheduler()
     : { schedule: (fn) => fn() };
@@ -134,6 +180,270 @@ function getLibraryInks() {
     return (appData.inks || []).filter(ink => !isOrphanSwatchInk(ink));
 }
 
+function ensureAppDataDefaults(data) {
+    const safe = data && typeof data === 'object' ? data : {};
+    safe.pens = Array.isArray(safe.pens) ? safe.pens : [];
+    safe.inks = Array.isArray(safe.inks) ? safe.inks : [];
+    safe.currently_inked = Array.isArray(safe.currently_inked) ? safe.currently_inked : [];
+    safe.activity_log = Array.isArray(safe.activity_log) ? safe.activity_log : [];
+    const incomingPrefs = (safe.preferences && typeof safe.preferences === 'object') ? safe.preferences : {};
+    const allowedRetention = [0, 90, 180, 365];
+    const incomingRetention = Number(incomingPrefs.activity_retention_days);
+    safe.preferences = {
+        show_activity_log: typeof incomingPrefs.show_activity_log === 'boolean' ? incomingPrefs.show_activity_log : true,
+        show_recent_activity: typeof incomingPrefs.show_recent_activity === 'boolean' ? incomingPrefs.show_recent_activity : true,
+        activity_retention_days: allowedRetention.includes(incomingRetention) ? incomingRetention : 365
+    };
+    return safe;
+}
+
+function getPreferences() {
+    return ensureAppDataDefaults(appData).preferences;
+}
+
+function shouldHideActivityInShowcase() {
+    return !isElectron && !getPreferences().show_activity_log;
+}
+
+function shouldHideRecentActivityInShowcase() {
+    return !isElectron && !getPreferences().show_recent_activity;
+}
+
+function getActivityRetentionDays() {
+    const retention = Number(getPreferences().activity_retention_days);
+    return [0, 90, 180, 365].includes(retention) ? retention : 365;
+}
+
+function applyActivityRetention() {
+    const retentionDays = getActivityRetentionDays();
+    if (retentionDays === 0) return false;
+    const cutoff = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+    const before = (appData.activity_log || []).length;
+    appData.activity_log = (appData.activity_log || []).filter(entry => (entry.timestamp || 0) >= cutoff);
+    return before !== appData.activity_log.length;
+}
+
+function findPenById(penId) {
+    return (appData.pens || []).find(p => p.id === penId) || null;
+}
+
+function findInkById(inkId) {
+    return (appData.inks || []).find(i => i.id === inkId) || null;
+}
+
+function formatPenName(pen) {
+    if (!pen) return 'Unknown pen';
+    const name = [pen.brand || '', pen.model || ''].join(' ').trim();
+    return name || 'Unnamed pen';
+}
+
+function formatInkName(ink) {
+    if (!ink) return 'Unknown ink';
+    const name = [ink.brand || '', ink.name || ''].join(' ').trim();
+    return name || 'Unnamed ink';
+}
+
+function formatActivityDateLabel(timestamp) {
+    const d = new Date(timestamp);
+    if (Number.isNaN(d.getTime())) return 'Unknown date';
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const oneDay = 24 * 60 * 60 * 1000;
+    if (timestamp >= startOfDay) return 'Today';
+    if (timestamp >= (startOfDay - oneDay)) return 'Yesterday';
+    return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatActivityTimestamp(timestamp) {
+    const d = new Date(timestamp);
+    if (Number.isNaN(d.getTime())) return 'Unknown time';
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function toIsoLocalDate(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function parseIsoLocalDate(iso) {
+    if (typeof iso !== 'string' || !iso) return null;
+    const d = new Date(`${iso}T00:00:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function closeActivityCalendar() {
+    if (!activityCalendarPopover) return;
+    activityCalendarPopover.classList.remove('open');
+    if (activityDatePickerToggle) {
+        activityDatePickerToggle.classList.remove('open');
+        activityDatePickerToggle.blur();
+    }
+}
+
+function openActivityCalendar() {
+    if (!activityCalendarPopover) return;
+    const selected = parseIsoLocalDate(activityDateFilter);
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    activityCalendarViewDate = selected && selected <= todayMidnight ? selected : today;
+    renderActivityCalendar();
+    activityCalendarPopover.classList.add('open');
+    if (activityDatePickerToggle) activityDatePickerToggle.classList.add('open');
+}
+
+function renderActivityCalendar() {
+    if (!activityCalendarGrid || !activityCalendarMonthLabel) return;
+    const year = activityCalendarViewDate.getFullYear();
+    const month = activityCalendarViewDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startWeekday = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevMonthDays = new Date(year, month, 0).getDate();
+    const selectedIso = activityDateFilter || '';
+    const todayIso = toIsoLocalDate(new Date());
+    const todayDate = new Date();
+    const todayMidnight = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
+    const todayMonthStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1).getTime();
+    const viewMonthStart = new Date(year, month, 1).getTime();
+    const eventDateSet = new Set((appData.activity_log || []).map(entry => {
+        const ts = typeof entry.timestamp === 'number' ? entry.timestamp : 0;
+        return toIsoLocalDate(new Date(ts));
+    }));
+
+    activityCalendarMonthLabel.textContent = firstDay.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    if (activityCalendarNext) {
+        activityCalendarNext.disabled = viewMonthStart >= todayMonthStart;
+    }
+
+    const cells = [];
+    for (let i = startWeekday - 1; i >= 0; i -= 1) {
+        const dayNum = prevMonthDays - i;
+        const date = new Date(year, month - 1, dayNum);
+        cells.push({ date, muted: true });
+    }
+    for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = new Date(year, month, day);
+        cells.push({ date, muted: false });
+    }
+    while (cells.length % 7 !== 0) {
+        const dayNum = cells.length - (startWeekday + daysInMonth) + 1;
+        const date = new Date(year, month + 1, dayNum);
+        cells.push({ date, muted: true });
+    }
+
+    activityCalendarGrid.innerHTML = cells.map(({ date, muted }) => {
+        const iso = toIsoLocalDate(date);
+        const isFuture = date > todayMidnight;
+        const cls = [
+            'activity-calendar-day',
+            muted ? 'muted' : '',
+            isFuture ? 'future' : '',
+            iso === todayIso ? 'today' : '',
+            eventDateSet.has(iso) ? 'has-events' : '',
+            iso === selectedIso ? 'selected' : ''
+        ].filter(Boolean).join(' ');
+        return `<button class="${cls}" data-calendar-date="${iso}" type="button" ${isFuture ? 'disabled' : ''}>${date.getDate()}</button>`;
+    }).join('');
+}
+
+function getRecentActivityIcon(entry) {
+    const action = (entry && entry.action ? entry.action : '').toLowerCase();
+    const category = (entry && entry.category ? entry.category : '').toLowerCase();
+
+    if (action === 'inked') return { icon: 'ph-drop', bg: '#e9f4ff', border: '#c8ddf5', color: '#2f6ea7' };
+    if (action === 'reinked') return { icon: 'ph-arrows-clockwise', bg: '#eef6ff', border: '#d0e3fa', color: '#436d9f' };
+    if (action === 'cleaned') return { icon: 'ph-broom', bg: '#f3f4f6', border: '#dde1e7', color: '#5f6772' };
+    if (action === 'deleted') return { icon: 'ph-trash', bg: '#fff1f1', border: '#f2d6d6', color: '#b45858' };
+
+    if (category === 'pen') return { icon: 'ph-pen-nib', bg: '#fff6e8', border: '#f1e0be', color: '#8a6a28' };
+    if (category === 'ink') return { icon: 'ph-drop-half-bottom', bg: '#ecf9f2', border: '#cae9d9', color: '#2f7d57' };
+    if (category === 'swatch') return { icon: 'ph-palette', bg: '#f4efff', border: '#ddd1f5', color: '#6a56a1' };
+
+    if (action === 'created') return { icon: 'ph-plus-circle', bg: '#ecf9f2', border: '#cae9d9', color: '#2f7d57' };
+    if (action === 'updated') return { icon: 'ph-pencil-simple-line', bg: '#eef6ff', border: '#d0e3fa', color: '#436d9f' };
+
+    return { icon: 'ph-clock-counter-clockwise', bg: '#f2f5f7', border: '#d7e0e7', color: '#52687a' };
+}
+
+function logActivity(action, category, message, options = {}) {
+    const entry = {
+        id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: typeof options.timestamp === 'number' ? options.timestamp : Date.now(),
+        action: action || 'updated',
+        category: category || 'system',
+        message: message || 'Activity recorded',
+        entity_id: options.entityId || '',
+        metadata: options.metadata && typeof options.metadata === 'object' ? options.metadata : {}
+    };
+    appData.activity_log = [entry, ...(appData.activity_log || [])].slice(0, MAX_ACTIVITY_ENTRIES);
+    applyActivityRetention();
+}
+
+function getRandomItem(list) {
+    if (!Array.isArray(list) || list.length === 0) return null;
+    return list[Math.floor(Math.random() * list.length)] || null;
+}
+
+function maybeSeedDemoActivityLogs() {
+    if (!ENABLE_DEMO_ACTIVITY_SEED) return false;
+    const existingCount = (appData.activity_log || []).length;
+    if (existingCount >= 20) return false;
+
+    const pens = appData.pens || [];
+    const inks = getLibraryInks();
+    const now = Date.now();
+    const templates = [
+        () => {
+            const pen = getRandomItem(pens);
+            return { action: 'created', category: 'pen', message: `Added pen: ${formatPenName(pen)}.` };
+        },
+        () => {
+            const ink = getRandomItem(inks);
+            return { action: 'created', category: 'ink', message: `Added ink: ${formatInkName(ink)}.` };
+        },
+        () => {
+            const pen = getRandomItem(pens);
+            const ink = getRandomItem(inks);
+            return { action: 'inked', category: 'pen', message: `Inked ${formatPenName(pen)} with ${formatInkName(ink)}.` };
+        },
+        () => {
+            const pen = getRandomItem(pens);
+            const ink = getRandomItem(inks);
+            return { action: 'reinked', category: 'pen', message: `Changed ink in ${formatPenName(pen)} to ${formatInkName(ink)}.` };
+        },
+        () => {
+            const pen = getRandomItem(pens);
+            return { action: 'cleaned', category: 'pen', message: `Emptied ${formatPenName(pen)} and cleaned it.` };
+        },
+        () => {
+            const ink = getRandomItem(inks);
+            return { action: 'created', category: 'swatch', message: `Added swatch for ${formatInkName(ink)}.` };
+        },
+        () => {
+            const ink = getRandomItem(inks);
+            return { action: 'updated', category: 'ink', message: `Updated notes for ${formatInkName(ink)}.` };
+        },
+        () => {
+            const pen = getRandomItem(pens);
+            return { action: 'updated', category: 'pen', message: `Updated details for ${formatPenName(pen)}.` };
+        }
+    ];
+
+    const totalToSeed = 24;
+    for (let i = 0; i < totalToSeed; i += 1) {
+        const templateFn = templates[i % templates.length];
+        const payload = templateFn();
+        const ts = now - (i * 1000 * 60 * 90) - Math.floor(Math.random() * 1000 * 60 * 30);
+        logActivity(payload.action, payload.category, payload.message, {
+            timestamp: ts,
+            metadata: { demo: true }
+        });
+    }
+    return true;
+}
+
 function scheduleUiRefresh(options = {}) {
     const {
         dashboard = false,
@@ -141,6 +451,7 @@ function scheduleUiRefresh(options = {}) {
         pens = false,
         inks = false,
         swatches = false,
+        activity = false,
         autocomplete = false
     } = options;
 
@@ -149,6 +460,7 @@ function scheduleUiRefresh(options = {}) {
     if (pens) scheduleRender(renderPens);
     if (inks) scheduleRender(renderInks);
     if (swatches) scheduleRender(renderSwatches);
+    if (activity) scheduleRender(renderActivityLogView);
     if (autocomplete) scheduleRender(updateAutocompleteLists);
 }
 
@@ -185,6 +497,30 @@ function formatBackupStatusDate(iso) {
     return d.toLocaleString();
 }
 
+function formatAutomatedBackupStatus(iso) {
+    if (!iso) return 'No automated snapshots yet.';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return 'Automated backup time unavailable.';
+
+    const diffMs = Date.now() - d.getTime();
+    if (diffMs < 0) {
+        return `Last automated backup was taken on ${formatBackupStatusDate(iso)}.`;
+    }
+
+    const diffMinutes = Math.floor(diffMs / 60000);
+    if (diffMinutes < 60) {
+        const value = Math.max(1, diffMinutes);
+        return `Last automated backup was taken ${value} minute${value === 1 ? '' : 's'} ago.`;
+    }
+
+    const diffHours = Math.floor(diffMs / 3600000);
+    if (diffHours < 24) {
+        return `Last automated backup was taken ${diffHours} hour${diffHours === 1 ? '' : 's'} ago.`;
+    }
+
+    return `Last automated backup was taken on ${formatBackupStatusDate(iso)}.`;
+}
+
 async function refreshBackupStatus() {
     if (!isElectron || !window.electronAPI || typeof window.electronAPI.backupStatus !== 'function') {
         return;
@@ -193,16 +529,16 @@ async function refreshBackupStatus() {
     try {
         const result = await window.electronAPI.backupStatus();
         if (!result || !result.success) {
-            backupStatus.textContent = 'Backup: unavailable';
+            backupStatus.textContent = 'Automated backup status unavailable.';
             return;
         }
         if (!result.latest) {
-            backupStatus.textContent = 'Backup: no snapshots yet';
+            backupStatus.textContent = 'No automated snapshots yet.';
             return;
         }
-        backupStatus.textContent = `Backup: ${formatBackupStatusDate(result.latest.updated_at)}`;
+        backupStatus.textContent = formatAutomatedBackupStatus(result.latest.updated_at);
     } catch (error) {
-        backupStatus.textContent = 'Backup: unavailable';
+        backupStatus.textContent = 'Automated backup status unavailable.';
     }
 }
 
@@ -215,8 +551,7 @@ async function init() {
             console.log("%c Mode: Electron (Manager) ", "background: #2c3e50; color: #fff; font-weight: bold;");
             const data = await window.electronAPI.loadData();
             if (data) {
-                appData = data;
-                appData.currently_inked = appData.currently_inked || [];
+                appData = ensureAppDataDefaults(data);
             }
         } else {
             isElectron = false;
@@ -228,31 +563,46 @@ async function init() {
                 document.getElementById('btn-add-ink-header'),
                 document.getElementById('btn-add-swatch-header'),
                 document.getElementById('btn-add-menu'),
-                document.getElementById('backup-actions')
+                document.getElementById('backup-actions'),
+                document.querySelector('.activity-admin-panel')
             ];
             managerUI.forEach(el => { if (el) el.style.display = 'none'; });
 
             try {
                 const response = await fetch('./data.json');
-                if (response.ok) appData = await response.json();
+                if (response.ok) appData = ensureAppDataDefaults(await response.json());
             } catch (e) { console.warn("Using defaults"); }
         }
 
         updateAutocompleteLists();
         setupCustomControls();
+        const storedActivityPageSize = Number(localStorage.getItem('activityPageSize'));
+        if ([10, 20, 30, 50].includes(storedActivityPageSize)) {
+            activityPageSize = storedActivityPageSize;
+        }
+        if (activityPageSizeSelect) {
+            activityPageSizeSelect.value = String(activityPageSize);
+        }
         if (isElectron) {
             refreshBackupStatus();
+        }
+        const retentionPrunedOnLoad = applyActivityRetention();
+        const seededDemoActivity = maybeSeedDemoActivityLogs();
+        if ((seededDemoActivity || retentionPrunedOnLoad) && isElectron && window.electronAPI && typeof window.electronAPI.saveData === 'function') {
+            await window.electronAPI.saveData(appData);
         }
 
         // Persistence: Restore last view
         const lastView = localStorage.getItem('lastView') || 'dashboard';
-        switchView(lastView);
+        switchView(lastView === 'activity' && shouldHideActivityInShowcase() ? 'dashboard' : lastView);
 
         // Re-render based on restored view (Initial render)
         renderDashboard();
         if (lastView === 'pens') renderPens();
         else if (lastView === 'inks') renderInks();
         else if (lastView === 'swatches') renderSwatches();
+        else if (lastView === 'activity') renderActivityLogView();
+        renderActivityLogView();
 
     } catch (e) {
         console.error("Failed to load data:", e);
@@ -266,9 +616,14 @@ async function init() {
 
 // Navigation Logic
 function switchView(viewName) {
+    if (viewName === 'activity' && shouldHideActivityInShowcase()) {
+        viewName = 'dashboard';
+    }
+
     // Hide all first
     if (viewDashboard) viewDashboard.style.display = 'none';
     if (viewPens) viewPens.style.display = 'none';
+    if (viewActivity) viewActivity.style.display = 'none';
     const viewInks = document.getElementById('view-inks');
     const viewSwatches = document.getElementById('view-swatches');
     if (viewInks) viewInks.style.display = 'none';
@@ -277,6 +632,7 @@ function switchView(viewName) {
     // Deactivate Navs
     if (navDashboard) navDashboard.classList.remove('active');
     if (navPens) navPens.classList.remove('active');
+    if (navActivity) navActivity.classList.remove('active');
     const navInks = document.getElementById('nav-inks');
     const navSwatches = document.getElementById('nav-swatches');
     if (navInks) navInks.classList.remove('active');
@@ -295,7 +651,14 @@ function switchView(viewName) {
     } else if (viewName === 'swatches') {
         if (viewSwatches) viewSwatches.style.display = 'block';
         if (navSwatches) navSwatches.classList.add('active');
+    } else if (viewName === 'activity') {
+        if (viewActivity) viewActivity.style.display = 'block';
+        if (navActivity) navActivity.classList.add('active');
     }
+
+    const hideActivityNav = shouldHideActivityInShowcase();
+    if (navActivity) navActivity.style.display = hideActivityNav ? 'none' : '';
+    if (navActivityDivider) navActivityDivider.style.display = hideActivityNav ? 'none' : '';
 
     // Save current view
     localStorage.setItem('lastView', viewName);
@@ -309,6 +672,7 @@ function renderDashboard() {
         renderRecentInks();
         renderRecentPens();
         renderRecentSwatches();
+        renderRecentActivity();
     } catch (e) {
         console.error("Dashboard Render Failed:", e);
     }
@@ -331,7 +695,8 @@ function renderStats() {
 
     const inkedSummary = document.getElementById('currently-inked-summary');
     if (inkedSummary) {
-        inkedSummary.innerHTML = `You have <span style="font-weight: 800;">${inkedCount}</span> inked pens`;
+        const noun = inkedCount === 1 ? 'pen is' : 'pens are';
+        inkedSummary.innerHTML = `<span style="font-weight: 800;">${inkedCount}</span> ${noun} currently inked`;
     }
 }
 
@@ -400,7 +765,7 @@ function renderRecentInks() {
         const libraryInks = getLibraryInks();
         if (!libraryInks || libraryInks.length === 0) return;
 
-        const recent = [...libraryInks].reverse().slice(0, 5);
+        const recent = [...libraryInks].reverse().slice(0, DASHBOARD_RECENT_LIMIT);
         recent.forEach(ink => {
             if (!ink) return;
             const div = document.createElement('div');
@@ -427,7 +792,7 @@ function renderRecentPens() {
     try {
         if (!appData.pens || appData.pens.length === 0) return;
 
-        const recent = [...appData.pens].reverse().slice(0, 5);
+        const recent = [...appData.pens].reverse().slice(0, DASHBOARD_RECENT_LIMIT);
         recent.forEach(pen => {
             if (!pen) return;
             const div = document.createElement('div');
@@ -455,7 +820,7 @@ function renderRecentSwatches() {
         const swatches = appData.inks.filter(ink => ink && ink.image && ink.is_swatch);
         if (swatches.length === 0) return;
 
-        const recent = [...swatches].reverse().slice(0, 5);
+        const recent = [...swatches].reverse().slice(0, DASHBOARD_RECENT_LIMIT);
         recent.forEach(ink => {
             const div = document.createElement('div');
             div.className = 'list-item';
@@ -471,6 +836,146 @@ function renderRecentSwatches() {
     } catch (e) {
         console.error("Recent Swatches Render Failed:", e);
     }
+}
+
+function renderRecentActivity() {
+    if (recentActivityCard) {
+        recentActivityCard.style.display = shouldHideRecentActivityInShowcase() ? 'none' : '';
+    }
+    if (shouldHideRecentActivityInShowcase() || !recentActivityList) return;
+
+    const items = (appData.activity_log || []).slice(0, DASHBOARD_RECENT_LIMIT);
+    recentActivityList.innerHTML = '';
+    if (items.length === 0) {
+        recentActivityList.innerHTML = `<div class="empty-state" style="padding: 18px 0;">No activity yet.</div>`;
+        return;
+    }
+
+    items.forEach((entry) => {
+        const iconSpec = getRecentActivityIcon(entry);
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = `
+            <div class="color-circle" style="background: ${iconSpec.bg}; border-color: ${iconSpec.border}; display: flex; align-items: center; justify-content: center;">
+                <i class="ph ${iconSpec.icon}" style="font-size: 16px; color: ${iconSpec.color};"></i>
+            </div>
+            <div class="item-info">
+                <div class="item-title">${entry.message || 'Activity recorded'}</div>
+                <div class="item-sub">${formatActivityTimestamp(entry.timestamp)}</div>
+            </div>
+        `;
+        recentActivityList.appendChild(div);
+    });
+}
+
+function buildActivityLogbookHtml(items) {
+    if (!items.length) {
+        const fallbackDate = activityDateFilter
+            ? parseIsoLocalDate(activityDateFilter)
+            : new Date();
+        const label = fallbackDate ? formatActivityDateLabel(fallbackDate.getTime()) : 'Today';
+        return `
+            <div class="activity-date-label">${label}</div>
+            <div class="activity-logbook-item activity-logbook-empty glass-panel">
+                <div class="activity-logbook-message">No activity has been recorded for this day.</div>
+            </div>
+        `;
+    }
+
+    let html = '';
+    let lastDate = '';
+    items.forEach((entry) => {
+        const dateLabel = formatActivityDateLabel(entry.timestamp);
+        if (dateLabel !== lastDate) {
+            html += `<div class="activity-date-label">${dateLabel}</div>`;
+            lastDate = dateLabel;
+        }
+        html += `
+            <div class="activity-logbook-item glass-panel" data-activity-id="${entry.id}">
+                <div class="activity-logbook-time">${formatActivityTimestamp(entry.timestamp)}</div>
+                <div>
+                    <div class="activity-logbook-message">${entry.message || 'Activity recorded'}</div>
+                    <div class="activity-logbook-meta">${entry.category || 'system'} • ${entry.action || 'updated'}</div>
+                </div>
+                <button class="activity-delete-btn" data-delete-activity-id="${entry.id}" title="Delete entry">
+                    <i class="ph ph-trash"></i>
+                </button>
+            </div>
+        `;
+    });
+    return html;
+}
+
+function renderActivityPagination(totalItems) {
+    if (!activityPagination || !activityPageStatus || !activityPagePrevBtn || !activityPageNextBtn || !activityPageSizeSelect) return;
+
+    if (activityPageSizeSelect.value !== String(activityPageSize)) {
+        activityPageSizeSelect.value = String(activityPageSize);
+    }
+
+    const pageSize = Math.max(1, activityPageSize);
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    activityCurrentPage = Math.min(Math.max(1, activityCurrentPage), totalPages);
+
+    activityPageStatus.textContent = `Page ${activityCurrentPage} of ${totalPages}`;
+    activityPagePrevBtn.disabled = activityCurrentPage <= 1;
+    activityPageNextBtn.disabled = activityCurrentPage >= totalPages;
+    activityPagination.style.display = totalItems > pageSize ? 'flex' : 'none';
+}
+
+function renderActivityLogView() {
+    if (!activityLogContainer) return;
+
+    const prefs = getPreferences();
+    if (toggleActivityVisible) toggleActivityVisible.checked = !!prefs.show_activity_log;
+    if (toggleRecentActivityVisible) toggleRecentActivityVisible.checked = !!prefs.show_recent_activity;
+    if (activityRetentionSelect) activityRetentionSelect.value = String(getActivityRetentionDays());
+    const hideActivityNav = shouldHideActivityInShowcase();
+    if (navActivity) navActivity.style.display = hideActivityNav ? 'none' : '';
+    if (navActivityDivider) navActivityDivider.style.display = hideActivityNav ? 'none' : '';
+
+    let items = [...(appData.activity_log || [])]
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    if (activityDateFilter) {
+        const selected = new Date(`${activityDateFilter}T00:00:00`);
+        if (!Number.isNaN(selected.getTime())) {
+            const startTs = selected.getTime();
+            const endTs = startTs + (24 * 60 * 60 * 1000);
+            items = items.filter(entry => {
+                const ts = entry.timestamp || 0;
+                return ts >= startTs && ts < endTs;
+            });
+        }
+    }
+    const pageSize = Math.max(1, activityPageSize);
+    const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+    activityCurrentPage = Math.min(Math.max(1, activityCurrentPage), totalPages);
+    const start = (activityCurrentPage - 1) * pageSize;
+    const pagedItems = items.slice(start, start + pageSize);
+    activityLogContainer.innerHTML = buildActivityLogbookHtml(pagedItems);
+    renderActivityPagination(items.length);
+}
+
+function deleteActivityEntry(activityId) {
+    if (!activityId) return;
+    appData.activity_log = (appData.activity_log || []).filter(entry => entry.id !== activityId);
+    persistDataAndRefresh({
+        refresh: {
+            dashboard: true,
+            activity: true
+        },
+        onErrorMessage: 'Failed to delete activity entry.'
+    });
+}
+
+function persistActivityMaintenance(onErrorMessage) {
+    persistDataAndRefresh({
+        refresh: {
+            dashboard: true,
+            activity: true
+        },
+        onErrorMessage
+    });
 }
 
 function renderPens() {
@@ -1577,6 +2082,8 @@ function openPenDetailModal(penId, sourceView = 'pens') {
 async function saveNewInk() {
     const name = inkNameInput.value;
     const brand = inkBrandInput ? inkBrandInput.value : "Custom";
+    const wasEdit = !!currentEditingId;
+    const existingInk = wasEdit ? findInkById(currentEditingId) : null;
 
     const validationMsg = document.getElementById('ink-validation-msg');
     validationMsg.style.display = 'none';
@@ -1665,6 +2172,11 @@ async function saveNewInk() {
             is_orphan_swatch: false
         };
         appData.inks.push(newInk);
+        logActivity('created', 'ink', `Added ink: ${formatInkName(newInk)}.`, { entityId: newInk.id });
+    }
+
+    if (wasEdit && existingInk) {
+        logActivity('updated', 'ink', `Updated ink: ${formatInkName(existingInk)}.`, { entityId: existingInk.id });
     }
 
     await persistDataAndRefresh({
@@ -1672,6 +2184,7 @@ async function saveNewInk() {
             dashboard: true,
             inks: true,
             swatches: true,
+            activity: true,
             autocomplete: true
         },
         onSuccess: async () => {
@@ -1687,6 +2200,10 @@ async function saveNewPen() {
     const model = penModelInput.value;
     const normalizedFillingSystem = normalizeCsvValues(penFillingSystemInput.value).join(', ');
     const normalizedPenColor = normalizeCsvValues(penColorInput.value).join(', ');
+    const wasEdit = !!currentEditingId;
+    const existingPen = wasEdit ? findPenById(currentEditingId) : null;
+    const previousLink = wasEdit ? (appData.currently_inked || []).find(ci => ci.pen_id === currentEditingId) : null;
+    const previousInkId = previousLink ? previousLink.ink_id : '';
 
     const validationMsg = document.getElementById('pen-validation-msg');
     validationMsg.style.display = 'none';
@@ -1704,7 +2221,6 @@ async function saveNewPen() {
 
     // 1. Determine existing image if editing
     if (currentEditingId) {
-        const existingPen = appData.pens.find(p => p.id === currentEditingId);
         if (existingPen && existingPen.image) {
             imageFilename = existingPen.image;
         }
@@ -1813,10 +2329,38 @@ async function saveNewPen() {
         }
     }
 
+    const targetPen = findPenById(targetPenId);
+    if (!wasEdit && targetPen) {
+        logActivity('created', 'pen', `Added pen: ${formatPenName(targetPen)}.`, { entityId: targetPenId });
+    } else if (wasEdit && targetPen) {
+        logActivity('updated', 'pen', `Updated pen: ${formatPenName(targetPen)}.`, { entityId: targetPenId });
+    }
+
+    const currentLink = (appData.currently_inked || []).find(ci => ci.pen_id === targetPenId);
+    const currentInkId = currentLink ? currentLink.ink_id : '';
+    if (previousInkId !== currentInkId && targetPen) {
+        const previousInk = findInkById(previousInkId);
+        const currentInk = findInkById(currentInkId);
+        if (!previousInkId && currentInkId && currentInk) {
+            logActivity('inked', 'pen', `Inked ${formatPenName(targetPen)} with ${formatInkName(currentInk)}.`, { entityId: targetPenId });
+        } else if (previousInkId && !currentInkId) {
+            logActivity('cleaned', 'pen', `Emptied ${formatPenName(targetPen)} (${formatInkName(previousInk)} removed).`, { entityId: targetPenId });
+        } else if (previousInkId && currentInkId && currentInk) {
+            logActivity('reinked', 'pen', `Changed ink in ${formatPenName(targetPen)} to ${formatInkName(currentInk)}.`, {
+                entityId: targetPenId,
+                metadata: {
+                    previous_ink_id: previousInkId,
+                    new_ink_id: currentInkId
+                }
+            });
+        }
+    }
+
     await persistDataAndRefresh({
         refresh: {
             pens: true,
             dashboard: true,
+            activity: true,
             autocomplete: true
         },
         onSuccess: async () => {
@@ -1860,8 +2404,10 @@ async function deleteInk() {
 
     if (!deleteLinkedSwatch && hasLinkedSwatch) {
         inkToDelete.is_orphan_swatch = true;
+        logActivity('deleted', 'ink', `Deleted ink only and kept swatch: ${formatInkName(inkToDelete)}.`, { entityId: currentEditingId });
     } else {
         appData.inks = appData.inks.filter(i => i.id !== currentEditingId);
+        logActivity('deleted', 'ink', `Deleted ink: ${formatInkName(inkToDelete)}.`, { entityId: currentEditingId });
     }
 
     await persistDataAndRefresh({
@@ -1869,6 +2415,7 @@ async function deleteInk() {
             dashboard: true,
             inks: true,
             swatches: true,
+            activity: true,
             autocomplete: true
         },
         onSuccess: async () => {
@@ -1902,11 +2449,15 @@ async function deletePen() {
     appData.pens = appData.pens.filter(p => p.id !== currentEditingId);
     // Remove from currently inked
     appData.currently_inked = appData.currently_inked.filter(ci => ci.pen_id !== currentEditingId);
+    if (penToDelete) {
+        logActivity('deleted', 'pen', `Deleted pen: ${formatPenName(penToDelete)}.`, { entityId: currentEditingId });
+    }
 
     await persistDataAndRefresh({
         refresh: {
             pens: true,
-            dashboard: true
+            dashboard: true,
+            activity: true
         },
         onSuccess: async () => {
             currentPenImagePath = null;
@@ -1937,10 +2488,12 @@ async function deleteCurrentSwatch() {
     const swatchImagePath = swatchInk.image;
     if (isOrphanSwatchInk(swatchInk)) {
         appData.inks = appData.inks.filter(i => i.id !== currentSwatchDetailInkId);
+        logActivity('deleted', 'swatch', `Deleted standalone swatch: ${formatInkName(swatchInk)}.`, { entityId: currentSwatchDetailInkId });
     } else {
         swatchInk.image = '';
         swatchInk.is_swatch = false;
         swatchInk.is_orphan_swatch = false;
+        logActivity('deleted', 'swatch', `Deleted swatch image for ${formatInkName(swatchInk)}.`, { entityId: currentSwatchDetailInkId });
     }
 
     await persistDataAndRefresh({
@@ -1948,6 +2501,7 @@ async function deleteCurrentSwatch() {
             dashboard: true,
             inks: true,
             swatches: true,
+            activity: true,
             autocomplete: true
         },
         onSuccess: async () => {
@@ -2201,14 +2755,14 @@ if (btnImportBackup) {
         if (result && result.success) {
             const reloaded = await window.electronAPI.loadData();
             if (reloaded) {
-                appData = reloaded;
-                appData.currently_inked = appData.currently_inked || [];
+                appData = ensureAppDataDefaults(reloaded);
             }
             updateAutocompleteLists();
             renderDashboard();
             renderPens();
             renderInks();
             renderSwatches();
+            renderActivityLogView();
             closeAllModals();
             refreshBackupStatus();
             alert('Backup imported successfully.');
@@ -2288,6 +2842,230 @@ if (navSwatches) navSwatches.addEventListener('click', (e) => {
     switchView('swatches');
     renderSwatches();
 });
+if (navActivity) navActivity.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchView('activity');
+    renderActivityLogView();
+});
+if (recentActivityViewAll) {
+    recentActivityViewAll.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchView('activity');
+        renderActivityLogView();
+    });
+}
+if (recentPensViewAll) {
+    recentPensViewAll.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchView('pens');
+        renderPens();
+    });
+}
+if (recentInksViewAll) {
+    recentInksViewAll.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchView('inks');
+        renderInks();
+    });
+}
+if (recentSwatchesViewAll) {
+    recentSwatchesViewAll.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchView('swatches');
+        renderSwatches();
+    });
+}
+
+if (toggleActivityVisible) {
+    toggleActivityVisible.addEventListener('change', () => {
+        appData.preferences.show_activity_log = !!toggleActivityVisible.checked;
+        if (shouldHideActivityInShowcase() && localStorage.getItem('lastView') === 'activity') {
+            switchView('dashboard');
+        }
+        persistDataAndRefresh({
+            refresh: {
+                activity: true,
+                dashboard: true
+            },
+            onErrorMessage: 'Failed to save activity visibility.'
+        });
+    });
+}
+
+if (toggleRecentActivityVisible) {
+    toggleRecentActivityVisible.addEventListener('change', () => {
+        appData.preferences.show_recent_activity = !!toggleRecentActivityVisible.checked;
+        persistDataAndRefresh({
+            refresh: {
+                activity: true,
+                dashboard: true
+            },
+            onErrorMessage: 'Failed to save dashboard activity visibility.'
+        });
+    });
+}
+
+if (activityRetentionSelect) {
+    activityRetentionSelect.addEventListener('change', () => {
+        const selected = Number(activityRetentionSelect.value);
+        appData.preferences.activity_retention_days = [0, 90, 180, 365].includes(selected) ? selected : 365;
+        applyActivityRetention();
+        persistActivityMaintenance('Failed to save activity retention.');
+    });
+}
+
+if (btnDeleteOlderActivity) {
+    btnDeleteOlderActivity.addEventListener('click', async () => {
+        const days = Number(activityDeleteOlderSelect?.value || 90);
+        if (![30, 90, 180, 365].includes(days)) return;
+        const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+        const removableCount = (appData.activity_log || []).filter(entry => (entry.timestamp || 0) < cutoff).length;
+        if (removableCount === 0) {
+            alert(`No activity entries older than ${days} days.`);
+            return;
+        }
+        if (!(await confirmAction({
+            title: 'Delete Older Activity',
+            message: `Delete ${removableCount} activity entries older than ${days} days?`,
+            buttons: ['Keep Logs', 'Delete Older Logs'],
+            defaultId: 0,
+            cancelId: 0,
+            confirmedIndex: 1
+        }))) return;
+
+        appData.activity_log = (appData.activity_log || []).filter(entry => (entry.timestamp || 0) >= cutoff);
+        persistActivityMaintenance('Failed to delete older activity logs.');
+    });
+}
+
+if (btnClearAllActivity) {
+    btnClearAllActivity.addEventListener('click', async () => {
+        const total = (appData.activity_log || []).length;
+        if (total === 0) {
+            alert('Activity log is already empty.');
+            return;
+        }
+        if (!(await confirmAction({
+            title: 'Clear All Activity Logs',
+            message: `Delete all ${total} activity entries?`,
+            detail: 'This action cannot be undone.',
+            buttons: ['Keep Logs', 'Clear All'],
+            defaultId: 0,
+            cancelId: 0,
+            confirmedIndex: 1
+        }))) return;
+
+        appData.activity_log = [];
+        persistActivityMaintenance('Failed to clear activity logs.');
+    });
+}
+
+if (activityPageSizeSelect) {
+    activityPageSizeSelect.addEventListener('change', () => {
+        const selected = Number(activityPageSizeSelect.value);
+        if ([10, 20, 30, 50].includes(selected)) {
+            activityPageSize = selected;
+            activityCurrentPage = 1;
+            localStorage.setItem('activityPageSize', String(selected));
+            renderActivityLogView();
+        }
+    });
+}
+
+if (activityPagePrevBtn) {
+    activityPagePrevBtn.addEventListener('click', () => {
+        activityCurrentPage = Math.max(1, activityCurrentPage - 1);
+        renderActivityLogView();
+    });
+}
+
+if (activityPageNextBtn) {
+    activityPageNextBtn.addEventListener('click', () => {
+        activityCurrentPage += 1;
+        renderActivityLogView();
+    });
+}
+
+if (activityDatePickerToggle) {
+    activityDatePickerToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (activityCalendarPopover && activityCalendarPopover.classList.contains('open')) {
+            closeActivityCalendar();
+        } else {
+            openActivityCalendar();
+        }
+    });
+}
+
+if (activityCalendarPrev) {
+    activityCalendarPrev.addEventListener('click', () => {
+        activityCalendarViewDate = new Date(activityCalendarViewDate.getFullYear(), activityCalendarViewDate.getMonth() - 1, 1);
+        renderActivityCalendar();
+    });
+}
+
+if (activityCalendarNext) {
+    activityCalendarNext.addEventListener('click', () => {
+        if (activityCalendarNext.disabled) return;
+        activityCalendarViewDate = new Date(activityCalendarViewDate.getFullYear(), activityCalendarViewDate.getMonth() + 1, 1);
+        renderActivityCalendar();
+    });
+}
+
+if (activityCalendarGrid) {
+    activityCalendarGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-calendar-date]');
+        if (!btn) return;
+        const iso = btn.getAttribute('data-calendar-date');
+        if (!iso) return;
+        activityDateFilter = iso;
+        activityCurrentPage = 1;
+        renderActivityLogView();
+        closeActivityCalendar();
+    });
+}
+
+if (activityCalendarClear) {
+    activityCalendarClear.addEventListener('click', () => {
+        activityDateFilter = '';
+        activityCurrentPage = 1;
+        renderActivityLogView();
+        closeActivityCalendar();
+    });
+}
+
+if (activityCalendarToday) {
+    activityCalendarToday.addEventListener('click', () => {
+        activityDateFilter = toIsoLocalDate(new Date());
+        activityCurrentPage = 1;
+        renderActivityLogView();
+        closeActivityCalendar();
+    });
+}
+
+document.addEventListener('click', (e) => {
+    if (!activityCalendarPopover || !activityDatePickerToggle) return;
+    if (!activityCalendarPopover.classList.contains('open')) return;
+    if (activityCalendarPopover.contains(e.target) || activityDatePickerToggle.contains(e.target)) return;
+    closeActivityCalendar();
+});
+
+if (activityLogContainer) {
+    activityLogContainer.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-delete-activity-id]');
+        if (!btn) return;
+        const activityId = btn.getAttribute('data-delete-activity-id');
+        if (!(await confirmAction({
+            title: 'Delete Activity Entry',
+            message: 'Delete this activity entry?',
+            buttons: ['Keep Entry', 'Delete Entry'],
+            defaultId: 0,
+            cancelId: 0,
+            confirmedIndex: 1
+        }))) return;
+        deleteActivityEntry(activityId);
+    });
+}
 
 // Inks Filtering & Sorting Helpers
 function getInkColorCategory(hex) {
@@ -4176,11 +4954,13 @@ async function updateInkWithImage(inkId, filename, swatchMetadata = null) {
             appData.inks[inkIndex].swatch_lighting = swatchMetadata.swatch_lighting || 'Unknown';
             appData.inks[inkIndex].swatch_notes = swatchMetadata.swatch_notes || '';
         }
+        logActivity('created', 'swatch', `Added swatch for ${formatInkName(appData.inks[inkIndex])}.`, { entityId: inkId });
         await persistDataAndRefresh({
             refresh: {
                 dashboard: true,
                 swatches: true,
                 inks: true,
+                activity: true,
                 autocomplete: true
             },
             onErrorMessage: 'Failed to save swatch image data!'

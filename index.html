@@ -31,7 +31,7 @@
                     <span>Dashboard</span>
                 </a>
                 <a href="#" class="nav-item" id="nav-pens">
-                    <i class="ph ph-pen"></i>
+                    <i class="ph ph-pen-nib"></i>
                     <span>Pens</span>
                 </a>
                 <a href="#" class="nav-item" id="nav-inks">
@@ -41,6 +41,11 @@
                 <a href="#" class="nav-item" id="nav-swatches">
                     <i class="ph ph-palette"></i>
                     <span>Swatches</span>
+                </a>
+                <div class="nav-divider" id="nav-activity-divider" aria-hidden="true"></div>
+                <a href="#" class="nav-item" id="nav-activity">
+                    <i class="ph ph-list-bullets"></i>
+                    <span>Activity Log</span>
                 </a>
             </nav>
         </aside>
@@ -54,18 +59,22 @@
                     <div class="header-text">
                         <h1>Dashboard</h1>
                     </div>
-                    <div id="backup-actions" style="display: flex; align-items: center; gap: 10px;">
-                        <span id="backup-status"
-                            style="font-size: 12px; color: #666; padding: 0 4px; min-width: 170px; text-align: right;">Backup:
-                            checking...</span>
-                        <button class="btn-glass" id="btn-export-backup">
-                            <i class="ph ph-upload-simple"></i>
-                            <span>Export Backup</span>
+                    <div id="backup-actions" class="backup-actions">
+                        <div class="backup-meta">
+                            <span id="backup-status" class="backup-status-text">Checking automated backups...</span>
+                            <span class="backup-meta-note">Automated backups exclude images. Use Export Full Backup for a complete backup.</span>
+                        </div>
+                        <div class="backup-actions-divider" aria-hidden="true"></div>
+                        <div class="backup-buttons">
+                        <button class="btn-glass" id="btn-export-backup"
+                            title="Create a full backup with data and images. Best before migration or sharing.">
+                            <span>Export Full Backup</span>
                         </button>
-                        <button class="btn-glass" id="btn-import-backup">
-                            <i class="ph ph-download-simple"></i>
-                            <span>Import Backup</span>
+                        <button class="btn-glass" id="btn-import-backup"
+                            title="Restore data and images from a previously exported full backup.">
+                            <span>Import Full Backup</span>
                         </button>
+                        </div>
                     </div>
 
                 </header>
@@ -98,7 +107,7 @@
                 <!-- Currently Inked Section -->
                 <section class="section-container">
                     <div class="section-header">
-                        <h2 id="currently-inked-summary">You have <span style="font-weight: 800;">0</span> inked pens</h2>
+                        <h2 id="currently-inked-summary"><span style="font-weight: 800;">0</span> pens are currently inked</h2>
                         <!-- Action button can go here later if needed -->
                     </div>
 
@@ -113,7 +122,11 @@
                     <div class="recents-grid">
                         <!-- Recent Pens -->
                         <div class="recent-list glass-panel">
-                            <h3><i class="ph ph-pen-nib"></i> Recent Pens</h3>
+                            <h3>
+                                <i class="ph ph-pen-nib"></i>
+                                Recent Pens
+                                <a href="#" id="recent-pens-view-all" class="view-all-inline">View All</a>
+                            </h3>
                             <div id="recent-pens-list">
                                 <!-- Pens injected here -->
                             </div>
@@ -121,7 +134,11 @@
 
                         <!-- Recent Inks -->
                         <div class="recent-list glass-panel">
-                            <h3><i class="ph ph-drop"></i> Recent Inks</h3>
+                            <h3>
+                                <i class="ph ph-drop"></i>
+                                Recent Inks
+                                <a href="#" id="recent-inks-view-all" class="view-all-inline">View All</a>
+                            </h3>
                             <div id="recent-inks-list">
                                 <!-- Inks injected here -->
                             </div>
@@ -129,9 +146,25 @@
 
                         <!-- Recent Swatches -->
                         <div class="recent-list glass-panel">
-                            <h3><i class="ph ph-image"></i> Recent Swatches</h3>
+                            <h3>
+                                <i class="ph ph-image"></i>
+                                Recent Swatches
+                                <a href="#" id="recent-swatches-view-all" class="view-all-inline">View All</a>
+                            </h3>
                             <div id="recent-swatches-list">
                                 <!-- Swatches injected here -->
+                            </div>
+                        </div>
+
+                        <!-- Recent Activity -->
+                        <div class="recent-list glass-panel" id="recent-activity-card">
+                            <h3>
+                                <i class="ph ph-list-bullets"></i>
+                                Recent Activity
+                                <a href="#" id="recent-activity-view-all" class="view-all-inline">View All</a>
+                            </h3>
+                            <div id="recent-activity-list">
+                                <!-- Activity injected here -->
                             </div>
                         </div>
                     </div>
@@ -373,6 +406,111 @@
                 <div class="inked-grid" id="swatches-grid">
                     <div style="padding: 40px; text-align: center; color: #888;">No swatches found.</div>
                 </div>
+            </div>
+
+            <!-- ACTIVITY LOG VIEW -->
+            <div id="view-activity" style="display: none;">
+                <header>
+                    <div class="header-text">
+                        <h1>Activity Log</h1>
+                    </div>
+                </header>
+
+                <section class="section-container">
+                    <div class="activity-admin-panel glass-panel">
+                        <div class="activity-toolbar">
+                            <div class="activity-toolbar-left">
+                                <label class="activity-pref-toggle" for="toggle-activity-visible">
+                                    <input type="checkbox" id="toggle-activity-visible" checked>
+                                    <span>Show Activity Log on showcase website</span>
+                                </label>
+                                <div class="activity-toolbar-sep" aria-hidden="true"></div>
+                                <label class="activity-pref-toggle" for="toggle-recent-activity-visible">
+                                    <input type="checkbox" id="toggle-recent-activity-visible" checked>
+                                    <span>Show Recent Activity on showcase website</span>
+                                </label>
+                            </div>
+                            <div class="activity-toolbar-right">
+                                <div class="activity-inline-controls">
+                                    <span class="activity-inline-label">Retention</span>
+                                    <select id="activity-retention-select" class="activity-select">
+                                        <option value="90">Last 90 days</option>
+                                        <option value="180">Last 180 days</option>
+                                        <option value="365" selected>Last 365 days</option>
+                                        <option value="0">Unlimited</option>
+                                    </select>
+                                </div>
+                                <div class="activity-toolbar-sep" aria-hidden="true"></div>
+                                <div class="activity-inline-controls">
+                                    <span class="activity-inline-label">Delete entries older than</span>
+                                    <select id="activity-delete-older-select" class="activity-select">
+                                        <option value="30">30 days</option>
+                                        <option value="90" selected>90 days</option>
+                                        <option value="180">180 days</option>
+                                        <option value="365">365 days</option>
+                                    </select>
+                                    <button class="btn-glass" id="btn-delete-older-activity">
+                                        <i class="ph ph-clock-counter-clockwise"></i>
+                                        <span>Delete</span>
+                                    </button>
+                                </div>
+                                <div class="activity-toolbar-sep" aria-hidden="true"></div>
+                                <button class="btn-glass danger" id="btn-clear-all-activity">
+                                    <i class="ph ph-trash"></i>
+                                    <span>Clear All Logs</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-container">
+                    <div class="activity-log-shell">
+                        <button class="activity-date-icon-btn" id="activity-date-picker-toggle" title="Filter by date">
+                            <i class="ph ph-calendar-blank"></i>
+                        </button>
+                        <div class="activity-calendar-popover glass-panel" id="activity-calendar-popover">
+                            <div class="activity-calendar-head">
+                                <button class="activity-calendar-nav-btn" id="activity-calendar-prev" title="Previous month"><i class="ph ph-caret-left"></i></button>
+                                <div id="activity-calendar-month-label">Month Year</div>
+                                <button class="activity-calendar-nav-btn" id="activity-calendar-next" title="Next month"><i class="ph ph-caret-right"></i></button>
+                            </div>
+                            <div class="activity-calendar-weekdays">
+                                <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                            </div>
+                            <div class="activity-calendar-grid" id="activity-calendar-grid"></div>
+                            <div class="activity-calendar-footer">
+                                <button class="btn-glass" id="activity-calendar-clear">Clear</button>
+                                <button class="btn-glass" id="activity-calendar-today">Today</button>
+                            </div>
+                        </div>
+                        <div class="activity-log-container" id="activity-log-container">
+                            <!-- Activity entries injected here -->
+                        </div>
+                    </div>
+                    <div class="activity-pagination glass-panel" id="activity-pagination">
+                        <div class="activity-pagination-left">
+                            <label for="activity-page-size" class="activity-inline-label">Per page</label>
+                            <select id="activity-page-size" class="activity-select">
+                                <option value="10">10</option>
+                                <option value="20" selected>20</option>
+                                <option value="30">30</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
+                        <div class="activity-pagination-right">
+                            <button class="btn-glass" id="activity-page-prev">
+                                <i class="ph ph-caret-left"></i>
+                                <span>Prev</span>
+                            </button>
+                            <span id="activity-page-status">Page 1 of 1</span>
+                            <button class="btn-glass" id="activity-page-next">
+                                <span>Next</span>
+                                <i class="ph ph-caret-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
             </div>
 
         </main>

@@ -19,6 +19,7 @@ You can view a live demonstration of the generated showcase at [alog.lu/inkubato
 ### Pairing and History
 *   **Currently Inked**: A dashboard for your active pen and ink combinations.
 *   **Swatches**: Attach swatch photos to inks with details on paper and lighting, either automatically or manually.
+*   **Activity Log**: Track key collection actions (adding/editing/deleting pens, inks, swatches, inking changes) with optional visibility in the public showcase.
 
 ### Public Showcase
 *   **Static Website**: Export your collection as a responsive, read-only website.
@@ -30,8 +31,8 @@ You can view a live demonstration of the generated showcase at [alog.lu/inkubato
 > *   Files: `index.html`, `style.css`, `renderer.js`, `data.json`
 
 ### Backups and Portability
-*   **Automatic Backups**: Keeps up to 200 snapshots of your library.
-*   **Data Portability**: Export your entire database and image folder easily.
+*   **Automated Backups (Data Only)**: Keeps up to 200 automatic snapshots of normalized collection data.
+*   **Full Backup Export/Import (Data + Images)**: Use manual export/import when you need complete portability including image files.
 
 ## Getting Started
 
@@ -66,11 +67,6 @@ Access to the following tools is required for the development environment:
 - **AI/ML**: ONNX Runtime (U2Net Model)
 - **Graphics**: Sharp (WebP optimization & rotation handling)
 - **Data**: Local JSON with `fs-extra` persistence
-
-## OS Security Notice
-As an unsigned application, you may encounter system warnings:
-- **Windows**: Click `More info` → `Run anyway`.
-- **macOS**: `Right-click` the app → `Open`, or authorize via `System Settings > Privacy & Security`.
 
 ## License
 Released under the [MIT License](https://github.com/aloglu/inkubator/blob/main/LICENSE).

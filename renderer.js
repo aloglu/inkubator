@@ -113,7 +113,7 @@ let currentSwatchDetailInkId = null;
 let currentSwatchDetailSourceView = 'swatches';
 let currentPenDetailPenId = null;
 let currentPenDetailSourceView = 'pens';
-const ENABLE_DEMO_ACTIVITY_SEED = true;
+const ENABLE_DEMO_ACTIVITY_SEED = false;
 const renderScheduler = (window.PenStationRenderScheduler && window.PenStationRenderScheduler.createRenderScheduler)
     ? window.PenStationRenderScheduler.createRenderScheduler()
     : { schedule: (fn) => fn() };
@@ -4969,3 +4969,4 @@ async function updateInkWithImage(inkId, filename, swatchMetadata = null) {
 }
 
 // DOM Elements
+

@@ -24,6 +24,7 @@ const backupActions = document.getElementById('backup-actions');
 const backupStatus = document.getElementById('backup-status');
 const btnExportBackup = document.getElementById('btn-export-backup');
 const btnImportBackup = document.getElementById('btn-import-backup');
+const btnExportShowcase = document.getElementById('btn-export-showcase');
 const activityLogContainer = document.getElementById('activity-log-container');
 const recentActivityList = document.getElementById('recent-activity-list');
 const recentActivityCard = document.getElementById('recent-activity-card');
@@ -568,10 +569,14 @@ async function init() {
             ];
             managerUI.forEach(el => { if (el) el.style.display = 'none'; });
 
-            try {
-                const response = await fetch('./data.json');
-                if (response.ok) appData = ensureAppDataDefaults(await response.json());
-            } catch (e) { console.warn("Using defaults"); }
+            if (window.__INKUBATOR_DATA__ && typeof window.__INKUBATOR_DATA__ === 'object') {
+                appData = ensureAppDataDefaults(window.__INKUBATOR_DATA__);
+            } else {
+                try {
+                    const response = await fetch('./data.json');
+                    if (response.ok) appData = ensureAppDataDefaults(await response.json());
+                } catch (e) { console.warn("Using defaults"); }
+            }
         }
 
         updateAutocompleteLists();
@@ -2768,6 +2773,18 @@ if (btnImportBackup) {
             alert('Backup imported successfully.');
         } else if (!(result && result.canceled)) {
             alert(`Backup import failed: ${result && result.message ? result.message : 'Unknown error.'}`);
+        }
+    });
+}
+
+if (btnExportShowcase) {
+    btnExportShowcase.addEventListener('click', async () => {
+        if (!isElectron || !window.electronAPI || typeof window.electronAPI.exportShowcase !== 'function') return;
+        const result = await window.electronAPI.exportShowcase();
+        if (result && result.success) {
+            alert(`Showcase exported successfully:\n${result.path}`);
+        } else if (!(result && result.canceled)) {
+            alert(`Showcase export failed: ${result && result.message ? result.message : 'Unknown error.'}`);
         }
     });
 }

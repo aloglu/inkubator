@@ -89,8 +89,13 @@ body {
     cursor: default;
 }
 
-.logo i {
-    font-size: 24px;
+.logo-mark {
+    width: 24px;
+    height: 24px;
+    display: block;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
 }
 
 .logo-text {
@@ -303,6 +308,12 @@ header p {
     display: inline-flex;
     align-items: center;
     gap: 10px;
+}
+
+.backup-buttons-divider {
+    width: 1px;
+    height: 30px;
+    background: rgba(0, 0, 0, 0.12);
 }
 
 .search-wrapper i {
@@ -2890,6 +2901,10 @@ body {
     .backup-buttons {
         width: 100%;
         flex-wrap: wrap;
+    }
+
+    .backup-buttons-divider {
+        display: none;
     }
 
     #view-pens>header>div:last-child,

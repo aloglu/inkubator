@@ -26,9 +26,8 @@ You can view a live demonstration of the generated showcase at [alog.lu/inkubato
 *   **Navigation**: Optimized for both desktop and mobile browsing.
 
 > [!IMPORTANT]
-> To host your generated showcase, the following files and directories must be uploaded to your static hosting provider:
-> *   Folders: `images/`, `renderer/`
-> *   Files: `index.html`, `style.css`, `renderer.js`, `data.json`
+> You can now use **Export Showcase Folder** in the app to generate a ready-to-upload `showcase/` directory.
+> Upload the contents of that generated `showcase/` folder to your static hosting provider.
 
 ### Backups and Portability
 *   **Automated Backups (Data Only)**: Keeps up to 200 automatic snapshots of normalized collection data.

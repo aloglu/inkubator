@@ -5,13 +5,42 @@ const { normalizeAppData } = require('./lib/data-schema');
 
 let mainWindow;
 const AUTO_BACKUP_MAX_FILES = 200;
+const APP_NAME = 'Inkubator';
+const WINDOWS_APP_USER_MODEL_ID = 'com.inkubator.app';
 
-function getDataPath() {
+if (typeof app.setName === 'function') {
+  app.setName(APP_NAME);
+}
+if (process.platform === 'win32' && typeof app.setAppUserModelId === 'function') {
+  app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
+}
+
+function getBundledDataPath() {
   return path.join(__dirname, 'data.json');
 }
 
-function getImagesPath() {
+function getBundledImagesPath() {
   return path.join(__dirname, 'images');
+}
+
+function getBundledRendererPath() {
+  return path.join(__dirname, 'renderer');
+}
+
+function getBundledIconsPath() {
+  return path.join(__dirname, 'assets', 'icons');
+}
+
+function getBundledWindowIconPath() {
+  return path.join(__dirname, 'assets', 'icons', 'inkubator-icon.png');
+}
+
+function getDataPath() {
+  return path.join(app.getPath('userData'), 'data.json');
+}
+
+function getImagesPath() {
+  return path.join(app.getPath('userData'), 'images');
 }
 
 function getBackupPaths() {
@@ -100,7 +129,7 @@ async function getAutoBackupStatus() {
 }
 
 async function createManualBackup(targetFolder) {
-  const folder = path.join(targetFolder, `pen-station-backup-${makeTimestamp()}`);
+  const folder = path.join(targetFolder, `inkubator-backup-${makeTimestamp()}`);
   await fs.ensureDir(folder);
   const dataPath = getDataPath();
   const imagesPath = getImagesPath();
@@ -112,7 +141,7 @@ async function createManualBackup(targetFolder) {
     await fs.copy(imagesPath, backupImagesPath, { overwrite: true });
   }
   await fs.writeJson(path.join(folder, 'manifest.json'), {
-    type: 'pen-station-backup',
+    type: 'inkubator-backup',
     version: 1,
     created_at: new Date().toISOString(),
     includes_images: await fs.pathExists(backupImagesPath)
@@ -145,6 +174,88 @@ async function importManualBackup(backupFolder) {
 
   await createAutoBackupSnapshot(normalized, 'post-import-restore');
   return { success: true, data: normalized };
+}
+
+async function exportShowcaseBundle(targetFolder) {
+  await ensureAppStorage();
+
+  const showcaseRoot = path.join(targetFolder, 'showcase');
+  const bundledRoot = __dirname;
+  const dataPath = getDataPath();
+  const imagesPath = getImagesPath();
+  const rendererPath = getBundledRendererPath();
+  const iconsPath = getBundledIconsPath();
+
+  await fs.ensureDir(showcaseRoot);
+
+  const fileCopies = [
+    ['index.html', 'index.html'],
+    ['style.css', 'style.css'],
+    ['renderer.js', 'renderer.js']
+  ];
+
+  for (const [srcName, dstName] of fileCopies) {
+    await fs.copy(path.join(bundledRoot, srcName), path.join(showcaseRoot, dstName), {
+      overwrite: true,
+      errorOnExist: false
+    });
+  }
+
+  if (await fs.pathExists(rendererPath)) {
+    await fs.copy(rendererPath, path.join(showcaseRoot, 'renderer'), {
+      overwrite: true,
+      errorOnExist: false
+    });
+  }
+
+  if (await fs.pathExists(iconsPath)) {
+    await fs.copy(iconsPath, path.join(showcaseRoot, 'assets', 'icons'), {
+      overwrite: true,
+      errorOnExist: false
+    });
+  }
+
+  if (await fs.pathExists(dataPath)) {
+    const raw = await fs.readJson(dataPath);
+    const normalized = normalizeAppData(raw);
+    await fs.writeJson(path.join(showcaseRoot, 'data.json'), normalized, { spaces: 2 });
+    await fs.writeFile(
+      path.join(showcaseRoot, 'data.js'),
+      `window.__INKUBATOR_DATA__ = ${JSON.stringify(normalized)};\n`,
+      'utf8'
+    );
+  } else {
+    const empty = normalizeAppData({ pens: [], inks: [], currently_inked: [] });
+    await fs.writeJson(path.join(showcaseRoot, 'data.json'), empty, { spaces: 2 });
+    await fs.writeFile(
+      path.join(showcaseRoot, 'data.js'),
+      `window.__INKUBATOR_DATA__ = ${JSON.stringify(empty)};\n`,
+      'utf8'
+    );
+  }
+
+  if (await fs.pathExists(imagesPath)) {
+    await fs.copy(imagesPath, path.join(showcaseRoot, 'images'), {
+      overwrite: true,
+      errorOnExist: false
+    });
+  } else {
+    await fs.ensureDir(path.join(showcaseRoot, 'images'));
+  }
+
+  const showcaseIndexPath = path.join(showcaseRoot, 'index.html');
+  if (await fs.pathExists(showcaseIndexPath)) {
+    let html = await fs.readFile(showcaseIndexPath, 'utf8');
+    if (!html.includes('src="data.js"')) {
+      html = html.replace(
+        '<script src="renderer.js"></script>',
+        '    <script src="data.js"></script>\n    <script src="renderer.js"></script>'
+      );
+      await fs.writeFile(showcaseIndexPath, html, 'utf8');
+    }
+  }
+
+  return showcaseRoot;
 }
 
 async function migratePenImageNames(data) {
@@ -196,10 +307,28 @@ async function migratePenImageNames(data) {
   return { data: normalized, changed };
 }
 
+function getCollectionEntityCount(data = {}) {
+  const pens = Array.isArray(data.pens) ? data.pens.length : 0;
+  const inks = Array.isArray(data.inks) ? data.inks.length : 0;
+  const currentlyInked = Array.isArray(data.currently_inked) ? data.currently_inked.length : 0;
+  return pens + inks + currentlyInked;
+}
+
+async function readNormalizedDataIfExists(filePath) {
+  if (!(await fs.pathExists(filePath))) return null;
+  try {
+    const raw = await fs.readJson(filePath);
+    return normalizeAppData(raw);
+  } catch (error) {
+    return null;
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: getBundledWindowIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     }
@@ -209,7 +338,51 @@ function createWindow() {
   // mainWindow.webContents.openDevTools(); // Uncomment for debugging
 }
 
-app.whenReady().then(() => {
+async function ensureAppStorage() {
+  const dataPath = getDataPath();
+  const imagesPath = getImagesPath();
+  const bundledDataPath = getBundledDataPath();
+  const bundledImagesPath = getBundledImagesPath();
+  const bundledData = await readNormalizedDataIfExists(bundledDataPath);
+  const bundledCount = getCollectionEntityCount(bundledData || {});
+
+  await fs.ensureDir(path.dirname(dataPath));
+  if (!(await fs.pathExists(dataPath))) {
+    if (bundledData) {
+      await fs.writeJson(dataPath, bundledData, { spaces: 2 });
+    } else {
+      const initialData = normalizeAppData({ pens: [], inks: [], currently_inked: [] });
+      await fs.writeJson(dataPath, initialData, { spaces: 2 });
+    }
+  } else if (!app.isPackaged && bundledData && bundledCount > 0) {
+    const currentData = await readNormalizedDataIfExists(dataPath);
+    const currentCount = getCollectionEntityCount(currentData || {});
+    if (currentCount === 0) {
+      await fs.writeJson(dataPath, bundledData, { spaces: 2 });
+    }
+  }
+
+  if (!(await fs.pathExists(imagesPath))) {
+    if (await fs.pathExists(bundledImagesPath)) {
+      await fs.copy(bundledImagesPath, imagesPath, { overwrite: false, errorOnExist: false });
+    } else {
+      await fs.ensureDir(imagesPath);
+    }
+  } else if (!app.isPackaged && await fs.pathExists(bundledImagesPath)) {
+    await fs.copy(bundledImagesPath, imagesPath, { overwrite: false, errorOnExist: false });
+  }
+
+  await Promise.all([
+    fs.ensureDir(path.join(imagesPath, 'pens')),
+    fs.ensureDir(path.join(imagesPath, 'inks')),
+    fs.ensureDir(path.join(imagesPath, 'swatches'))
+  ]);
+}
+
+app.whenReady().then(async () => {
+  await ensureAppStorage().catch((error) => {
+    console.error("Failed to initialize app storage:", error);
+  });
   ensureBackupDirs().catch((error) => {
     console.error("Failed to initialize backup directories:", error);
   });
@@ -684,6 +857,7 @@ async function detectPenColorsWithML(sourcePath) {
 // 1. Load Data
 ipcMain.handle('load-data', async () => {
   try {
+    await ensureAppStorage();
     const dataPath = getDataPath();
     if (!fs.existsSync(dataPath)) {
       // Create empty if missing
@@ -706,6 +880,7 @@ ipcMain.handle('load-data', async () => {
 // 2. Save Data
 ipcMain.handle('save-data', async (event, newData) => {
   try {
+    await ensureAppStorage();
     const dataPath = getDataPath();
     const normalized = normalizeAppData(newData);
     await fs.writeJson(dataPath, normalized, { spaces: 2 });
@@ -722,7 +897,7 @@ ipcMain.handle('save-image', async (event, sourcePath, type, metadata) => {
   if (!sourcePath) return null;
   try {
     const typeFolder = (type === 'pen') ? 'pens' : (type === 'ink' ? 'inks' : 'swatches');
-    const imagesDir = path.join(__dirname, 'images', typeFolder);
+    const imagesDir = path.join(getImagesPath(), typeFolder);
     await fs.ensureDir(imagesDir);
 
     let filename = '';
@@ -753,7 +928,7 @@ ipcMain.handle('delete-image', async (event, relativePath) => {
     return { success: true };
   }
   try {
-    const imagesRoot = path.join(__dirname, 'images');
+    const imagesRoot = getImagesPath();
     const normalized = normalizeRelativeImagePath(relativePath);
     if (!normalized) return { success: true };
 
@@ -859,6 +1034,25 @@ ipcMain.handle('backup:import', async () => {
     return await importManualBackup(filePaths[0]);
   } catch (error) {
     console.error("Backup Import Error:", error);
+    return { success: false, message: error.message };
+  }
+});
+
+// 5d. Showcase export (static website package)
+ipcMain.handle('showcase:export', async () => {
+  try {
+    const target = BrowserWindow.getFocusedWindow() || mainWindow;
+    const { canceled, filePaths } = await dialog.showOpenDialog(target, {
+      title: 'Choose destination for showcase folder',
+      properties: ['openDirectory', 'createDirectory']
+    });
+    if (canceled || !filePaths || filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+    const showcasePath = await exportShowcaseBundle(filePaths[0]);
+    return { success: true, path: showcasePath };
+  } catch (error) {
+    console.error("Showcase Export Error:", error);
     return { success: false, message: error.message };
   }
 });
@@ -970,7 +1164,7 @@ ipcMain.handle('save-image-url', async (event, url, type, metadata) => {
     const buffer = await response.arrayBuffer();
 
     const typeFolder = (type === 'pen') ? 'pens' : (type === 'ink' ? 'inks' : 'swatches');
-    const imagesDir = path.join(__dirname, 'images', typeFolder);
+    const imagesDir = path.join(getImagesPath(), typeFolder);
     await fs.ensureDir(imagesDir);
 
     let filename = '';

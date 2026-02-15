@@ -1,5 +1,5 @@
 {
-    "name": "inkubator",
+    "name":  "inkubator",
     "version":  "1.0.0",
     "description":  "A beautiful fountain pen tracker and showcase generator.",
     "main":  "main.js",
@@ -67,7 +67,8 @@
                                                           ]
                                              }
                                          ],
-                              "artifactName":  "Inkubator-${version}-win-${arch}.${ext}"
+                              "artifactName":  "Inkubator-${version}-win-${arch}.${ext}",
+                              "icon":  "assets/icons/inkubator-icon.ico"
                           },
                   "mac":  {
                               "target":  [
@@ -87,7 +88,8 @@
                                              }
                                          ],
                               "category":  "public.app-category.productivity",
-                              "artifactName":  "Inkubator-${version}-mac-${arch}.${ext}"
+                              "artifactName":  "Inkubator-${version}-mac-${arch}.${ext}",
+                              "icon":  "assets/icons/inkubator-icon.icns"
                           },
                   "linux":  {
                                 "maintainer":  "Abdullah Aloğlu \u003ccontact@alog.lu\u003e",
@@ -106,8 +108,8 @@
                                                }
                                            ],
                                 "category":  "Utility",
-                                "artifactName":  "Inkubator-${version}-linux-${arch}.${ext}"
+                                "artifactName":  "Inkubator-${version}-linux-${arch}.${ext}",
+                                "icon":  "assets/icons/inkubator-icon.png"
                             }
               }
 }
-

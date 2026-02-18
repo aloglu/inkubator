@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inkubator | Fountain Pen Collection</title>
+    <title>Inkubator</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="assets/icons/ink-drop-white-favicon.png">
+    <link rel="alternate icon" type="image/png" href="assets/icons/ink-drop-white-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -21,12 +23,7 @@
         <!-- Sidebar Navigation (Collapsible) -->
         <aside class="sidebar glass-panel">
             <div class="logo">
-                <svg class="logo-mark" viewBox="0 0 1024 1024" role="img" aria-label="Inkubator icon">
-                    <circle cx="512" cy="512" r="480" fill="#fff8e1"></circle>
-                    <path d="M512 140 220 432v202l292 250 292-250V432L512 140z" fill="#daa520" stroke="#9c6f0f" stroke-width="32" stroke-linejoin="round"></path>
-                    <path d="M382 462h260M512 462v200" stroke="#9c6f0f" stroke-width="36" stroke-linecap="round"></path>
-                    <circle cx="512" cy="600" r="42" fill="#9c6f0f"></circle>
-                </svg>
+                <img class="logo-mark" src="assets/icons/ink-drop-white-icon-sidebar.png" alt="Inkubator icon">
                 <span class="logo-text">Inkubator</span>
             </div>
 
@@ -691,21 +688,22 @@
                             <input type="hidden" id="ink-flow" value="Average">
                         </div>
                     </div>
-                    <div class="input-group">
-                        <label>Lubrication</label>
-                        <div class="custom-select-wrapper-outer" id="ink-lubrication-wrapper">
-                            <div class="custom-select-trigger" tabindex="0">
-                                <span class="current-value">Low</span>
-                                <i class="ph ph-caret-down"></i>
+                        <div class="input-group">
+                            <label>Lubrication</label>
+                            <div class="custom-select-wrapper-outer" id="ink-lubrication-wrapper">
+                                <div class="custom-select-trigger" tabindex="0">
+                                    <span class="current-value">None</span>
+                                    <i class="ph ph-caret-down"></i>
+                                </div>
+                                <div class="custom-options" data-target="ink-lubrication">
+                                    <div class="custom-option" data-value="None">None</div>
+                                    <div class="custom-option" data-value="Low">Low</div>
+                                    <div class="custom-option" data-value="Medium">Medium</div>
+                                    <div class="custom-option" data-value="High">High</div>
+                                </div>
+                                <input type="hidden" id="ink-lubrication" value="None">
                             </div>
-                            <div class="custom-options" data-target="ink-lubrication">
-                                <div class="custom-option" data-value="Low">Low</div>
-                                <div class="custom-option" data-value="Medium">Medium</div>
-                                <div class="custom-option" data-value="High">High</div>
-                            </div>
-                            <input type="hidden" id="ink-lubrication" value="Low">
                         </div>
-                    </div>
                     <div class="input-group">
                         <label>Dry Time</label>
                         <div class="custom-autocomplete-wrapper">

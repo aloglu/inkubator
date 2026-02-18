@@ -1,5 +1,11 @@
-﻿{
+{
   "pens": [],
   "inks": [],
-  "currently_inked": []
+  "currently_inked": [],
+  "activity_log": [],
+  "preferences": {
+    "show_activity_log": true,
+    "show_recent_activity": true,
+    "activity_retention_days": 365
+  }
 }

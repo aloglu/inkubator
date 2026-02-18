@@ -32,8 +32,12 @@ function getBundledIconsPath() {
   return path.join(__dirname, 'assets', 'icons');
 }
 
+function getBundledFontsPath() {
+  return path.join(__dirname, 'assets', 'fonts');
+}
+
 function getBundledWindowIconPath() {
-  return path.join(__dirname, 'assets', 'icons', 'inkubator-icon.png');
+  return path.join(__dirname, 'assets', 'icons', 'ink-drop-white-icon.png');
 }
 
 function getDataPath() {
@@ -186,6 +190,7 @@ async function exportShowcaseBundle(targetFolder) {
   const imagesPath = getImagesPath();
   const rendererPath = getBundledRendererPath();
   const iconsPath = getBundledIconsPath();
+  const fontsPath = getBundledFontsPath();
 
   await fs.ensureDir(showcaseRoot);
 
@@ -211,6 +216,13 @@ async function exportShowcaseBundle(targetFolder) {
 
   if (await fs.pathExists(iconsPath)) {
     await fs.copy(iconsPath, path.join(showcaseRoot, 'assets', 'icons'), {
+      overwrite: true,
+      errorOnExist: false
+    });
+  }
+
+  if (await fs.pathExists(fontsPath)) {
+    await fs.copy(fontsPath, path.join(showcaseRoot, 'assets', 'fonts'), {
       overwrite: true,
       errorOnExist: false
     });

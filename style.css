@@ -1,3 +1,11 @@
+@font-face {
+    font-family: 'Peachi';
+    src: url('assets/fonts/peachi.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
 /* Basic Setup */
 :root {
     /* Color Palette - Premium Paper & Ink */
@@ -17,7 +25,7 @@
 
     --color-btn-soft: #d8cfc4;
     /* Soft Warm Stone/Cream */
-    --font-heading: 'Playfair Display', serif;
+    --font-heading: 'Peachi', serif;
     --font-body: 'Inter', sans-serif;
 }
 
@@ -70,14 +78,20 @@ body {
     z-index: 1000;
     overflow: hidden;
     margin: 0;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+    font-family: var(--font-heading);
 }
 
 /* Remove expansion triggers */
 
 .logo {
-    font-family: var(--font-heading);
-    font-size: 24px;
-    font-weight: 700;
+    font-family: inherit;
+    font-size: 26px;
+    font-weight: 500;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -90,10 +104,10 @@ body {
 }
 
 .logo-mark {
-    width: 24px;
-    height: 24px;
+    width: 40px;
+    height: 40px;
     display: block;
-    border-radius: 50%;
+    border-radius: 0;
     object-fit: cover;
     flex-shrink: 0;
 }
@@ -130,6 +144,7 @@ body {
     color: var(--color-text-muted);
     text-decoration: none;
     font-weight: 500;
+    font-size: 17px;
     transition: all 0.2s ease;
     white-space: nowrap;
     position: relative;
@@ -186,6 +201,7 @@ header {
 h1 {
     font-family: var(--font-heading);
     font-size: 36px;
+    font-weight: 500;
     margin: 0;
     color: var(--color-text-main);
 }
@@ -355,11 +371,15 @@ header p {
     width: 48px;
     height: 48px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.5);
+    background: transparent !important;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
+    font-size: 30px;
     color: var(--color-text-main);
 }
 
@@ -456,12 +476,14 @@ select:focus {
 h2 {
     font-family: var(--font-heading);
     font-size: 24px;
+    font-weight: 500;
     margin: 0;
 }
 
 h3 {
     font-family: var(--font-heading);
     font-size: 18px;
+    font-weight: 500;
     margin: 0 0 16px 0;
     display: flex;
     align-items: center;
@@ -808,6 +830,7 @@ h3 {
 #activity-calendar-month-label {
     text-align: center;
     font-family: var(--font-heading);
+    font-weight: 500;
     font-size: 18px;
     color: var(--color-text-main);
 }

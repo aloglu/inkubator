@@ -912,6 +912,11 @@ function buildActivityLogbookHtml(items) {
     let lastDate = '';
     items.forEach((entry) => {
         const dateLabel = formatActivityDateLabel(entry.timestamp);
+        const deleteControl = isElectron
+            ? `<button class="activity-delete-btn" data-delete-activity-id="${entry.id}" title="Delete entry">
+                    <i class="ph ph-trash"></i>
+               </button>`
+            : '';
         if (dateLabel !== lastDate) {
             html += `<div class="activity-date-label">${dateLabel}</div>`;
             lastDate = dateLabel;
@@ -923,9 +928,7 @@ function buildActivityLogbookHtml(items) {
                     <div class="activity-logbook-message">${entry.message || 'Activity recorded'}</div>
                     <div class="activity-logbook-meta">${entry.category || 'system'} • ${entry.action || 'updated'}</div>
                 </div>
-                <button class="activity-delete-btn" data-delete-activity-id="${entry.id}" title="Delete entry">
-                    <i class="ph ph-trash"></i>
-                </button>
+                ${deleteControl}
             </div>
         `;
     });
@@ -1028,7 +1031,7 @@ function renderPens() {
             if (activePensFilters.brand.length > 0 && !activePensFilters.brand.includes(pen.brand)) return false;
             if (activePensFilters.nib.length > 0 && !activePensFilters.nib.includes(pen.nib)) return false;
             if (activePensFilters.nib_material.length > 0 && !activePensFilters.nib_material.includes(pen.nib_material)) return false;
-            if (activePensFilters.material.length > 0 && !activePensFilters.material.includes(pen.material)) return false;
+            if (!valueMatchesFilter(pen.material, activePensFilters.material)) return false;
             if (!valueMatchesFilter(pen.filling_system, activePensFilters.filling_system)) return false;
             if (!valueMatchesFilter(pen.color, activePensFilters.color)) return false;
 
@@ -1258,7 +1261,7 @@ function openInkModal(inkId = null) {
             setCustomSelectValue('ink-sheen', ink.sheen || 'None');
             setCustomSelectValue('ink-shimmer', ink.shimmer || 'None');
             setCustomSelectValue('ink-flow', ink.flow || 'Average');
-            setCustomSelectValue('ink-lubrication', ink.lubrication || 'Medium');
+            setCustomSelectValue('ink-lubrication', ink.lubrication || 'None');
             if (document.getElementById('ink-dry-time')) document.getElementById('ink-dry-time').value = ink.dry_time || '';
             setCustomSelectValue('ink-permanence', ink.permanence || 'None');
 
@@ -1310,7 +1313,7 @@ function openInkModal(inkId = null) {
         setCustomSelectValue('ink-sheen', 'None');
         setCustomSelectValue('ink-shimmer', 'None');
         setCustomSelectValue('ink-flow', 'Average');
-        setCustomSelectValue('ink-lubrication', 'Low');
+        setCustomSelectValue('ink-lubrication', 'None');
         if (document.getElementById('ink-dry-time')) document.getElementById('ink-dry-time').value = '';
         setCustomSelectValue('ink-permanence', 'None');
 
@@ -1370,11 +1373,14 @@ function updateMultiselectHeader(id) {
 
     const selected = Array.from(popover.querySelectorAll('input:checked')).map(cb => cb.value);
     const placeholder = header.querySelector('.placeholder');
+    if (!placeholder) return;
 
     if (selected.length === 0) {
         placeholder.textContent = placeholder.dataset.default || 'Select properties...';
+        placeholder.classList.remove('has-value');
     } else {
         placeholder.textContent = selected.join(', ');
+        placeholder.classList.add('has-value');
     }
 }
 
@@ -2186,7 +2192,7 @@ async function saveNewInk() {
             sheen: document.getElementById('ink-sheen')?.value || 'None',
             shimmer: document.getElementById('ink-shimmer')?.value || 'None',
             flow: document.getElementById('ink-flow')?.value || 'Average',
-            lubrication: document.getElementById('ink-lubrication')?.value || 'Low',
+            lubrication: document.getElementById('ink-lubrication')?.value || 'None',
             dry_time: document.getElementById('ink-dry-time')?.value || '',
             base_type: Array.from(document.querySelectorAll('#base-type-popover input[type="checkbox"]')).filter(cb => cb.checked).map(cb => cb.value),
             permanence: document.getElementById('ink-permanence')?.value || 'None',
@@ -2223,6 +2229,7 @@ async function saveNewInk() {
 async function saveNewPen() {
     const brand = penBrandInput.value;
     const model = penModelInput.value;
+    const normalizedPenMaterial = normalizeCsvValues(penMaterialInput.value).join(', ');
     const normalizedFillingSystem = normalizeCsvValues(penFillingSystemInput.value).join(', ');
     const normalizedPenColor = normalizeCsvValues(penColorInput.value).join(', ');
     const wasEdit = !!currentEditingId;
@@ -2294,7 +2301,7 @@ async function saveNewPen() {
             appData.pens[index].model = model;
             appData.pens[index].nib = penNibInput.value;
             appData.pens[index].nib_material = penNibMaterialInput.value;
-            appData.pens[index].material = penMaterialInput.value;
+            appData.pens[index].material = normalizedPenMaterial;
             appData.pens[index].filling_system = normalizedFillingSystem;
             appData.pens[index].color = normalizedPenColor;
             appData.pens[index].hex_color = hexColor;
@@ -2313,7 +2320,7 @@ async function saveNewPen() {
             model: model,
             nib: penNibInput.value || 'M',
             nib_material: penNibMaterialInput.value || 'Steel',
-            material: penMaterialInput.value || 'Standard',
+            material: normalizedPenMaterial || 'Standard',
             filling_system: normalizedFillingSystem || '',
             color: normalizedPenColor || '',
             hex_color: hexColor,
@@ -3060,6 +3067,7 @@ document.addEventListener('click', (e) => {
 
 if (activityLogContainer) {
     activityLogContainer.addEventListener('click', async (e) => {
+        if (!isElectron) return;
         const btn = e.target.closest('[data-delete-activity-id]');
         if (!btn) return;
         const activityId = btn.getAttribute('data-delete-activity-id');
@@ -3159,7 +3167,7 @@ function renderPenFilters() {
     const brands = [...new Set(pens.map(p => p.brand).filter(Boolean))].sort();
     const nibs = [...new Set(pens.map(p => p.nib).filter(Boolean))].sort();
     const nibMaterials = [...new Set(pens.map(p => p.nib_material).filter(Boolean))].sort();
-    const materials = [...new Set(pens.map(p => p.material).filter(Boolean))].sort();
+    const materials = collectUniqueFromCsv(pens, 'material');
     const fillingSystems = collectUniqueFromCsv(pens, 'filling_system');
     const colors = collectUniqueFromCsv(pens, 'color');
     const statuses = ['Inked', 'Resting'];
@@ -3244,7 +3252,7 @@ function renderFilters() {
     const lines = [...new Set(inks.map(i => i.line).filter(Boolean))].sort();
     const types = ['Bottle', 'Sample', 'Cartridge'];
     const flowOpts = ['Dry', 'Average', 'Wet'];
-    const lubOpts = ['Low', 'Medium', 'High'];
+    const lubOpts = ['None', 'Low', 'Medium', 'High'];
     const dryTimeOpts = ['Fast', 'Average', 'Slow'];
     const baseTypes = [...new Set(inks.flatMap(i => i.base_type || []))].sort();
     const permanences = [...new Set(inks.map(i => i.permanence).filter(Boolean))].sort();
@@ -3334,7 +3342,7 @@ function renderSwatchFilters() {
     const brands = [...new Set(swatches.map(i => i.brand).filter(Boolean))].sort();
     const types = ['Bottle', 'Sample', 'Cartridge'];
     const flowOpts = ['Dry', 'Average', 'Wet'];
-    const lubOpts = ['Low', 'Medium', 'High'];
+    const lubOpts = ['None', 'Low', 'Medium', 'High'];
     const dryTimeOpts = ['Fast', 'Average', 'Slow'];
     const baseTypes = [...new Set(swatches.flatMap(i => i.base_type || []))].sort();
     const permanences = [...new Set(swatches.map(i => i.permanence).filter(Boolean))].sort();
@@ -4093,7 +4101,7 @@ function updateAutocompleteLists() {
     autocompleteData['pen-model-input'] = getUnique(appData.pens, 'model');
     autocompleteData['pen-nib-input'] = getUnique(appData.pens, 'nib');
     autocompleteData['pen-nib-material-input'] = getUnique(appData.pens, 'nib_material');
-    autocompleteData['pen-material-input'] = getUnique(appData.pens, 'material');
+    autocompleteData['pen-material-input'] = getUniqueCsv(appData.pens, 'material');
     autocompleteData['pen-filling-system-input'] = getUniqueCsv(appData.pens, 'filling_system');
     autocompleteData['pen-color-input'] = getUniqueCsv(appData.pens, 'color');
 }
@@ -4371,6 +4379,7 @@ function setupCustomControls() {
     });
 
     // 2. Autocomplete Inputs
+    const csvAutocompleteIds = new Set(['pen-material-input', 'pen-filling-system-input', 'pen-color-input']);
     document.querySelectorAll('.autocomplete-input').forEach(input => {
         const wrapper = input.parentElement;
         const list = wrapper.querySelector('.custom-options');
@@ -4378,18 +4387,23 @@ function setupCustomControls() {
         if (!list) return;
 
         input.addEventListener('input', () => {
-            const val = input.value.toLowerCase().trim();
+            const rawVal = input.value;
+            const val = rawVal.toLowerCase().trim();
             const id = input.id; // e.g., ink-brand-input
             const data = autocompleteData[id] || [];
+            const isCsvAutocomplete = csvAutocompleteIds.has(id);
+            const currentTokenRaw = isCsvAutocomplete ? rawVal.split(',').pop() : rawVal;
+            const token = (currentTokenRaw || '').trim().toLowerCase();
 
-            if (!val) {
+            if (!val || (isCsvAutocomplete && !token)) {
                 list.classList.remove('show');
                 return;
             }
 
             // Fuzzy Filter Logic: StartsWith Prio -> Includes
-            const startsWith = data.filter(item => item.toLowerCase().startsWith(val));
-            const includes = data.filter(item => !item.toLowerCase().startsWith(val) && item.toLowerCase().includes(val));
+            const needle = isCsvAutocomplete ? token : val;
+            const startsWith = data.filter(item => item.toLowerCase().startsWith(needle));
+            const includes = data.filter(item => !item.toLowerCase().startsWith(needle) && item.toLowerCase().includes(needle));
             const matches = [...startsWith, ...includes];
 
             if (matches.length > 0) {
@@ -4400,7 +4414,14 @@ function setupCustomControls() {
                 list.querySelectorAll('.custom-option').forEach(opt => {
                     opt.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        input.value = opt.textContent;
+                        if (isCsvAutocomplete) {
+                            const parts = input.value.split(',').map(p => p.trim()).filter(Boolean);
+                            if (parts.length > 0) parts.pop();
+                            parts.push(opt.textContent.trim());
+                            input.value = parts.join(', ');
+                        } else {
+                            input.value = opt.textContent;
+                        }
                         list.classList.remove('show');
                     });
                 });

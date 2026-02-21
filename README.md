@@ -17,7 +17,7 @@ Inkubator is a local-first desktop application for managing and cataloging fount
 * **Dark Mode Support**: Both the desktop application and the generated showcase include dark mode.
 * **Local Persistence**: All data is stored in a structured `data.json` file without mandatory account creation or cloud dependency.
 
-## Data Integrity & Portability
+### Data Integrity & Portability
 * **Manual and Automated Backups**: Create backups on demand or rely on scheduled snapshots for both data and images.
 * **Full Archive Export**: A manual Export/Import feature allows for complete library migration between devices by bundling data and media into a single portable archive.
 
@@ -25,7 +25,7 @@ Inkubator is a local-first desktop application for managing and cataloging fount
 * **Showcase Export**: The application generates a responsive, read-only static website from the local database.
 * **Deployment**: The `showcase/` directory is portable and compatible with any static hosting provider (e.g., GitHub Pages, Vercel, S3).
 
-## Technical Stack
+### Technical Stack
 
 * **Core Runtime**: Electron / Node.js
 * **Frontend**: Vanilla JavaScript / CSS3

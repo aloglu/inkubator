@@ -47,7 +47,7 @@ Pre-compiled binaries for supported operating systems are available via the GitH
 
 1. **Repository Initialization**:
    ```bash
-   git clone [https://github.com/aloglu/inkubator.git](https://github.com/aloglu/inkubator.git)
+   git clone https://github.com/aloglu/inkubator.git
    cd inkubator
    ```
 

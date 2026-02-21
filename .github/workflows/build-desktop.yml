@@ -152,50 +152,50 @@ jobs:
 
           mkdir -p release-assets/aur
           cat > release-assets/aur/PKGBUILD <<EOF
-pkgname=inkubator-bin
-pkgver=${VERSION}
-pkgrel=1
-pkgdesc='Local-first desktop application for managing fountain pen and ink collections.'
-arch=('x86_64')
-url='https://github.com/aloglu/inkubator'
-license=('MIT')
-depends=('gtk3' 'nss' 'libxss' 'libsecret' 'xdg-utils')
-source=("${DOWNLOAD_URL}")
-sha256sums=('${APPIMAGE_SHA256}')
+          pkgname=inkubator-bin
+          pkgver=${VERSION}
+          pkgrel=1
+          pkgdesc='Local-first desktop application for managing fountain pen and ink collections.'
+          arch=('x86_64')
+          url='https://github.com/aloglu/inkubator'
+          license=('MIT')
+          depends=('gtk3' 'nss' 'libxss' 'libsecret' 'xdg-utils')
+          source=("${DOWNLOAD_URL}")
+          sha256sums=('${APPIMAGE_SHA256}')
 
-package() {
-  install -Dm755 "\${srcdir}/${APPIMAGE_FILE}" "\${pkgdir}/opt/inkubator/Inkubator.AppImage"
-  install -Dm644 /dev/stdin "\${pkgdir}/usr/share/applications/inkubator.desktop" <<'DESKTOP'
-[Desktop Entry]
-Type=Application
-Name=Inkubator
-Comment=Local-first desktop application for fountain pen and ink collections
-Exec=/opt/inkubator/Inkubator.AppImage
-Icon=inkubator
-Terminal=false
-Categories=Utility;
-DESKTOP
-}
-EOF
+          package() {
+            install -Dm755 "\${srcdir}/${APPIMAGE_FILE}" "\${pkgdir}/opt/inkubator/Inkubator.AppImage"
+            install -Dm644 /dev/stdin "\${pkgdir}/usr/share/applications/inkubator.desktop" <<'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=Inkubator
+          Comment=Local-first desktop application for fountain pen and ink collections
+          Exec=/opt/inkubator/Inkubator.AppImage
+          Icon=inkubator
+          Terminal=false
+          Categories=Utility;
+          DESKTOP
+          }
+          EOF
 
           cat > release-assets/aur/.SRCINFO <<EOF
-pkgbase = inkubator-bin
-  pkgdesc = Local-first desktop application for managing fountain pen and ink collections.
-  pkgver = ${VERSION}
-  pkgrel = 1
-  url = https://github.com/aloglu/inkubator
-  arch = x86_64
-  license = MIT
-  depends = gtk3
-  depends = nss
-  depends = libxss
-  depends = libsecret
-  depends = xdg-utils
-  source = ${DOWNLOAD_URL}
-  sha256sums = ${APPIMAGE_SHA256}
+          pkgbase = inkubator-bin
+            pkgdesc = Local-first desktop application for managing fountain pen and ink collections.
+            pkgver = ${VERSION}
+            pkgrel = 1
+            url = https://github.com/aloglu/inkubator
+            arch = x86_64
+            license = MIT
+            depends = gtk3
+            depends = nss
+            depends = libxss
+            depends = libsecret
+            depends = xdg-utils
+            source = ${DOWNLOAD_URL}
+            sha256sums = ${APPIMAGE_SHA256}
 
-pkgname = inkubator-bin
-EOF
+          pkgname = inkubator-bin
+          EOF
 
       - name: Publish release assets
         uses: softprops/action-gh-release@v2

@@ -1,13 +1,16 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const fs = require('fs-extra');
 const { normalizeAppData } = require('./lib/data-schema');
 
 let mainWindow;
-const AUTO_BACKUP_MAX_FILES = 200;
+const AUTO_BACKUP_DEFAULT_MAX_FILES = 30;
+const AUTO_BACKUP_HARD_MAX_FILES = 365;
+const AUTO_BACKUP_TICK_MS = 15 * 60 * 1000;
 const APP_NAME = 'Inkubator';
 const WINDOWS_APP_USER_MODEL_ID = 'com.inkubator.app';
+let autoBackupIntervalHandle = null;
 
 if (typeof app.setName === 'function') {
   app.setName(APP_NAME);
@@ -71,6 +74,164 @@ function makeTimestamp() {
   ].join('');
 }
 
+function clampInt(value, min, max, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+function toNormalizedData(input) {
+  return normalizeAppData(input && typeof input === 'object' ? input : {});
+}
+
+function getPreferences(data) {
+  return (data && data.preferences && typeof data.preferences === 'object')
+    ? data.preferences
+    : {};
+}
+
+function getImportExportSettings(data) {
+  const prefs = getPreferences(data);
+  const raw = (prefs.import_export && typeof prefs.import_export === 'object') ? prefs.import_export : {};
+  const behavior = String(raw.conflict_behavior || 'overwrite').toLowerCase();
+  return {
+    auto_validate_import: typeof raw.auto_validate_import === 'boolean' ? raw.auto_validate_import : true,
+    conflict_behavior: ['skip', 'overwrite', 'merge'].includes(behavior) ? behavior : 'overwrite',
+    include_optional_metadata: typeof raw.include_optional_metadata === 'boolean' ? raw.include_optional_metadata : true
+  };
+}
+
+function getBackupSettings(data) {
+  const prefs = getPreferences(data);
+  const raw = (prefs.backup && typeof prefs.backup === 'object') ? prefs.backup : {};
+  const frequency = String(raw.auto_frequency || 'daily').toLowerCase();
+  return {
+    auto_frequency: ['off', 'daily', 'weekly', 'monthly'].includes(frequency) ? frequency : 'daily',
+    retention_count: clampInt(raw.retention_count, 1, AUTO_BACKUP_HARD_MAX_FILES, AUTO_BACKUP_DEFAULT_MAX_FILES),
+    include_images: typeof raw.include_images === 'boolean' ? raw.include_images : false
+  };
+}
+
+function getBackupFrequencyMs(frequency) {
+  if (frequency === 'daily') return 24 * 60 * 60 * 1000;
+  if (frequency === 'weekly') return 7 * 24 * 60 * 60 * 1000;
+  if (frequency === 'monthly') return 30 * 24 * 60 * 60 * 1000;
+  return null;
+}
+
+function shouldValidateImportData(data) {
+  if (!data || typeof data !== 'object') return false;
+  return Array.isArray(data.pens)
+    && Array.isArray(data.inks)
+    && (!Object.prototype.hasOwnProperty.call(data, 'swatches') || Array.isArray(data.swatches))
+    && Array.isArray(data.currently_inked)
+    && Array.isArray(data.activity_log);
+}
+
+function sanitizeDataForExport(data, includeOptionalMetadata = true) {
+  const normalized = toNormalizedData(data);
+  if (includeOptionalMetadata) return normalized;
+
+  const cloned = JSON.parse(JSON.stringify(normalized));
+  if (Array.isArray(cloned.activity_log)) {
+    cloned.activity_log = cloned.activity_log.map((entry) => {
+      if (!entry || typeof entry !== 'object') return entry;
+      const next = { ...entry };
+      delete next.metadata;
+      return next;
+    });
+  }
+  return cloned;
+}
+
+function mergeById(existingArr = [], incomingArr = [], behavior = 'overwrite') {
+  const existing = Array.isArray(existingArr) ? existingArr : [];
+  const incoming = Array.isArray(incomingArr) ? incomingArr : [];
+  const byId = new Map();
+
+  existing.forEach((item) => {
+    const key = item && item.id;
+    if (typeof key === 'string' && key) byId.set(key, item);
+  });
+
+  if (behavior === 'skip') {
+    const out = [...existing];
+    const seen = new Set(existing.map(i => i && i.id).filter(Boolean));
+    incoming.forEach((item) => {
+      const key = item && item.id;
+      if (typeof key === 'string' && key && !seen.has(key)) {
+        out.push(item);
+        seen.add(key);
+      } else if (!key) {
+        out.push(item);
+      }
+    });
+    return out;
+  }
+
+  if (behavior === 'merge') {
+    incoming.forEach((item) => {
+      const key = item && item.id;
+      if (typeof key === 'string' && key) {
+        const prev = byId.get(key);
+        if (prev && typeof prev === 'object' && typeof item === 'object') {
+          byId.set(key, { ...prev, ...item });
+        } else {
+          byId.set(key, item);
+        }
+      }
+    });
+    const out = [];
+    const inserted = new Set();
+    existing.forEach((item) => {
+      const key = item && item.id;
+      if (typeof key === 'string' && key) {
+        out.push(byId.get(key));
+        inserted.add(key);
+      } else {
+        out.push(item);
+      }
+    });
+    incoming.forEach((item) => {
+      const key = item && item.id;
+      if (typeof key === 'string' && key && !inserted.has(key)) {
+        out.push(byId.get(key));
+        inserted.add(key);
+      } else if (!key) {
+        out.push(item);
+      }
+    });
+    return out;
+  }
+
+  // overwrite
+  incoming.forEach((item) => {
+    const key = item && item.id;
+    if (typeof key === 'string' && key) byId.set(key, item);
+  });
+  const out = [];
+  const inserted = new Set();
+  existing.forEach((item) => {
+    const key = item && item.id;
+    if (typeof key === 'string' && key) {
+      out.push(byId.get(key));
+      inserted.add(key);
+    } else {
+      out.push(item);
+    }
+  });
+  incoming.forEach((item) => {
+    const key = item && item.id;
+    if (typeof key === 'string' && key && !inserted.has(key)) {
+      out.push(item);
+      inserted.add(key);
+    } else if (!key) {
+      out.push(item);
+    }
+  });
+  return out;
+}
+
 async function ensureBackupDirs() {
   const paths = getBackupPaths();
   await fs.ensureDir(paths.auto);
@@ -78,62 +239,127 @@ async function ensureBackupDirs() {
   return paths;
 }
 
-async function pruneAutoBackups() {
+async function listAutoBackupEntries() {
   const paths = await ensureBackupDirs();
   const entries = await fs.readdir(paths.auto);
-  const files = [];
-  for (const entry of entries) {
-    const full = path.join(paths.auto, entry);
-    const stat = await fs.stat(full);
-    if (stat.isFile()) {
-      files.push({ full, mtimeMs: stat.mtimeMs });
-    }
-  }
-  files.sort((a, b) => b.mtimeMs - a.mtimeMs);
-  const toDelete = files.slice(AUTO_BACKUP_MAX_FILES);
+  const stats = await Promise.all(
+    entries.map(async (entry) => {
+      const full = path.join(paths.auto, entry);
+      const stat = await fs.stat(full).catch(() => null);
+      if (!stat) return null;
+      return { name: entry, full, mtimeMs: stat.mtimeMs, isDirectory: stat.isDirectory() };
+    })
+  );
+  const items = stats.filter(Boolean);
+  items.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return items;
+}
+
+async function pruneAutoBackups(maxFiles = AUTO_BACKUP_DEFAULT_MAX_FILES) {
+  const files = await listAutoBackupEntries();
+  const limit = clampInt(maxFiles, 1, AUTO_BACKUP_HARD_MAX_FILES, AUTO_BACKUP_DEFAULT_MAX_FILES);
+  const toDelete = files.slice(limit);
   await Promise.all(toDelete.map(f => fs.remove(f.full)));
 }
 
-async function createAutoBackupSnapshot(data, reason = 'save') {
+async function getLatestAutoBackupEntry() {
+  const files = await listAutoBackupEntries();
+  return files[0] || null;
+}
+
+async function createAutoBackupSnapshot(data, reason = 'save', options = {}) {
+  const normalized = toNormalizedData(data);
+  const backupSettings = getBackupSettings(normalized);
+  const frequencyMs = getBackupFrequencyMs(backupSettings.auto_frequency);
+  const force = !!options.force;
+  if (!force && !frequencyMs) {
+    return null;
+  }
+
+  if (!force && frequencyMs) {
+    const latest = await getLatestAutoBackupEntry();
+    if (latest && (Date.now() - latest.mtimeMs) < frequencyMs) {
+      return null;
+    }
+  }
+
   const paths = await ensureBackupDirs();
-  const payload = {
-    meta: {
-      created_at: new Date().toISOString(),
-      reason
-    },
-    data: normalizeAppData(data)
-  };
-  const backupPath = path.join(paths.auto, `auto-${makeTimestamp()}.json`);
-  await fs.writeJson(backupPath, payload, { spaces: 2 });
-  await pruneAutoBackups();
+  const backupPath = path.join(paths.auto, `auto-${makeTimestamp()}`);
+  // Backups are always full-fidelity: keep all metadata/settings.
+  const exportData = sanitizeDataForExport(normalized, true);
+  await fs.ensureDir(backupPath);
+  await fs.writeJson(path.join(backupPath, 'data.json'), exportData, { spaces: 2 });
+  // Automated backups always include images for complete disaster recovery.
+  if (await fs.pathExists(getImagesPath())) {
+    await fs.copy(getImagesPath(), path.join(backupPath, 'images'), { overwrite: true });
+  }
+  await fs.writeJson(path.join(backupPath, 'manifest.json'), {
+    type: 'inkubator-auto-backup',
+    version: 2,
+    created_at: new Date().toISOString(),
+    reason,
+    include_images: true,
+    include_optional_metadata: true,
+    auto_frequency: backupSettings.auto_frequency,
+    retention_count: backupSettings.retention_count
+  }, { spaces: 2 });
+  await pruneAutoBackups(backupSettings.retention_count);
   return backupPath;
 }
 
+async function enforceAutoBackupRetention(data) {
+  const normalized = toNormalizedData(data);
+  const backupSettings = getBackupSettings(normalized);
+  await pruneAutoBackups(backupSettings.retention_count);
+}
+
 async function getAutoBackupStatus() {
-  const paths = await ensureBackupDirs();
-  const entries = await fs.readdir(paths.auto);
-  const files = [];
-  for (const entry of entries) {
-    const full = path.join(paths.auto, entry);
-    const stat = await fs.stat(full);
-    if (stat.isFile()) {
-      files.push({ name: entry, full, mtimeMs: stat.mtimeMs });
+  const files = await listAutoBackupEntries();
+  const latest = files[0] || null;
+  let latestManifest = null;
+  if (latest && latest.isDirectory) {
+    const manifestPath = path.join(latest.full, 'manifest.json');
+    if (await fs.pathExists(manifestPath)) {
+      latestManifest = await fs.readJson(manifestPath).catch(() => null);
     }
   }
-  files.sort((a, b) => b.mtimeMs - a.mtimeMs);
-  const latest = files[0] || null;
   return {
     success: true,
     count: files.length,
     latest: latest ? {
       name: latest.name,
       path: latest.full,
-      updated_at: new Date(latest.mtimeMs).toISOString()
+      updated_at: new Date(latest.mtimeMs).toISOString(),
+      include_images: latestManifest ? !!latestManifest.include_images : false,
+      reason: latestManifest ? latestManifest.reason || '' : ''
     } : null
   };
 }
 
+async function runScheduledAutoBackupTick() {
+  try {
+    const dataPath = getDataPath();
+    if (!(await fs.pathExists(dataPath))) return;
+    const raw = await fs.readJson(dataPath);
+    await createAutoBackupSnapshot(raw, 'scheduled');
+  } catch (error) {
+    console.error('Scheduled auto-backup tick failed:', error);
+  }
+}
+
+function startAutoBackupScheduler() {
+  if (autoBackupIntervalHandle) {
+    clearInterval(autoBackupIntervalHandle);
+  }
+  autoBackupIntervalHandle = setInterval(() => {
+    runScheduledAutoBackupTick().catch((error) => {
+      console.error('Auto-backup interval failure:', error);
+    });
+  }, AUTO_BACKUP_TICK_MS);
+}
+
 async function createManualBackup(targetFolder) {
+  await ensureAppStorage();
   const folder = path.join(targetFolder, `inkubator-backup-${makeTimestamp()}`);
   await fs.ensureDir(folder);
   const dataPath = getDataPath();
@@ -141,44 +367,82 @@ async function createManualBackup(targetFolder) {
   const backupDataPath = path.join(folder, 'data.json');
   const backupImagesPath = path.join(folder, 'images');
   const rawData = await fs.readJson(dataPath);
-  await fs.writeJson(backupDataPath, normalizeAppData(rawData), { spaces: 2 });
+  const normalized = toNormalizedData(rawData);
+  // Backups are always full-fidelity: keep all metadata/settings.
+  const exportData = sanitizeDataForExport(normalized, true);
+  await fs.writeJson(backupDataPath, exportData, { spaces: 2 });
   if (await fs.pathExists(imagesPath)) {
     await fs.copy(imagesPath, backupImagesPath, { overwrite: true });
   }
   await fs.writeJson(path.join(folder, 'manifest.json'), {
     type: 'inkubator-backup',
-    version: 1,
+    version: 2,
     created_at: new Date().toISOString(),
-    includes_images: await fs.pathExists(backupImagesPath)
+    includes_images: await fs.pathExists(backupImagesPath),
+    include_optional_metadata: true
   }, { spaces: 2 });
   return folder;
 }
 
-async function importManualBackup(backupFolder) {
+async function importManualBackup(backupFolder, options = {}) {
+  await ensureAppStorage();
   const backupDataPath = path.join(backupFolder, 'data.json');
   if (!(await fs.pathExists(backupDataPath))) {
     return { success: false, message: 'Selected folder is not a valid backup (missing data.json).' };
   }
 
-  const raw = await fs.readJson(backupDataPath);
-  const normalized = normalizeAppData(raw);
+  const incomingRaw = await fs.readJson(backupDataPath);
+  const incomingNormalized = toNormalizedData(incomingRaw);
+  const currentData = await readNormalizedDataIfExists(getDataPath()) || toNormalizedData({});
+  const importSettings = getImportExportSettings(currentData);
+  const conflictBehavior = options.conflict_behavior || importSettings.conflict_behavior || 'overwrite';
+  const validateImport = typeof options.auto_validate_import === 'boolean'
+    ? options.auto_validate_import
+    : importSettings.auto_validate_import;
+
+  if (validateImport && !shouldValidateImportData(incomingRaw)) {
+    return { success: false, message: 'Import validation failed: invalid data shape.' };
+  }
+
+  let merged;
+  if (conflictBehavior === 'overwrite') {
+    merged = incomingNormalized;
+  } else {
+    merged = toNormalizedData({
+      ...currentData,
+      pens: mergeById(currentData.pens, incomingNormalized.pens, conflictBehavior),
+      inks: mergeById(currentData.inks, incomingNormalized.inks, conflictBehavior),
+      swatches: mergeById(currentData.swatches, incomingNormalized.swatches, conflictBehavior),
+      currently_inked: mergeById(currentData.currently_inked, incomingNormalized.currently_inked, conflictBehavior),
+      activity_log: mergeById(currentData.activity_log, incomingNormalized.activity_log, conflictBehavior),
+      preferences: conflictBehavior === 'merge'
+        ? { ...(currentData.preferences || {}), ...(incomingNormalized.preferences || {}) }
+        : (currentData.preferences || {})
+    });
+  }
 
   // Safety snapshot before restore.
   if (await fs.pathExists(getDataPath())) {
     const existing = await fs.readJson(getDataPath());
-    await createAutoBackupSnapshot(existing, 'pre-import-restore');
+    await createAutoBackupSnapshot(existing, 'pre-import-restore', { force: true });
   }
 
-  await fs.writeJson(getDataPath(), normalized, { spaces: 2 });
+  await fs.writeJson(getDataPath(), merged, { spaces: 2 });
 
   const backupImagesPath = path.join(backupFolder, 'images');
   if (await fs.pathExists(backupImagesPath)) {
-    await fs.remove(getImagesPath());
-    await fs.copy(backupImagesPath, getImagesPath(), { overwrite: true });
+    if (conflictBehavior === 'overwrite') {
+      await fs.remove(getImagesPath());
+      await fs.copy(backupImagesPath, getImagesPath(), { overwrite: true });
+    } else if (conflictBehavior === 'skip') {
+      await fs.copy(backupImagesPath, getImagesPath(), { overwrite: false, errorOnExist: false });
+    } else {
+      await fs.copy(backupImagesPath, getImagesPath(), { overwrite: true });
+    }
   }
 
-  await createAutoBackupSnapshot(normalized, 'post-import-restore');
-  return { success: true, data: normalized };
+  await createAutoBackupSnapshot(merged, 'post-import-restore', { force: true });
+  return { success: true, data: merged };
 }
 
 async function exportShowcaseBundle(targetFolder) {
@@ -228,24 +492,22 @@ async function exportShowcaseBundle(targetFolder) {
     });
   }
 
+  let showcaseData;
   if (await fs.pathExists(dataPath)) {
     const raw = await fs.readJson(dataPath);
-    const normalized = normalizeAppData(raw);
-    await fs.writeJson(path.join(showcaseRoot, 'data.json'), normalized, { spaces: 2 });
-    await fs.writeFile(
-      path.join(showcaseRoot, 'data.js'),
-      `window.__INKUBATOR_DATA__ = ${JSON.stringify(normalized)};\n`,
-      'utf8'
-    );
+    const normalized = toNormalizedData(raw);
+    const exportSettings = getImportExportSettings(normalized);
+    showcaseData = sanitizeDataForExport(normalized, exportSettings.include_optional_metadata);
   } else {
-    const empty = normalizeAppData({ pens: [], inks: [], currently_inked: [] });
-    await fs.writeJson(path.join(showcaseRoot, 'data.json'), empty, { spaces: 2 });
-    await fs.writeFile(
-      path.join(showcaseRoot, 'data.js'),
-      `window.__INKUBATOR_DATA__ = ${JSON.stringify(empty)};\n`,
-      'utf8'
-    );
+    showcaseData = normalizeAppData({ pens: [], inks: [], currently_inked: [] });
   }
+
+  await fs.writeJson(path.join(showcaseRoot, 'data.json'), showcaseData, { spaces: 2 });
+  await fs.writeFile(
+    path.join(showcaseRoot, 'data.js'),
+    `window.__INKUBATOR_DATA__ = ${JSON.stringify(showcaseData)};\n`,
+    'utf8'
+  );
 
   if (await fs.pathExists(imagesPath)) {
     await fs.copy(imagesPath, path.join(showcaseRoot, 'images'), {
@@ -264,7 +526,20 @@ async function exportShowcaseBundle(targetFolder) {
         '<script src="renderer.js"></script>',
         '    <script src="data.js"></script>\n    <script src="renderer.js"></script>'
       );
-      await fs.writeFile(showcaseIndexPath, html, 'utf8');
+    }
+    await fs.writeFile(showcaseIndexPath, html, 'utf8');
+
+    // Route entry files for static hosts without rewrite rules:
+    // /inks, /pens, /swatches, etc. resolve to their own index.html and still load shared assets.
+    const routeNames = ['dashboard', 'pens', 'inks', 'swatches', 'stats', 'activity', 'settings'];
+    const headMatch = html.match(/<head[^>]*>/i);
+    const routeHtml = headMatch
+      ? html.replace(headMatch[0], `${headMatch[0]}\n    <base href="../">`)
+      : html;
+    for (const routeName of routeNames) {
+      const routeDir = path.join(showcaseRoot, routeName);
+      await fs.ensureDir(routeDir);
+      await fs.writeFile(path.join(routeDir, 'index.html'), routeHtml, 'utf8');
     }
   }
 
@@ -342,11 +617,14 @@ function createWindow() {
     width: 1200,
     height: 800,
     icon: getBundledWindowIconPath(),
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     }
   });
 
+  Menu.setApplicationMenu(null);
+  mainWindow.setMenuBarVisibility(false);
   mainWindow.loadFile('index.html');
   // mainWindow.webContents.openDevTools(); // Uncomment for debugging
 }
@@ -399,6 +677,18 @@ app.whenReady().then(async () => {
   ensureBackupDirs().catch((error) => {
     console.error("Failed to initialize backup directories:", error);
   });
+  readNormalizedDataIfExists(getDataPath())
+    .then((data) => {
+      if (data) return enforceAutoBackupRetention(data);
+      return null;
+    })
+    .catch((error) => {
+      console.error("Failed to enforce backup retention at startup:", error);
+    });
+  startAutoBackupScheduler();
+  runScheduledAutoBackupTick().catch((error) => {
+    console.error("Initial scheduled auto-backup failed:", error);
+  });
   createWindow();
 
   app.on('activate', () => {
@@ -409,6 +699,10 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  if (autoBackupIntervalHandle) {
+    clearInterval(autoBackupIntervalHandle);
+    autoBackupIntervalHandle = null;
+  }
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -483,6 +777,33 @@ function buildInkFilename(metadata = {}) {
   const brand = slugify(metadata.brand || 'unknown');
   const model = slugify(metadata.model || 'ink');
   return `${brand}-${model}.webp`;
+}
+
+function buildUniqueSwatchFilename(metadata = {}) {
+  const brand = slugify(metadata.brand || 'unknown');
+  const model = slugify(metadata.model || 'swatch');
+  const stamp = Date.now();
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `${brand}-${model}-${stamp}-${rand}.webp`;
+}
+
+async function buildNextInkFilename(imagesDir, metadata = {}) {
+  const baseFilename = buildInkFilename(metadata);
+  const parsed = path.parse(baseFilename);
+  let candidate = path.join(imagesDir, baseFilename);
+  if (!(await fs.pathExists(candidate))) {
+    return baseFilename;
+  }
+
+  let i = 2;
+  while (true) {
+    const numberedName = `${parsed.name}-${i}${parsed.ext}`;
+    candidate = path.join(imagesDir, numberedName);
+    if (!(await fs.pathExists(candidate))) {
+      return numberedName;
+    }
+    i += 1;
+  }
 }
 
 async function resolveUniquePath(destPath) {
@@ -872,7 +1193,7 @@ ipcMain.handle('load-data', async () => {
   try {
     await ensureAppStorage();
     const dataPath = getDataPath();
-    if (!fs.existsSync(dataPath)) {
+    if (!(await fs.pathExists(dataPath))) {
       // Create empty if missing
       const initialData = normalizeAppData({ pens: [], inks: [], currently_inked: [] });
       await fs.writeJson(dataPath, initialData);
@@ -897,6 +1218,7 @@ ipcMain.handle('save-data', async (event, newData) => {
     const dataPath = getDataPath();
     const normalized = normalizeAppData(newData);
     await fs.writeJson(dataPath, normalized, { spaces: 2 });
+    await enforceAutoBackupRetention(normalized);
     await createAutoBackupSnapshot(normalized, 'save-data');
     return { success: true };
   } catch (err) {
@@ -916,8 +1238,10 @@ ipcMain.handle('save-image', async (event, sourcePath, type, metadata) => {
     let filename = '';
     if (type === 'pen') {
       filename = await buildNextPenFilename(imagesDir, metadata);
+    } else if (type === 'swatch') {
+      filename = buildUniqueSwatchFilename(metadata);
     } else {
-      filename = buildInkFilename(metadata);
+      filename = await buildNextInkFilename(imagesDir, metadata);
     }
 
     const destPath = path.join(imagesDir, filename);
@@ -1044,7 +1368,7 @@ ipcMain.handle('backup:export', async () => {
 });
 
 // 5c. Manual backup import (restore data and optional images)
-ipcMain.handle('backup:import', async () => {
+ipcMain.handle('backup:import', async (event, importOptions = {}) => {
   try {
     const target = BrowserWindow.getFocusedWindow() || mainWindow;
     const { canceled, filePaths } = await dialog.showOpenDialog(target, {
@@ -1054,7 +1378,7 @@ ipcMain.handle('backup:import', async () => {
     if (canceled || !filePaths || filePaths.length === 0) {
       return { success: false, canceled: true };
     }
-    return await importManualBackup(filePaths[0]);
+    return await importManualBackup(filePaths[0], importOptions || {});
   } catch (error) {
     console.error("Backup Import Error:", error);
     return { success: false, message: error.message };
@@ -1069,6 +1393,13 @@ ipcMain.handle('showcase:export', async () => {
       title: 'Choose destination for showcase folder',
       properties: ['openDirectory', 'createDirectory']
     });
+    if (target && !target.isDestroyed()) {
+      target.show();
+      target.focus();
+      if (target.webContents && !target.webContents.isDestroyed()) {
+        target.webContents.focus();
+      }
+    }
     if (canceled || !filePaths || filePaths.length === 0) {
       return { success: false, canceled: true };
     }
@@ -1107,7 +1438,12 @@ ipcMain.handle('focus-window', async () => {
     const focused = BrowserWindow.getFocusedWindow();
     const target = focused || mainWindow;
     if (target && !target.isDestroyed()) {
+      if (target.isMinimized()) target.restore();
+      target.show();
       target.focus();
+      if (target.webContents && !target.webContents.isDestroyed()) {
+        target.webContents.focus();
+      }
       return { success: true };
     }
     return { success: false, message: 'No active window to focus.' };
@@ -1193,8 +1529,10 @@ ipcMain.handle('save-image-url', async (event, url, type, metadata) => {
     let filename = '';
     if (type === 'pen') {
       filename = await buildNextPenFilename(imagesDir, metadata);
+    } else if (type === 'swatch') {
+      filename = buildUniqueSwatchFilename(metadata);
     } else {
-      filename = buildInkFilename(metadata);
+      filename = await buildNextInkFilename(imagesDir, metadata);
     }
 
     const destPath = path.join(imagesDir, filename);

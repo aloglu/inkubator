@@ -1,71 +1,64 @@
 ﻿# Inkubator
 
-Inkubator is a local-first application for tracking fountain pens, inks, and swatches. Use it to organize your collection, manage currently inked pairings, and generate a static website to showcase your collection.
+Inkubator is a local-first desktop application for the management and cataloging of fountain pen and ink collections. It provides a centralized interface for tracking hardware specifications, ink usage history, and generating static web-based showcases from local datasets.
 
-You can view a live demonstration of the generated showcase at [alog.lu/inkubator](https://alog.lu/inkubator).
+[Live Showcase Demonstration](https://alog.lu/inkubator) | [Latest Releases](https://github.com/aloglu/inkubator/releases)
 
 ## Features
 
 ### Collection Management
-*   **Detailed Cataloging**: Track details like nib material, size, nib type, filling system, and more.
-*   **Pen Status**: See at a glance which pens are currently inked or resting.
-*   **Ink Characteristics**: Log shading, sheen, shimmer, flow, dry time, and more.
-*   **Local Storage**: All data is stored locally in `data.json`.
+* **Hardware Cataloging**: Detailed fields for nib material, tip size, nib type (e.g., flex, italic), filling systems, and manufacturer specifications.
+* **Status Tracking**: Real-time monitoring of pen states, distinguishing between active (Inked) and storage (Cleaned/Resting) status.
+* **Ink Performance Logging**: Standardized tracking for shading, sheen, shimmer, flow rate, and dry times.
+* **Local Persistence**: All data is stored in a structured `data.json` file. The application operates without external cloud dependencies or mandatory account creation.
 
-### Automatic Color Extraction
-*   **Color Detection**: Uses a local model to identify pens in photos and extract dominant colors.
-*   **Palette Generation**: Creates a color palette for your items automatically. You can edit the palette manually.
+### Swatch & Activity Tracking
+* **Relational Mapping**: Support for multiple independent swatches per ink record.
+* **Metadata Granularity**: Filter swatches by lighting conditions, nib used, and paper type with dynamic visibility for empty datasets.
+* **Audit Log**: An automated activity log tracks additions, modifications, and inking history. This log can be selectively included in public exports.
 
-### Pairing and History
-*   **Currently Inked**: A dashboard for your active pen and ink combinations.
-*   **Swatches**: Attach swatch photos to inks with details on paper and lighting, either automatically or manually.
-*   **Activity Log**: Track key collection actions (adding/editing/deleting pens, inks, swatches, inking changes) with optional visibility in the public showcase.
+### Computer Vision & Color Processing
+* **Automated Extraction**: Utilizes a local ONNX model (U2Net) to isolate items in photographs and extract dominant hex color codes.
+* **Palette Management**: Automatic generation of color palettes for inks and pens with manual override capabilities for precise color matching.
 
-### Public Showcase
-*   **Static Website**: Export your collection as a responsive, read-only website.
-*   **Navigation**: Optimized for both desktop and mobile browsing.
+## Data Integrity & Portability
+* **Automated Backups**: Inkubator performs scheduled snapshots of both the JSON database and the image repository for disaster recovery.
+* **Full Archive Export**: A manual Export/Import feature allows for complete library migration between devices by bundling data and media into a single portable archive.
 
-> [!IMPORTANT]
-> You can now use **Export Showcase Folder** in the app to generate a ready-to-upload `showcase/` directory.
-> Upload the contents of that generated `showcase/` folder to your static hosting provider.
+### Static Site Generation (SSG)
+* **Showcase Export**: The application generates a responsive, read-only static website from the local database.
+* **Deployment**: The `showcase/` directory is portable and compatible with any static hosting provider (e.g., GitHub Pages, Vercel, S3).
 
-### Backups and Portability
-*   **Automated Backups (Data Only)**: Keeps up to 200 automatic snapshots of normalized collection data.
-*   **Full Backup Export/Import (Data + Images)**: Use manual export/import when you need complete portability including image files.
+## Technical Stack
+
+* **Core Runtime**: Electron / Node.js
+* **Frontend**: Vanilla JavaScript / CSS3
+* **Image Processing**: Sharp (WebP optimization, metadata-aware rotation)
+* **ML Inference**: ONNX Runtime
+* **Filesystem**: `fs-extra` for persistent JSON storage
 
 ## Getting Started
 
-### Standalone Installation
-The simplest way to use Inkubator is to download the pre-compiled binaries for your operating system from the [Releases](https://github.com/aloglu/inkubator/releases) page.
+### Binary Execution
+Pre-compiled binaries for supported operating systems are available via the GitHub [Releases](https://github.com/aloglu/inkubator/releases) page.
 
-### Development and Building from Source
-Follow these steps if you intend to modify the codebase or build the application manually.
+### Source Build & Development
+**Prerequisites**: Node.js (v18.0.0+) and npm (v9.0.0+).
 
-**Prerequisites**
-Access to the following tools is required for the development environment:
-*   **Node.js**: v18.0.0 or higher
-*   **npm**: v9.0.0 or higher
+1. **Repository Initialization**:
+   ```bash
+   git clone [https://github.com/aloglu/inkubator.git](https://github.com/aloglu/inkubator.git)
+   cd inkubator
+   ```
 
-**Setup**
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/aloglu/inkubator.git
-    cd inkubator
-    ```
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
+2. **Dependency Installation**:
+   ```bash
+   npm install
+   ```
 
-**Execution Commands**
-*   **Management Mode (Desktop)**: `npm start` (Runs the Electron application for library management).
-*   **Showcase Mode (Web Preview)**: `npm run showcase` (Serves the static collection for browser previewing).
-
-## Technical Stack
-- **Core**: Electron, Vanilla JavaScript, CSS3 (Glassmorphism UI)
-- **AI/ML**: ONNX Runtime (U2Net Model)
-- **Graphics**: Sharp (WebP optimization & rotation handling)
-- **Data**: Local JSON with `fs-extra` persistence
+3. **CLI Commands**:
+   * `npm start`: Initialize the Electron management interface.
+   * `npm run showcase`: Launch a local development server for the static showcase.
 
 ## License
-Released under the [MIT License](https://github.com/aloglu/inkubator/blob/main/LICENSE).
+This project is licensed under the [MIT License](https://github.com/aloglu/inkubator/blob/main/LICENSE).

@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getImagesBaseUrl: () => ipcRenderer.invoke('images:base-url'),
     backupStatus: () => ipcRenderer.invoke('backup:status'),
     exportBackup: () => ipcRenderer.invoke('backup:export'),
-    importBackup: () => ipcRenderer.invoke('backup:import'),
+    importBackup: (options) => ipcRenderer.invoke('backup:import', options),
     exportShowcase: () => ipcRenderer.invoke('showcase:export'),
     confirmDialog: (options) => ipcRenderer.invoke('dialog:confirm', options),
     focusWindow: () => ipcRenderer.invoke('focus-window'),

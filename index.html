@@ -24,7 +24,7 @@
         <aside class="sidebar glass-panel">
             <div class="logo">
                 <img class="logo-mark" src="assets/icons/ink-drop-white-icon-sidebar.png" alt="Inkubator icon">
-                <span class="logo-text">Inkubator</span>
+                <span class="logo-text" id="app-logo-title">Inkubator</span>
             </div>
 
             <nav class="ink-nav-list">
@@ -45,6 +45,14 @@
                     <span>Swatches</span>
                 </a>
                 <div class="nav-divider" id="nav-activity-divider" aria-hidden="true"></div>
+                <a href="#" class="nav-item" id="nav-stats">
+                    <i class="ph ph-chart-line-up"></i>
+                    <span>Stats</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-settings">
+                    <i class="ph ph-sliders-horizontal"></i>
+                    <span>Settings</span>
+                </a>
                 <a href="#" class="nav-item" id="nav-activity">
                     <i class="ph ph-list-bullets"></i>
                     <span>Activity Log</span>
@@ -61,29 +69,6 @@
                     <div class="header-text">
                         <h1>Dashboard</h1>
                     </div>
-                    <div id="backup-actions" class="backup-actions">
-                        <div class="backup-meta">
-                            <span id="backup-status" class="backup-status-text">Checking automated backups...</span>
-                            <span class="backup-meta-note">Automated backups exclude images. Use Export Full Backup for a complete backup.</span>
-                        </div>
-                        <div class="backup-actions-divider" aria-hidden="true"></div>
-                        <div class="backup-buttons">
-                        <button class="btn-glass" id="btn-export-backup"
-                            title="Create a full backup with data and images. Best before migration or sharing.">
-                            <span>Export Full Backup</span>
-                        </button>
-                        <button class="btn-glass" id="btn-import-backup"
-                            title="Restore data and images from a previously exported full backup.">
-                            <span>Import Full Backup</span>
-                        </button>
-                        <div class="backup-buttons-divider" aria-hidden="true"></div>
-                        <button class="btn-glass" id="btn-export-showcase"
-                            title="Create a showcase/ folder ready for static hosting upload.">
-                            <span>Export Showcase Folder</span>
-                        </button>
-                        </div>
-                    </div>
-
                 </header>
 
                 <!-- Stats/Highlights -->
@@ -111,7 +96,7 @@
                     </div>
                 </section>
 
-                <!-- Currently Inked Section -->
+<!-- Currently Inked Section -->
                 <section class="section-container">
                     <div class="section-header">
                         <h2 id="currently-inked-summary"><span style="font-weight: 800;">0</span> pens are currently inked</h2>
@@ -174,7 +159,341 @@
                 </section>
             </div>
 
-            <!-- PENS VIEW (Hidden by default) -->
+            <div id="view-stats" style="display: none;">
+                <header>
+                    <div class="header-text">
+                        <h1>Stats</h1>
+                    </div>
+                </header>
+
+                <section class="section-container">
+                    <div class="stats-page-grid">
+                        <section class="stats-page-panel glass-panel" id="collection-insights-card">
+                            <h3><i class="ph ph-lightbulb"></i> Collection Insights</h3>
+                            <div id="collection-insights-list"></div>
+                        </section>
+                        <section class="stats-page-panel glass-panel" id="collection-charts-card">
+                            <h3><i class="ph ph-chart-line-up"></i><span class="chart-heading-title">Collection Charts</span></h3>
+                            <div class="chart-grid chart-grid-main">
+                                <div class="chart-block"><h4>Top Pen Brands</h4><div id="chart-top-pen-brands"></div></div>
+                                <div class="chart-block"><h4>Top Ink Brands</h4><div id="chart-top-ink-brands"></div></div>
+                                <div class="chart-block"><h4>Pen Color Distribution</h4><div id="chart-color-distribution"></div></div>
+                                <div class="chart-block"><h4>Ink Color Distribution</h4><div id="chart-ink-color-distribution"></div></div>
+                                <div class="chart-block"><h4>Pen Spend by Brand</h4><div id="chart-pen-spend-brands"></div></div>
+                                <div class="chart-block"><h4>Ink Spend by Brand</h4><div id="chart-ink-spend-brands"></div></div>
+                                <div class="chart-block"><h4>Activity Trend</h4><div id="chart-activity-trend"></div></div>
+                            </div>
+                        </section>
+                    </div>
+                    <section class="stats-page-panel glass-panel stats-spectrum-panel" id="collection-spectrum-card">
+                        <h3><i class="ph ph-palette"></i> Grouped Spectrum</h3>
+                        <div id="grouped-spectrum-list"></div>
+                    </section>
+                </section>
+            </div>
+
+            <!-- SETTINGS VIEW -->
+            <div id="view-settings" style="display: none;">
+                <header>
+                    <div class="header-text">
+                        <h1>Settings</h1>
+                    </div>
+                </header>
+
+<section class="section-container">
+                    <div class="settings-shell glass-panel">
+                        <div class="settings-layout">
+                            <div class="settings-column settings-column-main">
+                                <section class="settings-card settings-card-display">
+                                    <h4 class="settings-title">Display</h4>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="color-mode-select" data-tooltip="Choose app appearance. Auto follows your system theme.">Color Mode</label>
+                                        <select id="color-mode-select" class="activity-select">
+                                            <option value="light">Light</option>
+                                            <option value="dark">Dark</option>
+                                            <option value="auto" selected>Auto</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-toggle-group">
+                                        <label class="activity-pref-toggle" for="toggle-open-cards-edit-mode" data-tooltip="In admin mode, opening a card goes straight to the edit panel. Turn this off to open the showcase-style detail view instead.">
+                                            <input type="checkbox" id="toggle-open-cards-edit-mode" checked>
+                                            <span>Open cards in edit mode</span>
+                                        </label>
+                                    </div>
+                                </section>
+
+                                <section class="settings-card settings-card-showcase">
+                                    <h4 class="settings-title">Showcase Website</h4>
+                                    <div class="settings-input-group">
+                                        <label for="showcase-title-input" data-tooltip="Displayed as the main title on your generated showcase website.">Title</label>
+                                        <input type="text" id="showcase-title-input" class="settings-text-input" placeholder="Inkubator" value="Inkubator">
+                                    </div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="showcase-color-mode-select" data-tooltip="Choose appearance for the showcase website only. Auto follows the visitor's system theme.">Color Mode</label>
+                                        <select id="showcase-color-mode-select" class="activity-select">
+                                            <option value="light">Light</option>
+                                            <option value="dark">Dark</option>
+                                            <option value="auto" selected>Auto</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-subheader">Visibility</div>
+                                    <div class="settings-toggle-group settings-toggle-grid">
+                                        <label class="activity-pref-toggle" for="toggle-showcase-prices-visible" data-tooltip="Show or hide item prices on the showcase website.">
+                                            <input type="checkbox" id="toggle-showcase-prices-visible" checked>
+                                            <span>Show prices on showcase website</span>
+                                        </label>
+                                        <label class="activity-pref-toggle" for="toggle-showcase-pens-visible" data-tooltip="Show or hide the Pens section on the showcase website.">
+                                            <input type="checkbox" id="toggle-showcase-pens-visible" checked>
+                                            <span>Show Pens section on showcase website</span>
+                                        </label>
+                                        <label class="activity-pref-toggle" for="toggle-showcase-inks-visible" data-tooltip="Show or hide the Inks section on the showcase website.">
+                                            <input type="checkbox" id="toggle-showcase-inks-visible" checked>
+                                            <span>Show Inks section on showcase website</span>
+                                        </label>
+                                        <label class="activity-pref-toggle" for="toggle-showcase-swatches-visible" data-tooltip="Show or hide the Swatches section on the showcase website.">
+                                            <input type="checkbox" id="toggle-showcase-swatches-visible" checked>
+                                            <span>Show Swatches section on showcase website</span>
+                                        </label>
+                                        <label class="activity-pref-toggle" for="toggle-activity-visible" data-tooltip="Show or hide the full Activity Log section on the showcase website.">
+                                            <input type="checkbox" id="toggle-activity-visible" checked>
+                                            <span>Show Activity Log on showcase website</span>
+                                        </label>
+                                        <label class="activity-pref-toggle" for="toggle-recent-activity-visible" data-tooltip="Show or hide the Recent Activity panel on the showcase website.">
+                                            <input type="checkbox" id="toggle-recent-activity-visible" checked>
+                                            <span>Show Recent Activity on showcase website</span>
+                                        </label>
+                                        <label class="activity-pref-toggle" for="toggle-showcase-insights-visible" data-tooltip="Show or hide summary insight cards on the showcase website.">
+                                            <input type="checkbox" id="toggle-showcase-insights-visible" checked>
+                                            <span>Show Insights cards on showcase website</span>
+                                        </label>
+                                        <label class="activity-pref-toggle" for="toggle-showcase-charts-visible" data-tooltip="Show or hide charts on the showcase website.">
+                                            <input type="checkbox" id="toggle-showcase-charts-visible" checked>
+                                            <span>Show Charts section on showcase website</span>
+                                        </label>
+                                    </div>
+                                    <div class="settings-subheader">Default Sort</div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="showcase-sort-pens-select" data-tooltip="Default sorting applied when opening the Pens showcase list.">Pens</label>
+                                        <select id="showcase-sort-pens-select" class="activity-select">
+                                            <option value="newest" selected>Newest</option>
+                                            <option value="oldest">Oldest</option>
+                                            <option value="brand-asc">Brand (A-Z)</option>
+                                            <option value="brand-desc">Brand (Z-A)</option>
+                                            <option value="model-asc">Model (A-Z)</option>
+                                            <option value="model-desc">Model (Z-A)</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="showcase-sort-inks-select" data-tooltip="Default sorting applied when opening the Inks showcase list.">Inks</label>
+                                        <select id="showcase-sort-inks-select" class="activity-select">
+                                            <option value="newest" selected>Newest</option>
+                                            <option value="oldest">Oldest</option>
+                                            <option value="brand-asc">Brand (A-Z)</option>
+                                            <option value="brand-desc">Brand (Z-A)</option>
+                                            <option value="name-asc">Name (A-Z)</option>
+                                            <option value="name-desc">Name (Z-A)</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="showcase-sort-swatches-select" data-tooltip="Default sorting applied when opening the Swatches showcase list.">Swatches</label>
+                                        <select id="showcase-sort-swatches-select" class="activity-select">
+                                            <option value="newest" selected>Newest</option>
+                                            <option value="oldest">Oldest</option>
+                                            <option value="brand-asc">Brand (A-Z)</option>
+                                            <option value="brand-desc">Brand (Z-A)</option>
+                                            <option value="name-asc">Name (A-Z)</option>
+                                            <option value="name-desc">Name (Z-A)</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-showcase-actions">
+                                        <button class="btn-glass" id="btn-export-showcase" data-tooltip="Create a showcase folder ready for static hosting upload.">
+                                            <span>Export Showcase Folder</span>
+                                        </button>
+                                    </div>
+                                </section>
+
+                                <section class="settings-card settings-card-activity">
+                                    <h4 class="settings-title">Activity Log</h4>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="activity-retention-select" data-tooltip="How much activity history is kept before automatic retention trimming applies.">Retention</label>
+                                        <div class="settings-inline-actions">
+                                            <select id="activity-retention-select" class="activity-select">
+                                                <option value="90">Last 90 days</option>
+                                                <option value="180">Last 180 days</option>
+                                                <option value="365" selected>Last 365 days</option>
+                                                <option value="0">Unlimited</option>
+                                            </select>
+                                            <button class="btn-glass danger" id="btn-clear-all-activity" data-tooltip="Permanently remove all activity log entries.">
+                                                <i class="ph ph-trash"></i>
+                                                <span>Clear All Logs</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="activity-delete-older-select" data-tooltip="Choose an age threshold, then delete entries older than that.">Delete Entries Older Than</label>
+                                        <div class="settings-inline-actions">
+                                            <select id="activity-delete-older-select" class="activity-select">
+                                                <option value="30">30 days</option>
+                                                <option value="90" selected>90 days</option>
+                                                <option value="180">180 days</option>
+                                                <option value="365">365 days</option>
+                                            </select>
+                                            <button class="btn-glass" id="btn-delete-older-activity" data-tooltip="Delete entries older than the selected time range.">
+                                                <i class="ph ph-clock-counter-clockwise"></i>
+                                                <span>Delete</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="settings-subheader">Logging</div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="activity-log-verbosity-select" data-tooltip="Control how detailed each activity entry is.">Log Verbosity</label>
+                                        <select id="activity-log-verbosity-select" class="activity-select">
+                                            <option value="minimal">Minimal</option>
+                                            <option value="normal" selected>Normal</option>
+                                            <option value="detailed">Detailed</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-toggle-group settings-toggle-grid">
+                                        <label class="activity-pref-toggle" for="toggle-log-pen-edits" data-tooltip="Include pen create/edit/update events in the activity log.">
+                                            <input type="checkbox" id="toggle-log-pen-edits" checked>
+                                            <span>Log pen edits</span>
+                                        </label>
+                                        <label class="activity-pref-toggle" for="toggle-log-ink-edits" data-tooltip="Include ink create/edit/update events in the activity log.">
+                                            <input type="checkbox" id="toggle-log-ink-edits" checked>
+                                            <span>Log ink edits</span>
+                                        </label>
+                                        <label class="activity-pref-toggle" for="toggle-log-swatch-events" data-tooltip="Include swatch creation and swatch-related updates in the activity log.">
+                                            <input type="checkbox" id="toggle-log-swatch-events" checked>
+                                            <span>Log swatch events</span>
+                                        </label>
+                                        <label class="activity-pref-toggle" for="toggle-log-delete-events" data-tooltip="Include delete actions for pens, inks, and swatches in the activity log.">
+                                            <input type="checkbox" id="toggle-log-delete-events" checked>
+                                            <span>Log delete events</span>
+                                        </label>
+                                    </div>
+                                    <div class="settings-subheader">Export Activity Log</div>
+                                    <div class="settings-showcase-actions">
+                                        <button class="btn-glass" id="btn-export-activity-csv" data-tooltip="Download the activity log as CSV for spreadsheets."><span>Export CSV</span></button>
+                                        <button class="btn-glass" id="btn-export-activity-json" data-tooltip="Download the activity log as JSON for backups or tooling."><span>Export JSON</span></button>
+                                    </div>
+                                </section>
+                            </div>
+
+                            <div class="settings-column settings-column-side">
+                                <section class="settings-card settings-card-backup">
+                                    <h4 class="settings-title">Data & Safety</h4>
+                                    <div class="settings-subheader">Safety</div>
+                                    <div class="settings-toggle-group">
+                                        <label class="activity-pref-toggle" for="toggle-confirm-destructive" data-tooltip="Show a confirmation prompt before delete/clear actions.">
+                                            <input type="checkbox" id="toggle-confirm-destructive" checked>
+                                            <span>Confirm before destructive actions</span>
+                                        </label>
+                                    </div>
+                                    <div id="backup-settings-effective" class="settings-help-text"></div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="auto-backup-frequency-select" data-tooltip="How often automated backup snapshots are created.">Auto-backup Frequency</label>
+                                        <select id="auto-backup-frequency-select" class="activity-select">
+                                            <option value="off">Off</option>
+                                            <option value="daily" selected>Daily</option>
+                                            <option value="weekly">Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="backup-retention-count-input" data-tooltip="Maximum number of automated backups to keep before older ones are removed.">Keep Last N Backups</label>
+                                        <input type="number" id="backup-retention-count-input" class="settings-text-input" min="1" max="365" value="30">
+                                    </div>
+                                    <div class="settings-subheader">Import/Export</div>
+                                    <div class="settings-toggle-group">
+                                        <label class="activity-pref-toggle" for="toggle-import-auto-validate" data-tooltip="Validate imported backup structure before applying it.">
+                                            <input type="checkbox" id="toggle-import-auto-validate" checked>
+                                            <span>Auto-validate on import</span>
+                                        </label>
+                                        <label class="activity-pref-toggle" for="toggle-export-include-metadata" data-tooltip="Include optional metadata fields in exported backup and activity files.">
+                                            <input type="checkbox" id="toggle-export-include-metadata" checked>
+                                            <span>Include optional metadata in exports</span>
+                                        </label>
+                                    </div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="import-conflict-behavior-select" data-tooltip="Decide how imports handle items that already exist by ID.">Conflict Behavior</label>
+                                        <select id="import-conflict-behavior-select" class="activity-select">
+                                            <option value="overwrite" selected>Overwrite</option>
+                                            <option value="skip">Skip</option>
+                                            <option value="merge">Merge</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-subheader">Backup Actions</div>
+                                    <div id="backup-actions" class="backup-actions">
+                                        <div class="backup-meta">
+                                            <span id="backup-status" class="backup-status-text">Checking automated backups...</span>
+                                            <span class="backup-meta-note">Automated and manual full backups both include images and all settings/data.</span>
+                                        </div>
+                                        <div class="backup-actions-divider" aria-hidden="true"></div>
+                                        <div class="backup-buttons">
+                                            <button class="btn-glass" id="btn-export-backup" data-tooltip="Create a full backup with data and images. Best before migration or sharing.">
+                                                <span>Export Full Backup</span>
+                                            </button>
+                                            <button class="btn-glass" id="btn-import-backup" data-tooltip="Restore data and images from a previously exported full backup.">
+                                                <span>Import Full Backup</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="settings-card settings-card-collection">
+                                    <h4 class="settings-title">Collection Defaults</h4>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="default-currency-select" data-tooltip="Currency used for price formatting and totals across the app and showcase.">Default Currency</label>
+                                        <select id="default-currency-select" class="activity-select">
+                                            <option value="USD" selected>USD ($)</option>
+                                            <option value="EUR">EUR (€)</option>
+                                            <option value="GBP">GBP (£)</option>
+                                            <option value="JPY">JPY (¥)</option>
+                                            <option value="TRY">TRY (₺)</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="default-date-format-select" data-tooltip="Preferred date format for displayed dates and logs.">Default Date Format</label>
+                                        <select id="default-date-format-select" class="activity-select">
+                                            <option value="system" selected>System Locale</option>
+                                            <option value="us">US (MM/DD/YYYY)</option>
+                                            <option value="eu">EU (DD/MM/YYYY)</option>
+                                            <option value="iso">ISO (YYYY-MM-DD)</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="default-pen-nib-input">Default Pen Nib</label>
+                                        <input type="text" id="default-pen-nib-input" class="settings-text-input" value="">
+                                    </div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="default-pen-nib-material-input">Default Pen Nib Material</label>
+                                        <input type="text" id="default-pen-nib-material-input" class="settings-text-input" value="">
+                                    </div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="default-pen-status-select" data-tooltip="Initial status preselected when creating a new pen.">Default Pen Status</label>
+                                        <select id="default-pen-status-select" class="activity-select">
+                                            <option value="" selected>None</option>
+                                            <option value="clean">Clean</option>
+                                            <option value="inked">Inked (first available ink)</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-inline-field">
+                                        <label class="activity-inline-label" for="default-ink-type-select" data-tooltip="Initial ink type preselected when creating a new ink entry.">Default Ink Type</label>
+                                        <select id="default-ink-type-select" class="activity-select">
+                                            <option value="" selected>None</option>
+                                            <option value="Bottle">Bottle</option>
+                                            <option value="Sample">Sample</option>
+                                            <option value="Cartridge">Cartridge</option>
+                                        </select>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+<!-- PENS VIEW (Hidden by default) -->
             <div id="view-pens" style="display: none;">
                 <header>
                     <div class="header-text">
@@ -420,54 +739,6 @@
                 </header>
 
                 <section class="section-container">
-                    <div class="activity-admin-panel glass-panel">
-                        <div class="activity-toolbar">
-                            <div class="activity-toolbar-left">
-                                <label class="activity-pref-toggle" for="toggle-activity-visible">
-                                    <input type="checkbox" id="toggle-activity-visible" checked>
-                                    <span>Show Activity Log on showcase website</span>
-                                </label>
-                                <div class="activity-toolbar-sep" aria-hidden="true"></div>
-                                <label class="activity-pref-toggle" for="toggle-recent-activity-visible">
-                                    <input type="checkbox" id="toggle-recent-activity-visible" checked>
-                                    <span>Show Recent Activity on showcase website</span>
-                                </label>
-                            </div>
-                            <div class="activity-toolbar-right">
-                                <div class="activity-inline-controls">
-                                    <span class="activity-inline-label">Retention</span>
-                                    <select id="activity-retention-select" class="activity-select">
-                                        <option value="90">Last 90 days</option>
-                                        <option value="180">Last 180 days</option>
-                                        <option value="365" selected>Last 365 days</option>
-                                        <option value="0">Unlimited</option>
-                                    </select>
-                                </div>
-                                <div class="activity-toolbar-sep" aria-hidden="true"></div>
-                                <div class="activity-inline-controls">
-                                    <span class="activity-inline-label">Delete entries older than</span>
-                                    <select id="activity-delete-older-select" class="activity-select">
-                                        <option value="30">30 days</option>
-                                        <option value="90" selected>90 days</option>
-                                        <option value="180">180 days</option>
-                                        <option value="365">365 days</option>
-                                    </select>
-                                    <button class="btn-glass" id="btn-delete-older-activity">
-                                        <i class="ph ph-clock-counter-clockwise"></i>
-                                        <span>Delete</span>
-                                    </button>
-                                </div>
-                                <div class="activity-toolbar-sep" aria-hidden="true"></div>
-                                <button class="btn-glass danger" id="btn-clear-all-activity">
-                                    <i class="ph ph-trash"></i>
-                                    <span>Clear All Logs</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="section-container">
                     <div class="activity-log-shell">
                         <button class="activity-date-icon-btn" id="activity-date-picker-toggle" title="Filter by date">
                             <i class="ph ph-calendar-blank"></i>
@@ -578,23 +849,24 @@
                             <div id="ink-cl-list-custom" class="custom-options"></div>
                         </div>
                     </div>
-                    <div class="input-group">
-                        <label>Amount</label>
-                        <input type="number" id="ink-amount-input" placeholder="e.g. 1">
+                    <div class="input-group ink-inline-fields">
+                        <div class="ink-inline-field">
+                            <label>Amount</label>
+                            <input type="number" id="ink-amount-input" placeholder="e.g. 1">
+                        </div>
+                        <div class="ink-inline-field">
+                            <label>Price ($)</label>
+                            <div class="ink-price-input-wrap">
+                                <input type="number" id="ink-price-input" placeholder="e.g. 24" step="0.01">
+                                <span class="ink-price-info" aria-label="Per bottle" tabindex="0">i</span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Row 3 -->
                     <div class="input-group span-2">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; height: 24px; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; height: 24px; margin-bottom: 8px;">
                             <label style="margin: 0 !important; line-height: 1 !important;">Ink Image</label>
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <input type="checkbox" id="ink-is-swatch-checkbox"
-                                    style="width: 14px; height: 14px; cursor: pointer; margin: 0;">
-                                <label for="ink-is-swatch-checkbox"
-                                    style="font-size: 14px; font-weight: 500; cursor: pointer; color: #666; margin: 0 !important; line-height: 1 !important;">Add
-                                    to Swatches</label>
-                            </div>
                         </div>
                         <div class="image-upload-area" id="ink-image-area">
                             <i class="ph ph-camera" style="font-size: 24px; color: #888;"></i>
@@ -767,8 +1039,7 @@
                     <!-- Row 7 -->
                     <div class="input-group full-width">
                         <label>Notes</label>
-                        <textarea id="ink-notes" placeholder="Detailed observations about this ink..."
-                            style="width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; font-family: inherit; font-size: 13px;"></textarea>
+                        <textarea id="ink-notes" placeholder="Detailed observations about this ink..."></textarea>
                     </div>
 
                     <div class="modal-footer full-width">
@@ -944,7 +1215,7 @@
     <div class="modal-overlay" id="modal-add-swatch" style="display: none;">
         <div class="modal glass-panel swatch-unified-modal">
             <div class="modal-header">
-                <h2>Add Swatch</h2>
+                <h2 id="swatch-modal-title">Add Swatch</h2>
                 <button class="btn-icon close-modal"><i class="ph ph-x"></i></button>
             </div>
             <div class="modal-body swatch-unified-body">
@@ -1028,7 +1299,27 @@
                     </div>
                     <div class="input-group">
                         <label>Date Sampled</label>
-                        <input type="date" id="swatch-date-input">
+                        <div class="swatch-date-picker-wrap">
+                            <input type="text" id="swatch-date-input" placeholder="YYYY-MM-DD" readonly>
+                            <button class="activity-date-icon-btn" id="swatch-date-picker-toggle" title="Choose date" type="button">
+                                <i class="ph ph-calendar"></i>
+                            </button>
+                            <div class="activity-calendar-popover glass-panel" id="swatch-calendar-popover">
+                                <div class="activity-calendar-head">
+                                    <button class="activity-calendar-nav-btn" id="swatch-calendar-prev" title="Previous month" type="button"><i class="ph ph-caret-left"></i></button>
+                                    <div id="swatch-calendar-month-label">Month Year</div>
+                                    <button class="activity-calendar-nav-btn" id="swatch-calendar-next" title="Next month" type="button"><i class="ph ph-caret-right"></i></button>
+                                </div>
+                                <div class="activity-calendar-weekdays">
+                                    <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                                </div>
+                                <div class="activity-calendar-grid" id="swatch-calendar-grid"></div>
+                                <div class="activity-calendar-footer">
+                                    <button class="btn-glass" id="swatch-calendar-clear" type="button">Clear</button>
+                                    <button class="btn-glass" id="swatch-calendar-today" type="button">Today</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="input-group">
                         <label>Lighting</label>
@@ -1048,14 +1339,16 @@
                         </div>
                     </div>
                     <div class="input-group swatch-notes-group">
-                        <label>Observations</label>
+                        <label>Notes</label>
                         <textarea id="swatch-notes-input" class="swatch-notes-textarea" placeholder="Notes about this swatch..."></textarea>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
+                <button class="btn-text" id="btn-delete-swatch-unified"
+                    style="color: #e74c3c; display: none; margin-right: auto;">Delete</button>
                 <span class="validation-msg" id="swatch-validation-msg"
-                    style="color: #e74c3c; font-size: 13px; font-weight: 500; margin-right: auto; display: none;"></span>
+                    style="color: #e74c3c; font-size: 13px; font-weight: 500; margin-right: 15px; display: none;"></span>
                 <button class="btn-text cancel-modal">Cancel</button>
                 <button class="btn-primary" id="btn-save-swatch-unified">Save Swatch</button>
             </div>
@@ -1114,8 +1407,7 @@
                     </div>
 
                     <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
-                        <button id="btn-delete-swatch-detail" class="btn-text"
-                            style="color: #e74c3c; display: none;">Delete Swatch</button>
+                        <button id="btn-edit-swatch-detail" class="btn-text" style="margin-right: 12px; display: none;">Edit Swatch</button>
                     </div>
                 </div>
             </div>
@@ -1184,6 +1476,10 @@
                             style="font-size: 15px; color: #555; line-height: 1.6; font-family: var(--font-body); margin: 0; padding: 0;">
                         </p>
                     </div>
+
+                    <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
+                        <button id="btn-edit-pen-detail" class="btn-text" style="display: none;">Edit Pen</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1215,3 +1511,6 @@
 </body>
 
 </html>
+
+
+

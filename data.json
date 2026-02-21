@@ -1,11 +1,60 @@
 {
   "pens": [],
   "inks": [],
+  "swatches": [],
   "currently_inked": [],
   "activity_log": [],
   "preferences": {
     "show_activity_log": true,
     "show_recent_activity": true,
-    "activity_retention_days": 365
+    "open_cards_in_edit_mode": true,
+    "activity_retention_days": 365,
+    "color_mode": "auto",
+    "confirm_destructive_actions": true,
+    "activity_log_verbosity": "normal",
+    "activity_log_filters": {
+      "pen_edits": true,
+      "ink_edits": true,
+      "swatches": true,
+      "deletes": true
+    },
+    "activity_log_categories": {
+      "pen": true,
+      "ink": true,
+      "swatch": true
+    },
+    "defaults": {
+      "currency": "USD",
+      "date_format": "system",
+      "pen_nib": "M",
+      "pen_nib_material": "Steel",
+      "pen_status": "clean",
+      "ink_type": "Bottle"
+    },
+    "import_export": {
+      "auto_validate_import": true,
+      "conflict_behavior": "overwrite",
+      "include_optional_metadata": true
+    },
+    "backup": {
+      "auto_frequency": "daily",
+      "retention_count": 30,
+      "include_images": false
+    },
+    "showcase": {
+      "title": "Inkubator",
+      "color_mode": "auto",
+      "show_prices": true,
+      "show_pens": true,
+      "show_inks": true,
+      "show_swatches": true,
+      "default_sort": {
+        "pens": "newest",
+        "inks": "newest",
+        "swatches": "newest"
+      },
+      "show_insights": true,
+      "show_charts": true
+    }
   }
 }

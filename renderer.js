@@ -1,8 +1,12 @@
 // DOM Elements (Updated)
 const viewDashboard = document.getElementById('view-dashboard');
+const viewStats = document.getElementById('view-stats');
+const viewSettings = document.getElementById('view-settings');
 const viewPens = document.getElementById('view-pens');
 const viewActivity = document.getElementById('view-activity');
 const navDashboard = document.getElementById('nav-dashboard');
+const navStats = document.getElementById('nav-stats');
+const navSettings = document.getElementById('nav-settings');
 const navPens = document.getElementById('nav-pens');
 const navActivity = document.getElementById('nav-activity');
 const navActivityDivider = document.getElementById('nav-activity-divider');
@@ -19,18 +23,53 @@ const navInks = document.getElementById('nav-inks');
 const navSwatches = document.getElementById('nav-swatches');
 const modalSwatchDetail = document.getElementById('modal-swatch-detail');
 const modalPenDetail = document.getElementById('modal-pen-detail');
-const btnDeleteSwatchDetail = document.getElementById('btn-delete-swatch-detail');
+const btnEditSwatchDetail = document.getElementById('btn-edit-swatch-detail');
+const btnEditPenDetail = document.getElementById('btn-edit-pen-detail');
 const backupActions = document.getElementById('backup-actions');
 const backupStatus = document.getElementById('backup-status');
 const btnExportBackup = document.getElementById('btn-export-backup');
 const btnImportBackup = document.getElementById('btn-import-backup');
 const btnExportShowcase = document.getElementById('btn-export-showcase');
+const appLogoTitle = document.getElementById('app-logo-title');
 const activityLogContainer = document.getElementById('activity-log-container');
 const recentActivityList = document.getElementById('recent-activity-list');
 const recentActivityCard = document.getElementById('recent-activity-card');
 const toggleActivityVisible = document.getElementById('toggle-activity-visible');
 const toggleRecentActivityVisible = document.getElementById('toggle-recent-activity-visible');
+const toggleShowcasePricesVisible = document.getElementById('toggle-showcase-prices-visible');
+const toggleShowcasePensVisible = document.getElementById('toggle-showcase-pens-visible');
+const toggleShowcaseInksVisible = document.getElementById('toggle-showcase-inks-visible');
+const toggleShowcaseSwatchesVisible = document.getElementById('toggle-showcase-swatches-visible');
+const toggleShowcaseInsightsVisible = document.getElementById('toggle-showcase-insights-visible');
+const toggleShowcaseChartsVisible = document.getElementById('toggle-showcase-charts-visible');
+const toggleOpenCardsEditMode = document.getElementById('toggle-open-cards-edit-mode');
+const colorModeSelect = document.getElementById('color-mode-select');
+const showcaseColorModeSelect = document.getElementById('showcase-color-mode-select');
+const toggleConfirmDestructive = document.getElementById('toggle-confirm-destructive');
+const activityLogVerbositySelect = document.getElementById('activity-log-verbosity-select');
+const toggleLogPenEdits = document.getElementById('toggle-log-pen-edits');
+const toggleLogInkEdits = document.getElementById('toggle-log-ink-edits');
+const toggleLogSwatchEvents = document.getElementById('toggle-log-swatch-events');
+const toggleLogDeleteEvents = document.getElementById('toggle-log-delete-events');
+const showcaseTitleInput = document.getElementById('showcase-title-input');
+const showcaseSortPensSelect = document.getElementById('showcase-sort-pens-select');
+const showcaseSortInksSelect = document.getElementById('showcase-sort-inks-select');
+const showcaseSortSwatchesSelect = document.getElementById('showcase-sort-swatches-select');
 const activityRetentionSelect = document.getElementById('activity-retention-select');
+const btnExportActivityCsv = document.getElementById('btn-export-activity-csv');
+const btnExportActivityJson = document.getElementById('btn-export-activity-json');
+const defaultCurrencySelect = document.getElementById('default-currency-select');
+const defaultDateFormatSelect = document.getElementById('default-date-format-select');
+const defaultPenNibInput = document.getElementById('default-pen-nib-input');
+const defaultPenNibMaterialInput = document.getElementById('default-pen-nib-material-input');
+const defaultPenStatusSelect = document.getElementById('default-pen-status-select');
+const defaultInkTypeSelect = document.getElementById('default-ink-type-select');
+const toggleImportAutoValidate = document.getElementById('toggle-import-auto-validate');
+const toggleExportIncludeMetadata = document.getElementById('toggle-export-include-metadata');
+const importConflictBehaviorSelect = document.getElementById('import-conflict-behavior-select');
+const autoBackupFrequencySelect = document.getElementById('auto-backup-frequency-select');
+const backupRetentionCountInput = document.getElementById('backup-retention-count-input');
+const backupSettingsEffective = document.getElementById('backup-settings-effective');
 const activityDatePickerToggle = document.getElementById('activity-date-picker-toggle');
 const activityCalendarPopover = document.getElementById('activity-calendar-popover');
 const activityCalendarPrev = document.getElementById('activity-calendar-prev');
@@ -39,6 +78,14 @@ const activityCalendarMonthLabel = document.getElementById('activity-calendar-mo
 const activityCalendarGrid = document.getElementById('activity-calendar-grid');
 const activityCalendarClear = document.getElementById('activity-calendar-clear');
 const activityCalendarToday = document.getElementById('activity-calendar-today');
+const swatchDatePickerToggle = document.getElementById('swatch-date-picker-toggle');
+const swatchCalendarPopover = document.getElementById('swatch-calendar-popover');
+const swatchCalendarPrev = document.getElementById('swatch-calendar-prev');
+const swatchCalendarNext = document.getElementById('swatch-calendar-next');
+const swatchCalendarMonthLabel = document.getElementById('swatch-calendar-month-label');
+const swatchCalendarGrid = document.getElementById('swatch-calendar-grid');
+const swatchCalendarClear = document.getElementById('swatch-calendar-clear');
+const swatchCalendarToday = document.getElementById('swatch-calendar-today');
 const activityDeleteOlderSelect = document.getElementById('activity-delete-older-select');
 const btnDeleteOlderActivity = document.getElementById('btn-delete-older-activity');
 const btnClearAllActivity = document.getElementById('btn-clear-all-activity');
@@ -47,6 +94,18 @@ const activityPageSizeSelect = document.getElementById('activity-page-size');
 const activityPagePrevBtn = document.getElementById('activity-page-prev');
 const activityPageNextBtn = document.getElementById('activity-page-next');
 const activityPageStatus = document.getElementById('activity-page-status');
+const collectionInsightsCard = document.getElementById('collection-insights-card');
+const collectionChartsCard = document.getElementById('collection-charts-card');
+const collectionInsightsList = document.getElementById('collection-insights-list');
+const chartColorDistribution = document.getElementById('chart-color-distribution');
+const chartInkColorDistribution = document.getElementById('chart-ink-color-distribution');
+const chartActivityTrend = document.getElementById('chart-activity-trend');
+const chartMonthlyGrowth = document.getElementById('chart-monthly-growth');
+const chartTopPenBrands = document.getElementById('chart-top-pen-brands');
+const chartTopInkBrands = document.getElementById('chart-top-ink-brands');
+const chartPenSpendBrands = document.getElementById('chart-pen-spend-brands');
+const chartInkSpendBrands = document.getElementById('chart-ink-spend-brands');
+const groupedSpectrumList = document.getElementById('grouped-spectrum-list');
 // State
 let isElectron = false;
 let electronImagesBaseUrl = '';
@@ -56,15 +115,65 @@ let activityCurrentPage = 1;
 let activityPageSize = 20;
 let activityDateFilter = '';
 let activityCalendarViewDate = new Date();
+let swatchCalendarViewDate = new Date();
 let appData = {
     pens: [],
     inks: [],
+    swatches: [],
     currently_inked: [],
     activity_log: [],
     preferences: {
         show_activity_log: true,
         show_recent_activity: true,
-        activity_retention_days: 365
+        open_cards_in_edit_mode: true,
+        activity_retention_days: 365,
+        color_mode: 'auto',
+        confirm_destructive_actions: true,
+        activity_log_verbosity: 'normal',
+        activity_log_filters: {
+            pen_edits: true,
+            ink_edits: true,
+            swatches: true,
+            deletes: true
+        },
+        activity_log_categories: {
+            pen: true,
+            ink: true,
+            swatch: true
+        },
+        defaults: {
+            currency: 'USD',
+            date_format: 'system',
+            pen_nib: '',
+            pen_nib_material: '',
+            pen_status: '',
+            ink_type: ''
+        },
+        import_export: {
+            auto_validate_import: true,
+            conflict_behavior: 'overwrite',
+            include_optional_metadata: true
+        },
+        backup: {
+            auto_frequency: 'daily',
+            retention_count: 30,
+            include_images: false
+        },
+        showcase: {
+            title: 'Inkubator',
+            color_mode: 'auto',
+            show_prices: true,
+            show_pens: true,
+            show_inks: true,
+            show_swatches: true,
+            default_sort: {
+                pens: 'newest',
+                inks: 'newest',
+                swatches: 'newest'
+            },
+            show_insights: true,
+            show_charts: true
+        }
     }
 };
 
@@ -101,20 +210,29 @@ let activeSwatchesFilters = {
     lubrication: [],
     dryTime: [],
     baseType: [],
-    permanence: []
+    permanence: [],
+    lighting: [],
+    nib: [],
+    paper: []
 };
 let activeSwatchesSort = 'newest';
 let searchPensQuery = '';
 let searchInksQuery = '';
 let searchSwatchesQuery = '';
 let currentSwatchDetailInkId = null;
+let currentSwatchDetailSwatchId = null;
 let currentSwatchDetailSourceView = 'swatches';
 let currentPenDetailPenId = null;
 let currentPenDetailSourceView = 'pens';
+const systemColorSchemeQuery = (typeof window !== 'undefined' && typeof window.matchMedia === 'function')
+    ? window.matchMedia('(prefers-color-scheme: dark)')
+    : null;
+let systemColorSchemeListenerBound = false;
 const ENABLE_DEMO_ACTIVITY_SEED = false;
 const renderScheduler = (window.PenStationRenderScheduler && window.PenStationRenderScheduler.createRenderScheduler)
     ? window.PenStationRenderScheduler.createRenderScheduler()
     : { schedule: (fn) => fn() };
+const DEFAULT_SHOWCASE_TITLE = 'Inkubator';
 
 // Autocomplete Data Cache
 let autocompleteData = {
@@ -178,19 +296,198 @@ function getLibraryInks() {
     return (appData.inks || []).filter(ink => !isOrphanSwatchInk(ink));
 }
 
+function getAllSwatches() {
+    return Array.isArray(appData.swatches) ? appData.swatches : [];
+}
+
+function getInkById(inkId) {
+    if (!inkId) return null;
+    return (appData.inks || []).find(ink => ink && ink.id === inkId) || null;
+}
+
+function getSwatchesForInk(inkId) {
+    if (!inkId) return [];
+    return getAllSwatches().filter((swatch) => swatch && swatch.ink_id === inkId);
+}
+
+function getSwatchById(swatchId) {
+    if (!swatchId) return null;
+    return getAllSwatches().find((swatch) => swatch && swatch.id === swatchId) || null;
+}
+
+function getSwatchTimestamp(swatch) {
+    if (!swatch || typeof swatch !== 'object') return 0;
+    const createdAt = Number(swatch.created_at);
+    if (Number.isFinite(createdAt) && createdAt > 0) return createdAt;
+    const dateRaw = swatch.swatch_date ? Date.parse(swatch.swatch_date) : NaN;
+    if (Number.isFinite(dateRaw) && dateRaw > 0) return dateRaw;
+    return 0;
+}
+
+function getLatestSwatchForInk(inkId) {
+    const linked = getSwatchesForInk(inkId);
+    if (linked.length === 0) return null;
+    return [...linked].sort((a, b) => getSwatchTimestamp(b) - getSwatchTimestamp(a))[0] || null;
+}
+
+function normalizeShowcaseTitle(value) {
+    if (typeof value !== 'string') return DEFAULT_SHOWCASE_TITLE;
+    const trimmed = value.trim();
+    return trimmed || DEFAULT_SHOWCASE_TITLE;
+}
+
 function ensureAppDataDefaults(data) {
     const safe = data && typeof data === 'object' ? data : {};
     safe.pens = Array.isArray(safe.pens) ? safe.pens : [];
     safe.inks = Array.isArray(safe.inks) ? safe.inks : [];
+    safe.swatches = Array.isArray(safe.swatches) ? safe.swatches : [];
+    if (safe.swatches.length === 0) {
+        safe.swatches = safe.inks
+            .filter((ink) => ink && ink.is_swatch && ink.image)
+            .map((ink) => ({
+                id: makeClientId('swatch'),
+                ink_id: ink.id || '',
+                image: ink.image || '',
+                swatch_paper: ink.swatch_paper || '',
+                swatch_nib: ink.swatch_nib || '',
+                swatch_date: ink.swatch_date || '',
+                swatch_lighting: ink.swatch_lighting || 'Unknown',
+                swatch_notes: ink.swatch_notes || '',
+                created_at: Date.now()
+            }));
+    }
     safe.currently_inked = Array.isArray(safe.currently_inked) ? safe.currently_inked : [];
     safe.activity_log = Array.isArray(safe.activity_log) ? safe.activity_log : [];
     const incomingPrefs = (safe.preferences && typeof safe.preferences === 'object') ? safe.preferences : {};
+    const incomingShowcase = (incomingPrefs.showcase && typeof incomingPrefs.showcase === 'object')
+        ? incomingPrefs.showcase
+        : {};
+    const incomingDefaults = (incomingPrefs.defaults && typeof incomingPrefs.defaults === 'object')
+        ? incomingPrefs.defaults
+        : {};
+    const incomingImportExport = (incomingPrefs.import_export && typeof incomingPrefs.import_export === 'object')
+        ? incomingPrefs.import_export
+        : {};
+    const incomingBackup = (incomingPrefs.backup && typeof incomingPrefs.backup === 'object')
+        ? incomingPrefs.backup
+        : {};
+    const incomingShowcaseSort = (incomingShowcase.default_sort && typeof incomingShowcase.default_sort === 'object')
+        ? incomingShowcase.default_sort
+        : {};
+    const incomingPenNibRaw = typeof incomingDefaults.pen_nib === 'string' ? incomingDefaults.pen_nib.trim() : '';
+    const incomingPenNibMaterialRaw = typeof incomingDefaults.pen_nib_material === 'string'
+        ? incomingDefaults.pen_nib_material.trim()
+        : '';
+    const incomingPenStatusRaw = String(incomingDefaults.pen_status || '').toLowerCase();
+    const incomingInkTypeRaw = String(incomingDefaults.ink_type || '');
+    // Migrate legacy seeded defaults to empty so Settings starts blank unless user explicitly sets values.
+    const migratedPenNib = incomingPenNibRaw === 'M' ? '' : incomingPenNibRaw;
+    const migratedPenNibMaterial = incomingPenNibMaterialRaw === 'Steel' ? '' : incomingPenNibMaterialRaw;
+    const migratedPenStatus = incomingPenStatusRaw === 'clean' ? '' : incomingPenStatusRaw;
+    const migratedInkType = incomingInkTypeRaw === 'Bottle' ? '' : incomingInkTypeRaw;
     const allowedRetention = [0, 90, 180, 365];
     const incomingRetention = Number(incomingPrefs.activity_retention_days);
+    const allowedColorModes = ['light', 'dark', 'auto'];
+    const allowedVerbosity = ['minimal', 'normal', 'detailed'];
+    const allowedCurrencies = ['USD', 'EUR', 'GBP', 'JPY', 'TRY'];
+    const allowedDateFormats = ['system', 'us', 'eu', 'iso'];
+    const allowedInkTypes = ['', 'Bottle', 'Sample', 'Cartridge'];
+    const allowedPenStatus = ['', 'clean', 'inked'];
+    const allowedConflict = ['skip', 'overwrite', 'merge'];
+    const allowedAutoBackupFrequencies = ['off', 'daily', 'weekly', 'monthly'];
+    const allowedPensSort = ['newest', 'oldest', 'brand-asc', 'brand-desc', 'model-asc', 'model-desc'];
+    const allowedInksSort = ['newest', 'oldest', 'brand-asc', 'brand-desc', 'name-asc', 'name-desc'];
+    const allowedSwatchesSort = ['newest', 'oldest', 'brand-asc', 'brand-desc', 'name-asc', 'name-desc'];
+    const incomingColorMode = typeof incomingPrefs.color_mode === 'string'
+        ? incomingPrefs.color_mode.toLowerCase().trim()
+        : 'auto';
+    const incomingShowcaseColorMode = typeof incomingShowcase.color_mode === 'string'
+        ? incomingShowcase.color_mode.toLowerCase().trim()
+        : 'auto';
+    const incomingVerbosity = typeof incomingPrefs.activity_log_verbosity === 'string'
+        ? incomingPrefs.activity_log_verbosity.toLowerCase().trim()
+        : 'normal';
+    const incomingLogCategories = (incomingPrefs.activity_log_categories && typeof incomingPrefs.activity_log_categories === 'object')
+        ? incomingPrefs.activity_log_categories
+        : {};
+    const incomingLogFilters = (incomingPrefs.activity_log_filters && typeof incomingPrefs.activity_log_filters === 'object')
+        ? incomingPrefs.activity_log_filters
+        : {};
+    const parsedBackupRetention = Number(incomingBackup.retention_count);
     safe.preferences = {
         show_activity_log: typeof incomingPrefs.show_activity_log === 'boolean' ? incomingPrefs.show_activity_log : true,
         show_recent_activity: typeof incomingPrefs.show_recent_activity === 'boolean' ? incomingPrefs.show_recent_activity : true,
-        activity_retention_days: allowedRetention.includes(incomingRetention) ? incomingRetention : 365
+        open_cards_in_edit_mode: typeof incomingPrefs.open_cards_in_edit_mode === 'boolean'
+            ? incomingPrefs.open_cards_in_edit_mode
+            : true,
+        activity_retention_days: allowedRetention.includes(incomingRetention) ? incomingRetention : 365,
+        color_mode: allowedColorModes.includes(incomingColorMode) ? incomingColorMode : 'auto',
+        confirm_destructive_actions: typeof incomingPrefs.confirm_destructive_actions === 'boolean'
+            ? incomingPrefs.confirm_destructive_actions
+            : true,
+        activity_log_verbosity: allowedVerbosity.includes(incomingVerbosity) ? incomingVerbosity : 'normal',
+        activity_log_filters: {
+            pen_edits: typeof incomingLogFilters.pen_edits === 'boolean' ? incomingLogFilters.pen_edits : true,
+            ink_edits: typeof incomingLogFilters.ink_edits === 'boolean' ? incomingLogFilters.ink_edits : true,
+            swatches: typeof incomingLogFilters.swatches === 'boolean' ? incomingLogFilters.swatches : true,
+            deletes: typeof incomingLogFilters.deletes === 'boolean' ? incomingLogFilters.deletes : true
+        },
+        activity_log_categories: {
+            pen: typeof incomingLogCategories.pen === 'boolean' ? incomingLogCategories.pen : true,
+            ink: typeof incomingLogCategories.ink === 'boolean' ? incomingLogCategories.ink : true,
+            swatch: typeof incomingLogCategories.swatch === 'boolean' ? incomingLogCategories.swatch : true
+        },
+        defaults: {
+            currency: allowedCurrencies.includes(String(incomingDefaults.currency || '').toUpperCase())
+                ? String(incomingDefaults.currency).toUpperCase()
+                : 'USD',
+            date_format: allowedDateFormats.includes(String(incomingDefaults.date_format || '').toLowerCase())
+                ? String(incomingDefaults.date_format).toLowerCase()
+                : 'system',
+            pen_nib: migratedPenNib,
+            pen_nib_material: migratedPenNibMaterial,
+            pen_status: allowedPenStatus.includes(migratedPenStatus)
+                ? migratedPenStatus
+                : '',
+            ink_type: allowedInkTypes.includes(migratedInkType)
+                ? migratedInkType
+                : ''
+        },
+        import_export: {
+            auto_validate_import: typeof incomingImportExport.auto_validate_import === 'boolean'
+                ? incomingImportExport.auto_validate_import
+                : true,
+            conflict_behavior: allowedConflict.includes(String(incomingImportExport.conflict_behavior || '').toLowerCase())
+                ? String(incomingImportExport.conflict_behavior).toLowerCase()
+                : 'overwrite',
+            include_optional_metadata: typeof incomingImportExport.include_optional_metadata === 'boolean'
+                ? incomingImportExport.include_optional_metadata
+                : true
+        },
+        backup: {
+            auto_frequency: allowedAutoBackupFrequencies.includes(String(incomingBackup.auto_frequency || '').toLowerCase())
+                ? String(incomingBackup.auto_frequency).toLowerCase()
+                : 'daily',
+            retention_count: Number.isFinite(parsedBackupRetention) && parsedBackupRetention >= 1
+                ? Math.min(365, Math.round(parsedBackupRetention))
+                : 30,
+            include_images: typeof incomingBackup.include_images === 'boolean' ? incomingBackup.include_images : false
+        },
+        showcase: {
+            title: normalizeShowcaseTitle(incomingShowcase.title),
+            color_mode: allowedColorModes.includes(incomingShowcaseColorMode) ? incomingShowcaseColorMode : 'auto',
+            show_prices: typeof incomingShowcase.show_prices === 'boolean' ? incomingShowcase.show_prices : true,
+            show_pens: typeof incomingShowcase.show_pens === 'boolean' ? incomingShowcase.show_pens : true,
+            show_inks: typeof incomingShowcase.show_inks === 'boolean' ? incomingShowcase.show_inks : true,
+            show_swatches: typeof incomingShowcase.show_swatches === 'boolean' ? incomingShowcase.show_swatches : true,
+            default_sort: {
+                pens: allowedPensSort.includes(String(incomingShowcaseSort.pens || '')) ? String(incomingShowcaseSort.pens) : 'newest',
+                inks: allowedInksSort.includes(String(incomingShowcaseSort.inks || '')) ? String(incomingShowcaseSort.inks) : 'newest',
+                swatches: allowedSwatchesSort.includes(String(incomingShowcaseSort.swatches || '')) ? String(incomingShowcaseSort.swatches) : 'newest'
+            },
+            show_insights: typeof incomingShowcase.show_insights === 'boolean' ? incomingShowcase.show_insights : true,
+            show_charts: typeof incomingShowcase.show_charts === 'boolean' ? incomingShowcase.show_charts : true
+        }
     };
     return safe;
 }
@@ -199,12 +496,269 @@ function getPreferences() {
     return ensureAppDataDefaults(appData).preferences;
 }
 
+function getShowcasePreferences() {
+    return getPreferences().showcase || {};
+}
+
+function getShowcaseTitle() {
+    return normalizeShowcaseTitle(getShowcasePreferences().title);
+}
+
+function getDefaultsPreferences() {
+    return getPreferences().defaults || {};
+}
+
+function getImportExportPreferences() {
+    return getPreferences().import_export || {};
+}
+
+function getBackupPreferences() {
+    return getPreferences().backup || {};
+}
+
+function shouldOpenCardsInEditMode() {
+    const prefs = getPreferences();
+    return typeof prefs.open_cards_in_edit_mode === 'boolean'
+        ? prefs.open_cards_in_edit_mode
+        : true;
+}
+
+function formatAutoBackupFrequencyLabel(value) {
+    const key = String(value || '').toLowerCase();
+    if (key === 'off') return 'Off';
+    if (key === 'daily') return 'Daily';
+    if (key === 'weekly') return 'Weekly';
+    if (key === 'monthly') return 'Monthly';
+    return 'Daily';
+}
+
+function refreshBackupEffectiveStatus() {
+    if (!backupSettingsEffective) return;
+    const backupPrefs = getBackupPreferences();
+    const frequencyRaw = autoBackupFrequencySelect ? autoBackupFrequencySelect.value : backupPrefs.auto_frequency;
+    const retentionRaw = backupRetentionCountInput ? backupRetentionCountInput.value : backupPrefs.retention_count;
+    const frequencyLabel = formatAutoBackupFrequencyLabel(frequencyRaw);
+    const retention = Math.max(1, Number(retentionRaw) || 30);
+    backupSettingsEffective.textContent = `Effective: ${frequencyLabel} auto-backups, keep last ${retention}. Images and full settings/data are always included in both automated and manual backups.`;
+}
+
+function getDefaultDateFormat() {
+    return String(getDefaultsPreferences().date_format || 'system').toLowerCase();
+}
+
+function getDefaultCurrency() {
+    return String(getDefaultsPreferences().currency || 'USD').toUpperCase();
+}
+
+function getShowcaseSortPreferences() {
+    const sort = getShowcasePreferences().default_sort || {};
+    return {
+        pens: String(sort.pens || 'newest'),
+        inks: String(sort.inks || 'newest'),
+        swatches: String(sort.swatches || 'newest')
+    };
+}
+
+function getActivityLogCategoryPreferences() {
+    const prefs = getPreferences();
+    const categories = (prefs.activity_log_categories && typeof prefs.activity_log_categories === 'object')
+        ? prefs.activity_log_categories
+        : {};
+    return {
+        pen: typeof categories.pen === 'boolean' ? categories.pen : true,
+        ink: typeof categories.ink === 'boolean' ? categories.ink : true,
+        swatch: typeof categories.swatch === 'boolean' ? categories.swatch : true
+    };
+}
+
+function getActivityLogFilterPreferences() {
+    const prefs = getPreferences();
+    const filters = (prefs.activity_log_filters && typeof prefs.activity_log_filters === 'object')
+        ? prefs.activity_log_filters
+        : {};
+    return {
+        pen_edits: typeof filters.pen_edits === 'boolean' ? filters.pen_edits : true,
+        ink_edits: typeof filters.ink_edits === 'boolean' ? filters.ink_edits : true,
+        swatches: typeof filters.swatches === 'boolean' ? filters.swatches : true,
+        deletes: typeof filters.deletes === 'boolean' ? filters.deletes : true
+    };
+}
+
+function getActivityLogVerbosity() {
+    const verbosity = String(getPreferences().activity_log_verbosity || 'normal').toLowerCase();
+    return ['minimal', 'normal', 'detailed'].includes(verbosity) ? verbosity : 'normal';
+}
+
+function shouldLogActivityCategory(category) {
+    const normalized = String(category || '').toLowerCase();
+    const categories = getActivityLogCategoryPreferences();
+    if (Object.prototype.hasOwnProperty.call(categories, normalized)) {
+        return !!categories[normalized];
+    }
+    return true;
+}
+
+function shouldLogActivityEvent(action, category) {
+    if (!shouldLogActivityCategory(category)) return false;
+    const filters = getActivityLogFilterPreferences();
+    const normalizedAction = String(action || '').toLowerCase();
+    const normalizedCategory = String(category || '').toLowerCase();
+    if (normalizedAction === 'deleted' && !filters.deletes) return false;
+    if (normalizedCategory === 'swatch' && !filters.swatches) return false;
+    if (normalizedCategory === 'pen' && normalizedAction === 'updated' && !filters.pen_edits) return false;
+    if (normalizedCategory === 'ink' && normalizedAction === 'updated' && !filters.ink_edits) return false;
+    return true;
+}
+
 function shouldHideActivityInShowcase() {
     return !isElectron && !getPreferences().show_activity_log;
 }
 
 function shouldHideRecentActivityInShowcase() {
     return !isElectron && !getPreferences().show_recent_activity;
+}
+
+function shouldHidePensInShowcase() {
+    return !isElectron && !getShowcasePreferences().show_pens;
+}
+
+function shouldHideInksInShowcase() {
+    return !isElectron && !getShowcasePreferences().show_inks;
+}
+
+function shouldHideSwatchesInShowcase() {
+    return !isElectron && !getShowcasePreferences().show_swatches;
+}
+
+function shouldHideInsightsInShowcase() {
+    return !isElectron && !getShowcasePreferences().show_insights;
+}
+
+function shouldHideChartsInShowcase() {
+    return !isElectron && !getShowcasePreferences().show_charts;
+}
+
+function shouldHideSettingsInShowcase() {
+    return !isElectron;
+}
+
+function shouldHidePricesInShowcase() {
+    return !isElectron && !getShowcasePreferences().show_prices;
+}
+
+function applyShowcaseTitleUi() {
+    applyShowcaseTitlePreview(getShowcaseTitle());
+}
+
+function applyShowcaseTitlePreview(rawValue) {
+    const title = normalizeShowcaseTitle(rawValue);
+    if (appLogoTitle) appLogoTitle.textContent = title;
+    if (!isElectron) {
+        document.title = title;
+    }
+}
+
+function getEffectiveColorMode() {
+    const prefs = getPreferences();
+    const showcasePrefs = getShowcasePreferences();
+    const mode = isElectron
+        ? String(prefs.color_mode || 'auto').toLowerCase()
+        : String(showcasePrefs.color_mode || 'auto').toLowerCase();
+    if (mode === 'light' || mode === 'dark') return mode;
+    if (systemColorSchemeQuery && systemColorSchemeQuery.matches) return 'dark';
+    return 'light';
+}
+
+function bindSystemColorModeListener() {
+    if (!systemColorSchemeQuery || systemColorSchemeListenerBound) return;
+    const onChange = () => {
+        const prefs = getPreferences();
+        const showcasePrefs = getShowcasePreferences();
+        const appMode = String(prefs.color_mode || 'auto').toLowerCase();
+        const showcaseMode = String(showcasePrefs.color_mode || 'auto').toLowerCase();
+        if ((isElectron && appMode === 'auto') || (!isElectron && showcaseMode === 'auto')) {
+            applyInterfacePreferences();
+        }
+    };
+    if (typeof systemColorSchemeQuery.addEventListener === 'function') {
+        systemColorSchemeQuery.addEventListener('change', onChange);
+    } else if (typeof systemColorSchemeQuery.addListener === 'function') {
+        systemColorSchemeQuery.addListener(onChange);
+    }
+    systemColorSchemeListenerBound = true;
+}
+
+function applyInterfacePreferences() {
+    if (!document || !document.body) return;
+    // Cleanup legacy display classes/scale from removed settings.
+    document.body.classList.remove('density-compact');
+    document.body.classList.remove('card-size-large');
+    document.body.style.removeProperty('--ui-scale');
+    const effectiveMode = getEffectiveColorMode();
+    document.body.classList.toggle('theme-dark', effectiveMode === 'dark');
+    document.body.classList.toggle('theme-light', effectiveMode === 'light');
+    document.body.setAttribute('data-theme', effectiveMode);
+}
+
+function getPenDetailDefaultVisualBackground() {
+    if (document && document.body && document.body.classList.contains('theme-dark')) {
+        return 'linear-gradient(135deg, #263445 0%, #161e28 100%)';
+    }
+    return 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)';
+}
+
+function formatDateByPreference(date, options = {}) {
+    const d = (date instanceof Date) ? date : new Date(date);
+    if (Number.isNaN(d.getTime())) return 'Unknown';
+    const mode = getDefaultDateFormat();
+    if (mode === 'iso') {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        if (options.monthShort || options.monthYear) {
+            return `${y}-${m}`;
+        }
+        if (options.time) {
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return `${y}-${m}-${day} ${hh}:${mm}`;
+        }
+        return `${y}-${m}-${day}`;
+    }
+    const locale = mode === 'us' ? 'en-US' : mode === 'eu' ? 'en-GB' : undefined;
+    if (options.time) {
+        return d.toLocaleString(locale, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+    if (options.monthYear) {
+        return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+    }
+    if (options.monthShort) {
+        return d.toLocaleDateString(locale, { month: 'short' });
+    }
+    if (options.weekday) {
+        return d.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    return d.toLocaleDateString(locale);
+}
+
+function applyShowcaseSectionVisibility() {
+    if (navPens) navPens.style.display = shouldHidePensInShowcase() ? 'none' : '';
+    if (navInks) navInks.style.display = shouldHideInksInShowcase() ? 'none' : '';
+    if (navSwatches) navSwatches.style.display = shouldHideSwatchesInShowcase() ? 'none' : '';
+    const recentPensCard = document.getElementById('recent-pens-card');
+    const recentInksCard = document.getElementById('recent-inks-card');
+    const recentSwatchesCard = document.getElementById('recent-swatches-card');
+    if (recentPensCard) recentPensCard.style.display = shouldHidePensInShowcase() ? 'none' : '';
+    if (recentInksCard) recentInksCard.style.display = shouldHideInksInShowcase() ? 'none' : '';
+    if (recentSwatchesCard) recentSwatchesCard.style.display = shouldHideSwatchesInShowcase() ? 'none' : '';
+}
+
+function applyShowcaseSortDefaults() {
+    if (isElectron) return;
+    const sortPrefs = getShowcaseSortPreferences();
+    activePensSort = sortPrefs.pens;
+    activeInksSort = sortPrefs.inks;
+    activeSwatchesSort = sortPrefs.swatches;
 }
 
 function resolveImageSource(imagePath) {
@@ -225,6 +779,20 @@ function resolveImageSource(imagePath) {
         return `${electronImagesBaseUrl}/${normalized}`;
     }
     return `images/${normalized}`;
+}
+
+function isManagedImagePathForDeletion(imagePath) {
+    if (typeof imagePath !== 'string' || !imagePath) return false;
+    if (imagePath.includes('default_')) return false;
+    if (
+        imagePath.startsWith('data:') ||
+        imagePath.startsWith('blob:') ||
+        imagePath.startsWith('http://') ||
+        imagePath.startsWith('https://')
+    ) {
+        return false;
+    }
+    return true;
 }
 
 function getActivityRetentionDays() {
@@ -261,6 +829,56 @@ function formatInkName(ink) {
     return name || 'Unnamed ink';
 }
 
+function cloneEntityForDiff(entity, arrayKeys = []) {
+    if (!entity || typeof entity !== 'object') return {};
+    const clone = { ...entity };
+    arrayKeys.forEach((key) => {
+        clone[key] = Array.isArray(entity[key]) ? [...entity[key]] : [];
+    });
+    return clone;
+}
+
+function normalizeDiffScalar(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+}
+
+function normalizeDiffArray(value) {
+    if (!Array.isArray(value)) return '';
+    return value
+        .map(item => normalizeDiffScalar(item))
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+        .join('|');
+}
+
+function getChangedFieldLabels(before, after, fields) {
+    if (!before || !after || !Array.isArray(fields)) return [];
+    const changed = [];
+    fields.forEach((field) => {
+        const key = field.key;
+        const label = field.label || key;
+        const mode = field.mode || 'scalar';
+        const beforeValue = mode === 'array'
+            ? normalizeDiffArray(before[key])
+            : normalizeDiffScalar(before[key]);
+        const afterValue = mode === 'array'
+            ? normalizeDiffArray(after[key])
+            : normalizeDiffScalar(after[key]);
+        if (beforeValue !== afterValue) {
+            changed.push(label);
+        }
+    });
+    return changed;
+}
+
+function formatChangedFieldsCompact(labels, maxVisible = 4) {
+    if (!Array.isArray(labels) || labels.length === 0) return '';
+    if (labels.length <= maxVisible) return labels.join(', ');
+    const head = labels.slice(0, maxVisible).join(', ');
+    return `${head} (+${labels.length - maxVisible} more)`;
+}
+
 function formatActivityDateLabel(timestamp) {
     const d = new Date(timestamp);
     if (Number.isNaN(d.getTime())) return 'Unknown date';
@@ -269,13 +887,13 @@ function formatActivityDateLabel(timestamp) {
     const oneDay = 24 * 60 * 60 * 1000;
     if (timestamp >= startOfDay) return 'Today';
     if (timestamp >= (startOfDay - oneDay)) return 'Yesterday';
-    return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    return formatDateByPreference(d, { weekday: true });
 }
 
 function formatActivityTimestamp(timestamp) {
     const d = new Date(timestamp);
     if (Number.isNaN(d.getTime())) return 'Unknown time';
-    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return formatDateByPreference(d, { time: true });
 }
 
 function toIsoLocalDate(date) {
@@ -330,7 +948,7 @@ function renderActivityCalendar() {
         return toIsoLocalDate(new Date(ts));
     }));
 
-    activityCalendarMonthLabel.textContent = firstDay.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    activityCalendarMonthLabel.textContent = formatDateByPreference(firstDay, { monthYear: true });
     if (activityCalendarNext) {
         activityCalendarNext.disabled = viewMonthStart >= todayMonthStart;
     }
@@ -366,6 +984,89 @@ function renderActivityCalendar() {
     }).join('');
 }
 
+function setSwatchDateInputValue(iso = '') {
+    const input = document.getElementById('swatch-date-input');
+    if (input) input.value = iso || '';
+    if (swatchDatePickerToggle) {
+        swatchDatePickerToggle.classList.toggle('active', !!iso);
+    }
+}
+
+function closeSwatchCalendar() {
+    if (!swatchCalendarPopover) return;
+    swatchCalendarPopover.classList.remove('open');
+    if (swatchDatePickerToggle) {
+        swatchDatePickerToggle.classList.remove('open');
+        swatchDatePickerToggle.blur();
+    }
+}
+
+function openSwatchCalendar() {
+    if (!swatchCalendarPopover) return;
+    const selected = parseIsoLocalDate(document.getElementById('swatch-date-input')?.value || '');
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    swatchCalendarViewDate = selected && selected <= todayMidnight ? selected : today;
+    renderSwatchCalendar();
+    swatchCalendarPopover.classList.add('open');
+    if (swatchDatePickerToggle) swatchDatePickerToggle.classList.add('open');
+}
+
+function renderSwatchCalendar() {
+    if (!swatchCalendarGrid || !swatchCalendarMonthLabel) return;
+    const year = swatchCalendarViewDate.getFullYear();
+    const month = swatchCalendarViewDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startWeekday = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevMonthDays = new Date(year, month, 0).getDate();
+    const selectedIso = document.getElementById('swatch-date-input')?.value || '';
+    const todayIso = toIsoLocalDate(new Date());
+    const todayDate = new Date();
+    const todayMidnight = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
+    const todayMonthStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1).getTime();
+    const viewMonthStart = new Date(year, month, 1).getTime();
+    const eventDateSet = new Set((getAllSwatches() || []).map((swatch) => {
+        const iso = String(swatch && swatch.swatch_date ? swatch.swatch_date : '').trim();
+        return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : '';
+    }).filter(Boolean));
+
+    swatchCalendarMonthLabel.textContent = formatDateByPreference(firstDay, { monthYear: true });
+    if (swatchCalendarNext) {
+        swatchCalendarNext.disabled = viewMonthStart >= todayMonthStart;
+    }
+
+    const cells = [];
+    for (let i = startWeekday - 1; i >= 0; i -= 1) {
+        const dayNum = prevMonthDays - i;
+        const date = new Date(year, month - 1, dayNum);
+        cells.push({ date, muted: true });
+    }
+    for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = new Date(year, month, day);
+        cells.push({ date, muted: false });
+    }
+    while (cells.length % 7 !== 0) {
+        const dayNum = cells.length - (startWeekday + daysInMonth) + 1;
+        const date = new Date(year, month + 1, dayNum);
+        cells.push({ date, muted: true });
+    }
+
+    swatchCalendarGrid.innerHTML = cells.map(({ date, muted }) => {
+        const iso = toIsoLocalDate(date);
+        const isFuture = date > todayMidnight;
+        const cls = [
+            'activity-calendar-day',
+            muted ? 'muted' : '',
+            isFuture ? 'future' : '',
+            iso === todayIso ? 'today' : '',
+            eventDateSet.has(iso) ? 'has-events' : '',
+            iso === selectedIso ? 'selected' : ''
+        ].filter(Boolean).join(' ');
+        return `<button class="${cls}" data-swatch-calendar-date="${iso}" type="button" ${isFuture ? 'disabled' : ''}>${date.getDate()}</button>`;
+    }).join('');
+}
+
 function getRecentActivityIcon(entry) {
     const action = (entry && entry.action ? entry.action : '').toLowerCase();
     const category = (entry && entry.category ? entry.category : '').toLowerCase();
@@ -386,12 +1087,22 @@ function getRecentActivityIcon(entry) {
 }
 
 function logActivity(action, category, message, options = {}) {
+    if (!shouldLogActivityEvent(action, category)) return;
+    const verbosity = getActivityLogVerbosity();
+    let formattedMessage = message || 'Activity recorded';
+    if (verbosity === 'minimal') {
+        const capCategory = String(category || 'system');
+        const capAction = String(action || 'updated');
+        formattedMessage = `${capCategory}: ${capAction}`;
+    } else if (verbosity === 'detailed' && options.metadata && typeof options.metadata === 'object' && Object.keys(options.metadata).length > 0) {
+        formattedMessage = `${formattedMessage} [meta:${Object.keys(options.metadata).join(', ')}]`;
+    }
     const entry = {
         id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         timestamp: typeof options.timestamp === 'number' ? options.timestamp : Date.now(),
         action: action || 'updated',
         category: category || 'system',
-        message: message || 'Activity recorded',
+        message: formattedMessage,
         entity_id: options.entityId || '',
         metadata: options.metadata && typeof options.metadata === 'object' ? options.metadata : {}
     };
@@ -465,6 +1176,7 @@ function maybeSeedDemoActivityLogs() {
 function scheduleUiRefresh(options = {}) {
     const {
         dashboard = false,
+        stats = false,
         recent = false,
         pens = false,
         inks = false,
@@ -474,6 +1186,7 @@ function scheduleUiRefresh(options = {}) {
     } = options;
 
     if (dashboard) scheduleRender(renderDashboard);
+    if (stats) scheduleRender(renderStatsPage);
     if (recent) scheduleRender(renderRecentInks);
     if (pens) scheduleRender(renderPens);
     if (inks) scheduleRender(renderInks);
@@ -500,6 +1213,9 @@ async function persistDataAndRefresh(options = {}) {
             await onSuccess();
         }
         scheduleUiRefresh(refresh);
+        if (localStorage.getItem('lastView') === 'stats') {
+            scheduleRender(renderStatsPage);
+        }
         refreshBackupStatus();
         return true;
     }
@@ -512,7 +1228,7 @@ function formatBackupStatusDate(iso) {
     if (!iso) return 'Never';
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return 'Unknown';
-    return d.toLocaleString();
+    return formatDateByPreference(d, { time: true });
 }
 
 function formatAutomatedBackupStatus(iso) {
@@ -617,18 +1333,44 @@ async function init() {
         if ((seededDemoActivity || retentionPrunedOnLoad) && isElectron && window.electronAPI && typeof window.electronAPI.saveData === 'function') {
             await window.electronAPI.saveData(appData);
         }
+        bindSystemColorModeListener();
+        applyShowcaseTitleUi();
+        applyInterfacePreferences();
+        applyShowcaseSortDefaults();
+        applyShowcaseSectionVisibility();
 
-        // Persistence: Restore last view
+        // Persistence + route: in showcase mode, URL route takes precedence.
         const lastView = localStorage.getItem('lastView') || 'dashboard';
-        switchView(lastView === 'activity' && shouldHideActivityInShowcase() ? 'dashboard' : lastView);
+        const routeView = !isElectron ? resolveRouteViewFromLocation() : '';
+        const initialView = !isElectron
+            ? normalizeRouteViewName(routeView || lastView)
+            : normalizeRouteViewName(lastView);
+        switchView(
+            ((initialView === 'activity' && shouldHideActivityInShowcase()) || (initialView === 'settings' && shouldHideSettingsInShowcase()))
+                ? 'dashboard'
+                : initialView,
+            { replaceRoute: !isElectron }
+        );
 
         // Re-render based on restored view (Initial render)
         renderDashboard();
-        if (lastView === 'pens') renderPens();
-        else if (lastView === 'inks') renderInks();
-        else if (lastView === 'swatches') renderSwatches();
-        else if (lastView === 'activity') renderActivityLogView();
+        renderStatsPage();
+        if (initialView === 'pens') renderPens();
+        else if (initialView === 'inks') renderInks();
+        else if (initialView === 'swatches') renderSwatches();
+        else if (initialView === 'stats') renderStatsPage();
+        else if (initialView === 'settings' && !shouldHideSettingsInShowcase()) renderSettingsView();
+        else if (initialView === 'activity') renderActivityLogView();
+        renderSettingsView();
         renderActivityLogView();
+
+        if (!isElectron) {
+            window.addEventListener('popstate', () => {
+                const view = resolveRouteViewFromLocation();
+                switchView(view, { updateRoute: false });
+                renderForView(view);
+            });
+        }
 
     } catch (e) {
         console.error("Failed to load data:", e);
@@ -641,13 +1383,150 @@ async function init() {
 
 
 // Navigation Logic
-function switchView(viewName) {
+const VIEW_ROUTE_KEYS = new Set(['dashboard', 'pens', 'inks', 'swatches', 'stats', 'activity', 'settings']);
+
+function normalizeRouteViewName(raw) {
+    const value = String(raw || '').trim().toLowerCase();
+    if (!value) return 'dashboard';
+    return VIEW_ROUTE_KEYS.has(value) ? value : 'dashboard';
+}
+
+function normalizeBasePath(pathname) {
+    const path = String(pathname || '/').replace(/\/+/g, '/');
+    if (!path || path === '/') return '';
+    let trimmed = path.replace(/\/$/, '');
+    const parts = trimmed.split('/').filter(Boolean);
+    const last = parts[parts.length - 1] || '';
+    const prev = parts.length > 1 ? parts[parts.length - 2] : '';
+
+    if (last === 'index.html') {
+        if (VIEW_ROUTE_KEYS.has(prev)) {
+            parts.pop();
+            parts.pop();
+        } else {
+            parts.pop();
+        }
+    } else if (VIEW_ROUTE_KEYS.has(last)) {
+        parts.pop();
+    }
+
+    const out = `/${parts.join('/')}`.replace(/\/+/g, '/');
+    return out === '/' ? '' : out.replace(/\/$/, '');
+}
+
+function resolveRouteViewFromLocation() {
+    if (typeof window === 'undefined' || !window.location) return 'dashboard';
+    const hash = String(window.location.hash || '').replace(/^#\/?/, '').trim().toLowerCase();
+    if (VIEW_ROUTE_KEYS.has(hash)) return hash;
+
+    const params = new URLSearchParams(window.location.search || '');
+    const queryView = String(params.get('view') || '').trim().toLowerCase();
+    if (VIEW_ROUTE_KEYS.has(queryView)) return queryView;
+
+    const pathname = String(window.location.pathname || '/');
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length === 0) return 'dashboard';
+    const last = segments[segments.length - 1].toLowerCase();
+    if (last === 'index.html' && segments.length > 1) {
+        const prev = segments[segments.length - 2].toLowerCase();
+        if (VIEW_ROUTE_KEYS.has(prev)) return prev;
+        return 'dashboard';
+    }
+    if (VIEW_ROUTE_KEYS.has(last)) return last;
+    return 'dashboard';
+}
+
+function syncShowcaseRoute(viewName, { replace = false } = {}) {
+    if (isElectron || typeof window === 'undefined' || !window.history || !window.location) return;
+    const protocol = String(window.location.protocol || '').toLowerCase();
+
+    const normalizedView = normalizeRouteViewName(viewName);
+    if (protocol === 'file:') {
+        const targetHash = normalizedView === 'dashboard' ? '' : `#/${normalizedView}`;
+        const currentHash = String(window.location.hash || '');
+        if (currentHash === targetHash) return;
+        const base = String(window.location.pathname || '');
+        const target = `${base}${window.location.search || ''}${targetHash}`;
+        if (replace) {
+            window.history.replaceState({ view: normalizedView }, '', target);
+        } else {
+            window.history.pushState({ view: normalizedView }, '', target);
+        }
+        return;
+    }
+    if (!/^https?:$/i.test(protocol)) return;
+
+    const basePath = normalizeBasePath(window.location.pathname);
+    const targetPath = normalizedView === 'dashboard'
+        ? `${basePath || ''}/`
+        : `${basePath || ''}/${normalizedView}`;
+    const normalizedTarget = targetPath.replace(/\/+/g, '/');
+    const currentPath = String(window.location.pathname || '/').replace(/\/+/g, '/');
+    if (currentPath === normalizedTarget) return;
+
+    if (replace) {
+        window.history.replaceState({ view: normalizedView }, '', normalizedTarget);
+    } else {
+        window.history.pushState({ view: normalizedView }, '', normalizedTarget);
+    }
+}
+
+function renderForView(viewName) {
+    const normalized = normalizeRouteViewName(viewName);
+    if (normalized === 'dashboard') {
+        renderDashboard();
+        return;
+    }
+    if (normalized === 'stats') {
+        renderStatsPage();
+        return;
+    }
+    if (normalized === 'settings') {
+        renderSettingsView();
+        return;
+    }
+    if (normalized === 'pens') {
+        renderPens();
+        return;
+    }
+    if (normalized === 'inks') {
+        renderInks();
+        return;
+    }
+    if (normalized === 'swatches') {
+        renderSwatches();
+        return;
+    }
+    if (normalized === 'activity') {
+        renderActivityLogView();
+    }
+}
+
+function switchView(viewName, options = {}) {
+    const opts = (options && typeof options === 'object') ? options : {};
+    const shouldUpdateRoute = opts.updateRoute !== false;
+    const shouldReplaceRoute = opts.replaceRoute === true;
+    hideSettingsTooltip();
+    if (viewName === 'settings' && shouldHideSettingsInShowcase()) {
+        viewName = 'dashboard';
+    }
     if (viewName === 'activity' && shouldHideActivityInShowcase()) {
+        viewName = 'dashboard';
+    }
+    if (viewName === 'pens' && shouldHidePensInShowcase()) {
+        viewName = 'dashboard';
+    }
+    if (viewName === 'inks' && shouldHideInksInShowcase()) {
+        viewName = 'dashboard';
+    }
+    if (viewName === 'swatches' && shouldHideSwatchesInShowcase()) {
         viewName = 'dashboard';
     }
 
     // Hide all first
     if (viewDashboard) viewDashboard.style.display = 'none';
+    if (viewStats) viewStats.style.display = 'none';
+    if (viewSettings) viewSettings.style.display = 'none';
     if (viewPens) viewPens.style.display = 'none';
     if (viewActivity) viewActivity.style.display = 'none';
     const viewInks = document.getElementById('view-inks');
@@ -657,6 +1536,8 @@ function switchView(viewName) {
 
     // Deactivate Navs
     if (navDashboard) navDashboard.classList.remove('active');
+    if (navStats) navStats.classList.remove('active');
+    if (navSettings) navSettings.classList.remove('active');
     if (navPens) navPens.classList.remove('active');
     if (navActivity) navActivity.classList.remove('active');
     const navInks = document.getElementById('nav-inks');
@@ -668,6 +1549,12 @@ function switchView(viewName) {
     if (viewName === 'dashboard') {
         if (viewDashboard) viewDashboard.style.display = 'block';
         if (navDashboard) navDashboard.classList.add('active');
+    } else if (viewName === 'stats') {
+        if (viewStats) viewStats.style.display = 'block';
+        if (navStats) navStats.classList.add('active');
+    } else if (viewName === 'settings') {
+        if (viewSettings) viewSettings.style.display = 'block';
+        if (navSettings) navSettings.classList.add('active');
     } else if (viewName === 'pens') {
         if (viewPens) viewPens.style.display = 'block';
         if (navPens) navPens.classList.add('active');
@@ -683,11 +1570,17 @@ function switchView(viewName) {
     }
 
     const hideActivityNav = shouldHideActivityInShowcase();
+    const hideSettingsNav = shouldHideSettingsInShowcase();
+    if (navSettings) navSettings.style.display = hideSettingsNav ? 'none' : '';
     if (navActivity) navActivity.style.display = hideActivityNav ? 'none' : '';
     if (navActivityDivider) navActivityDivider.style.display = hideActivityNav ? 'none' : '';
+    applyShowcaseSectionVisibility();
 
     // Save current view
     localStorage.setItem('lastView', viewName);
+    if (shouldUpdateRoute) {
+        syncShowcaseRoute(viewName, { replace: shouldReplaceRoute });
+    }
 }
 
 // Render Functions
@@ -704,26 +1597,681 @@ function renderDashboard() {
     }
 }
 
+function renderStatsPage() {
+    try {
+        renderStats();
+        renderCollectionInsights();
+        renderCollectionCharts();
+    } catch (e) {
+        console.error("Stats Page Render Failed:", e);
+    }
+}
+
 function renderStats() {
     // ... (Existing implementation)
     const inkedCount = appData.currently_inked.length;
     const pensCount = (appData.pens || []).length;
-    const bottleCount = getLibraryInks().length;
-    const swatchesCount = appData.inks.filter(ink => ink.image && ink.is_swatch).length;
+    const inks = getLibraryInks();
+    const bottleCount = inks.length;
+    const swatchesCount = getAllSwatches().length;
+    const totalInkSpend = inks.reduce((sum, ink) => {
+        const price = parsePriceNumber(ink && ink.price);
+        const amount = parseAmountNumber(ink && ink.amount, 1);
+        if (!Number.isFinite(price) || price <= 0) return sum;
+        return sum + (price * amount);
+    }, 0);
 
     const numInked = document.getElementById('stat-inked');
     const numBottles = document.getElementById('stat-bottles');
     const numSwatches = document.getElementById('stat-swatches');
+    const bottleDetail = document.getElementById('stat-inks-bottle-detail');
+    const spendDetail = document.getElementById('stat-inks-spend-detail');
 
     if (numInked) numInked.textContent = pensCount;
     if (numBottles) numBottles.textContent = bottleCount;
     if (numSwatches) numSwatches.textContent = swatchesCount;
+    if (bottleDetail) bottleDetail.textContent = `${bottleCount} bottle${bottleCount === 1 ? '' : 's'}`;
+    if (spendDetail) {
+        spendDetail.textContent = shouldHidePricesInShowcase() ? '' : `Total: ${formatMoney(totalInkSpend)}`;
+    }
 
     const inkedSummary = document.getElementById('currently-inked-summary');
     if (inkedSummary) {
         const noun = inkedCount === 1 ? 'pen is' : 'pens are';
         inkedSummary.innerHTML = `<span style="font-weight: 800;">${inkedCount}</span> ${noun} currently inked`;
     }
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function escapeJsSingleQuoted(value) {
+    return String(value || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'");
+}
+
+function formatDays(value) {
+    if (!Number.isFinite(value) || value <= 0) return '0d';
+    if (value < 1) return '<1d';
+    return `${Math.round(value)}d`;
+}
+
+function formatMoney(value) {
+    if (!Number.isFinite(value) || value <= 0) return 'N/A';
+    return value.toLocaleString(undefined, {
+        style: 'currency',
+        currency: getDefaultCurrency(),
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+    });
+}
+
+function parsePriceNumber(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value !== 'string') return NaN;
+    const cleaned = value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    if (!cleaned) return NaN;
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function parseAmountNumber(value, fallback = 1) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value >= 0 ? value : fallback;
+    }
+    if (typeof value !== 'string') return fallback;
+    const cleaned = value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    if (!cleaned) return fallback;
+    const parsed = Number(cleaned);
+    if (!Number.isFinite(parsed)) return fallback;
+    return parsed >= 0 ? parsed : fallback;
+}
+
+function median(values) {
+    if (!Array.isArray(values) || values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    if (sorted.length % 2 === 1) return sorted[mid];
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function countBy(items, key) {
+    const out = Object.create(null);
+    (items || []).forEach((item) => {
+        const label = String((item && item[key]) || '').trim();
+        if (!label) return;
+        out[label] = (out[label] || 0) + 1;
+    });
+    return out;
+}
+
+function topLabel(countMap, fallback = 'N/A') {
+    const keys = Object.keys(countMap || {});
+    if (keys.length === 0) return fallback;
+    const winner = keys.sort((a, b) => countMap[b] - countMap[a])[0];
+    return `${winner} (${countMap[winner]})`;
+}
+
+function topMoneyLabel(amountMap, fallback = 'N/A') {
+    const keys = Object.keys(amountMap || {});
+    if (keys.length === 0) return fallback;
+    const winner = keys.sort((a, b) => amountMap[b] - amountMap[a])[0];
+    return `${winner} (${formatMoney(amountMap[winner])})`;
+}
+
+function extractIdTimestamp(id) {
+    if (typeof id !== 'string') return 0;
+    const match = id.match(/_(\d{10,14})/);
+    if (!match) return 0;
+    const raw = Number(match[1]);
+    if (!Number.isFinite(raw)) return 0;
+    return raw < 1e12 ? raw * 1000 : raw;
+}
+
+function latestTimestampFromCollection(items) {
+    let latest = 0;
+    (items || []).forEach((item) => {
+        const idTs = extractIdTimestamp(item && item.id);
+        const createdAt = Number(item && item.created_at);
+        const genericTs = Number(item && item.timestamp);
+        const dateInkedTs = Number(item && item.date_inked);
+        latest = Math.max(
+            latest,
+            idTs,
+            Number.isFinite(createdAt) ? createdAt : 0,
+            Number.isFinite(genericTs) ? genericTs : 0,
+            Number.isFinite(dateInkedTs) ? dateInkedTs : 0
+        );
+    });
+    return latest;
+}
+
+function formatUpdatedAt(ts) {
+    if (!Number.isFinite(ts) || ts <= 0) return 'Never';
+    return formatDateByPreference(new Date(ts));
+}
+
+function isCompletenessFieldFilled(value, mode = 'text') {
+    if (mode === 'number') {
+        const n = typeof value === 'number' ? value : Number(String(value || '').trim());
+        return Number.isFinite(n) && n > 0;
+    }
+    return String(value || '').trim().length > 0;
+}
+
+function toMonthKey(date) {
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatMonthShort(key) {
+    if (typeof key !== 'string' || key.length !== 7) return key || '';
+    const [y, m] = key.split('-').map(Number);
+    const d = new Date(y, (m || 1) - 1, 1);
+    if (Number.isNaN(d.getTime())) return key;
+    return formatDateByPreference(d, { monthShort: true });
+}
+
+function buildMiniBarChart(rows, options = {}) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        return `<div class="empty-state" style="padding: 8px 0;">No data available yet.</div>`;
+    }
+    const max = Math.max(1, ...rows.map(row => Number(row.value) || 0));
+    const percentFn = typeof options.percentFn === 'function'
+        ? options.percentFn
+        : ((value) => `${Math.round((value / max) * 100)}%`);
+    const fillFn = typeof options.fillFn === 'function'
+        ? options.fillFn
+        : (() => 'linear-gradient(90deg, #5c7ea6 0%, #2f5f8f 100%)');
+    return `<div class="mini-chart-list">${rows.map((row, index) => {
+        const value = Number(row.value) || 0;
+        const width = value <= 0 ? 0 : Math.max(6, Math.round((value / max) * 100));
+        const label = escapeHtml(row.label);
+        const valueText = escapeHtml(percentFn(value, row));
+        const fill = escapeHtml(fillFn(row, index));
+        return `
+            <div class="mini-chart-row">
+                <div class="mini-chart-label">${label}</div>
+                <div class="mini-chart-track"><div class="mini-chart-fill" style="width:${width}%; background:${fill};"></div></div>
+                <div class="mini-chart-value">${valueText}</div>
+            </div>
+        `;
+    }).join('')}</div>`;
+}
+
+function getPenColorDistributionRows() {
+    const grouped = Object.create(null);
+    (appData.pens || []).forEach((pen) => {
+        const palette = Array.isArray(pen && pen.hex_colors) ? pen.hex_colors : [];
+        const primary = String(palette[0] || (pen && pen.hex_color) || '').trim();
+        if (!primary) return;
+        const cat = getInkColorCategory(primary);
+        grouped[cat] = (grouped[cat] || 0) + 1;
+    });
+    return Object.keys(grouped)
+        .map((key) => ({ label: key, value: grouped[key] }))
+        .sort((a, b) => b.value - a.value);
+}
+
+function getInkColorDistributionRows() {
+    const inks = getLibraryInks();
+    const grouped = Object.create(null);
+    inks.forEach((ink) => {
+        const cat = getInkColorCategory((ink && ink.color_base) || '#000000');
+        grouped[cat] = (grouped[cat] || 0) + 1;
+    });
+    return Object.keys(grouped)
+        .map((key) => ({ label: key, value: grouped[key] }))
+        .sort((a, b) => b.value - a.value);
+}
+
+function renderGroupedInkSpectrum() {
+    if (!groupedSpectrumList) return;
+    const inks = getLibraryInks()
+        .filter(ink => ink && typeof ink.color_base === 'string' && ink.color_base.trim())
+        .map((ink) => {
+            const color = ink.color_base.trim();
+            return {
+                name: formatInkName(ink),
+                color
+            };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+    if (!inks.length) {
+        groupedSpectrumList.innerHTML = `<div class="empty-state" style="padding: 8px 0;">No ink colors yet.</div>`;
+        return;
+    }
+
+    const n = inks.length;
+    const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+    const gridStyle = `--spectrum-cols:${cols};`;
+    groupedSpectrumList.innerHTML = `
+        <div class="ink-spectrum-grid" style="${gridStyle}" aria-label="Ink spectrum grid">
+            ${inks.map((item) => `
+                <span class="ink-spectrum-cell" style="--cell-color:${escapeHtml(item.color)}; background:${escapeHtml(item.color)};" title="${escapeHtml(item.name)}" aria-label="${escapeHtml(item.name)}"></span>
+            `).join('')}
+        </div>
+    `;
+
+    const grid = groupedSpectrumList.querySelector('.ink-spectrum-grid');
+    if (!grid) return;
+
+    const EXIT_MS = 170;
+    const exitTimers = new WeakMap();
+    let activeCell = null;
+
+    const clearExitState = (cell) => {
+        const timer = exitTimers.get(cell);
+        if (timer) {
+            clearTimeout(timer);
+            exitTimers.delete(cell);
+        }
+        cell.classList.remove('is-exiting');
+    };
+
+    const markExiting = (cell) => {
+        if (!cell) return;
+        cell.classList.remove('is-active');
+        clearExitState(cell);
+        cell.classList.add('is-exiting');
+        const timer = setTimeout(() => {
+            cell.classList.remove('is-exiting');
+            exitTimers.delete(cell);
+        }, EXIT_MS);
+        exitTimers.set(cell, timer);
+    };
+
+    grid.addEventListener('pointerover', (event) => {
+        const cell = event.target.closest('.ink-spectrum-cell');
+        if (!cell || !grid.contains(cell)) return;
+        if (activeCell && activeCell !== cell) {
+            markExiting(activeCell);
+        }
+        clearExitState(cell);
+        cell.classList.add('is-active');
+        activeCell = cell;
+    });
+
+    grid.addEventListener('pointerleave', () => {
+        if (!activeCell) return;
+        markExiting(activeCell);
+        activeCell = null;
+    });
+}
+
+function getActivityTrendRows() {
+    const now = new Date();
+    const keys = [];
+    for (let i = 5; i >= 0; i -= 1) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        keys.push(toMonthKey(d));
+    }
+    const counts = Object.create(null);
+    keys.forEach((k) => { counts[k] = 0; });
+    (appData.activity_log || []).forEach((entry) => {
+        const ts = typeof entry.timestamp === 'number' ? entry.timestamp : 0;
+        const key = toMonthKey(ts);
+        if (key && Object.prototype.hasOwnProperty.call(counts, key)) {
+            counts[key] += 1;
+        }
+    });
+    return keys.map(key => ({
+        label: formatMonthShort(key),
+        value: counts[key] || 0
+    }));
+}
+
+function getMonthlyGrowthRows() {
+    const now = new Date();
+    const keys = [];
+    for (let i = 5; i >= 0; i -= 1) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        keys.push(toMonthKey(d));
+    }
+    const counts = Object.create(null);
+    keys.forEach((k) => { counts[k] = 0; });
+    (appData.activity_log || []).forEach((entry) => {
+        if (entry.action !== 'created') return;
+        if (!['pen', 'ink', 'swatch'].includes(entry.category)) return;
+        const key = toMonthKey(entry.timestamp || 0);
+        if (key && Object.prototype.hasOwnProperty.call(counts, key)) {
+            counts[key] += 1;
+        }
+    });
+    return keys.map(key => ({
+        label: formatMonthShort(key),
+        value: counts[key] || 0
+    }));
+}
+
+function getTopPenBrandRows() {
+    const counts = countBy(appData.pens || [], 'brand');
+    return Object.keys(counts)
+        .map((brand) => ({ label: brand, value: counts[brand] }))
+        .sort((a, b) => b.value - a.value);
+}
+
+function getTopInkBrandRows() {
+    const counts = countBy(getLibraryInks(), 'brand');
+    return Object.keys(counts)
+        .map((brand) => ({ label: brand, value: counts[brand] }))
+        .sort((a, b) => b.value - a.value);
+}
+
+function getPenSpendByBrandRows() {
+    const spendByBrand = Object.create(null);
+    (appData.pens || []).forEach((pen) => {
+        const price = parsePriceNumber(pen && pen.price);
+        if (!Number.isFinite(price) || price <= 0) return;
+        const brand = String((pen && pen.brand) || '').trim() || 'Unknown';
+        spendByBrand[brand] = (spendByBrand[brand] || 0) + price;
+    });
+    return Object.keys(spendByBrand)
+        .map((brand) => ({ label: brand, value: spendByBrand[brand] }))
+        .sort((a, b) => b.value - a.value);
+}
+
+function getInkSpendByBrandRows() {
+    const spendByBrand = Object.create(null);
+    getLibraryInks().forEach((ink) => {
+        const unitPrice = parsePriceNumber(ink && ink.price);
+        const amount = parseAmountNumber(ink && ink.amount, 1);
+        const total = unitPrice * amount;
+        if (!Number.isFinite(total) || total <= 0) return;
+        const brand = String((ink && ink.brand) || '').trim() || 'Unknown';
+        spendByBrand[brand] = (spendByBrand[brand] || 0) + total;
+    });
+    return Object.keys(spendByBrand)
+        .map((brand) => ({ label: brand, value: spendByBrand[brand] }))
+        .sort((a, b) => b.value - a.value);
+}
+
+function computeCollectionInsights() {
+    const pens = appData.pens || [];
+    const inks = getLibraryInks();
+    const swatches = getAllSwatches();
+    const active = appData.currently_inked || [];
+    const inksPerPen = pens.length ? (inks.length / pens.length) : 0;
+    const activeRatio = pens.length ? Math.round((active.length / pens.length) * 100) : 0;
+    const last30Cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    const last7Cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const last90Cutoff = Date.now() - (90 * 24 * 60 * 60 * 1000);
+    const recentActivity = (appData.activity_log || []).filter(entry => (entry.timestamp || 0) >= last30Cutoff);
+    const createdRecent = recentActivity.filter(entry => entry.action === 'created').length;
+    const inkedDays = active.map((item) => {
+            const ts = Number(item.date_inked) || Date.now();
+            return (Date.now() - ts) / (24 * 60 * 60 * 1000);
+        });
+    const avgInkedDays = inkedDays.length ? inkedDays.reduce((sum, days) => sum + days, 0) / inkedDays.length : 0;
+    const medianInkedDays = median(inkedDays);
+    const staleInkedPens = inkedDays.filter(days => days > 30).length;
+    const swatchedInkIds = new Set(swatches.map((s) => s.ink_id).filter(Boolean));
+    const swatchCoverage = inks.length ? Math.round((swatchedInkIds.size / inks.length) * 100) : 0;
+    const inkActions30 = (appData.activity_log || []).filter(entry =>
+        ['inked', 'reinked'].includes(entry.action) && (entry.timestamp || 0) >= last30Cutoff
+    ).length;
+    const inkActions90 = (appData.activity_log || []).filter(entry =>
+        ['inked', 'reinked'].includes(entry.action) && (entry.timestamp || 0) >= last90Cutoff
+    ).length;
+    const actions7 = (appData.activity_log || []).filter(entry => (entry.timestamp || 0) >= last7Cutoff).length;
+    const actions30 = recentActivity.length;
+
+    const penBrandCounts = countBy(pens, 'brand');
+    const inkBrandCounts = countBy(inks, 'brand');
+
+    const everInked = new Set((active || []).map(item => item.pen_id));
+    (appData.activity_log || []).forEach((entry) => {
+        if (entry && entry.category === 'pen' && ['inked', 'reinked', 'cleaned'].includes(entry.action) && entry.entity_id) {
+            everInked.add(entry.entity_id);
+        }
+    });
+    const underusedPens = pens.filter(pen => !everInked.has(pen.id)).length;
+
+    const pricedPens = pens
+        .map(pen => ({ brand: (pen.brand || '').trim(), price: parsePriceNumber(pen.price) }))
+        .filter(item => Number.isFinite(item.price) && item.price > 0);
+    const pricedInks = inks
+        .map((ink) => {
+            const unitPrice = parsePriceNumber(ink.price);
+            const amount = parseAmountNumber(ink.amount, 1);
+            return {
+                brand: (ink.brand || '').trim(),
+                unitPrice,
+                amount,
+                total: unitPrice * amount
+            };
+        })
+        .filter(item => Number.isFinite(item.total) && item.total > 0);
+    const totalPenSpend = pricedPens.reduce((sum, item) => sum + item.price, 0);
+    const totalInkSpend = pricedInks.reduce((sum, item) => sum + item.total, 0);
+    const totalSpend = totalPenSpend + totalInkSpend;
+    const averagePenPrice = pricedPens.length ? (totalPenSpend / pricedPens.length) : 0;
+    const totalInkUnits = pricedInks.reduce((sum, item) => sum + item.amount, 0);
+    const averageInkPrice = totalInkUnits > 0 ? (totalInkSpend / totalInkUnits) : 0;
+    const penSpendByBrand = Object.create(null);
+    pricedPens.forEach((item) => {
+        const key = item.brand || 'Unknown';
+        penSpendByBrand[key] = (penSpendByBrand[key] || 0) + item.price;
+    });
+    const inkSpendByBrand = Object.create(null);
+    pricedInks.forEach((item) => {
+        const key = item.brand || 'Unknown';
+        inkSpendByBrand[key] = (inkSpendByBrand[key] || 0) + item.total;
+    });
+    const topPenSpendBrand = topMoneyLabel(penSpendByBrand);
+    const topInkSpendBrand = topMoneyLabel(inkSpendByBrand);
+
+    const penCompletenessFields = [
+        { key: 'brand', mode: 'text' },
+        { key: 'model', mode: 'text' },
+        { key: 'nib', mode: 'text' },
+        { key: 'nib_material', mode: 'text' },
+        { key: 'material', mode: 'text' },
+        { key: 'filling_system', mode: 'text' },
+        { key: 'color', mode: 'text' },
+        { key: 'price', mode: 'number' }
+    ];
+    const inkCompletenessFields = [
+        { key: 'brand', mode: 'text' },
+        { key: 'name', mode: 'text' },
+        { key: 'line', mode: 'text' },
+        { key: 'type', mode: 'text' },
+        { key: 'cl', mode: 'number' },
+        { key: 'amount', mode: 'number' },
+        { key: 'price', mode: 'number' },
+        { key: 'color_base', mode: 'text' },
+        { key: 'flow', mode: 'text' },
+        { key: 'lubrication', mode: 'text' },
+        { key: 'permanence', mode: 'text' }
+    ];
+    let expectedFields = 0;
+    let filledFields = 0;
+    pens.forEach((pen) => {
+        penCompletenessFields.forEach((field) => {
+            expectedFields += 1;
+            if (isCompletenessFieldFilled(pen && pen[field.key], field.mode)) filledFields += 1;
+        });
+    });
+    inks.forEach((ink) => {
+        inkCompletenessFields.forEach((field) => {
+            expectedFields += 1;
+            if (isCompletenessFieldFilled(ink && ink[field.key], field.mode)) filledFields += 1;
+        });
+    });
+    const completeness = expectedFields ? Math.round((filledFields / expectedFields) * 100) : 100;
+    const missingFieldCount = Math.max(0, expectedFields - filledFields);
+
+    const latestPenActivity = Math.max(
+        latestTimestampFromCollection(pens),
+        ...(appData.activity_log || []).filter(e => e.category === 'pen').map(e => e.timestamp || 0),
+        0
+    );
+    const latestInkActivity = Math.max(
+        latestTimestampFromCollection(inks),
+        ...(appData.activity_log || []).filter(e => e.category === 'ink').map(e => e.timestamp || 0),
+        0
+    );
+    const latestSwatchActivity = Math.max(
+        latestTimestampFromCollection(swatches),
+        ...(appData.activity_log || []).filter(e => e.category === 'swatch').map(e => e.timestamp || 0),
+        0
+    );
+    const latestActivityLog = Math.max(...(appData.activity_log || []).map(e => e.timestamp || 0), 0);
+
+    return [
+        { label: 'Inks per Pen Ratio', value: `${inksPerPen.toFixed(2)} (${inks.length}:${pens.length || 0})` },
+        { label: 'Underused Pens', value: `${underusedPens}` },
+        { label: 'Inked Right Now', value: `${active.length} pens (${activeRatio}%)` },
+        { label: 'Activity Last 30 Days', value: `${recentActivity.length} entries` },
+        { label: 'New Entries Last 30 Days', value: `${createdRecent}` },
+        { label: 'Average Inked Duration', value: formatDays(avgInkedDays) },
+        { label: 'Median Inked Duration', value: formatDays(medianInkedDays) },
+        { label: 'Re-inks (30d / 90d)', value: `${inkActions30} / ${inkActions90}` },
+        { label: 'Swatch Coverage', value: `${swatchCoverage}% (${swatchedInkIds.size}/${inks.length || 0})` },
+        { label: 'Stale Inked Pens (>30d)', value: `${staleInkedPens}` },
+        { label: 'Activity Velocity (7d / 30d)', value: `${actions7} / ${actions30}` },
+        { label: 'Top Pen Brand', value: topLabel(penBrandCounts) },
+        { label: 'Top Ink Brand', value: topLabel(inkBrandCounts) },
+        { label: 'Tracked Spend', value: formatMoney(totalSpend) },
+        { label: 'Total Pen Spend', value: formatMoney(totalPenSpend) },
+        { label: 'Total Ink Spend', value: formatMoney(totalInkSpend) },
+        { label: 'Average Pen Price', value: formatMoney(averagePenPrice) },
+        { label: 'Average Ink Price', value: formatMoney(averageInkPrice) },
+        { label: 'Top Pen Spend Brand', value: topPenSpendBrand },
+        { label: 'Top Ink Spend Brand', value: topInkSpendBrand },
+        { label: 'Completeness Score', value: `${completeness}% (${missingFieldCount} fields missing)` },
+        { label: 'Last Updated - Pens', value: formatUpdatedAt(latestPenActivity) },
+        { label: 'Last Updated - Inks', value: formatUpdatedAt(latestInkActivity) },
+        { label: 'Last Updated - Swatches', value: formatUpdatedAt(latestSwatchActivity) },
+        { label: 'Last Updated - Activity', value: formatUpdatedAt(latestActivityLog) }
+    ];
+}
+
+function renderCollectionInsights() {
+    if (!collectionInsightsCard || !collectionInsightsList) return;
+    if (shouldHideInsightsInShowcase()) {
+        collectionInsightsCard.style.display = 'none';
+        return;
+    }
+    collectionInsightsCard.style.display = '';
+
+    let rows = computeCollectionInsights();
+    if (shouldHidePricesInShowcase()) {
+        const priceRelatedLabels = new Set([
+            'Tracked Spend',
+            'Total Pen Spend',
+            'Total Ink Spend',
+            'Average Pen Price',
+            'Average Ink Price',
+            'Top Pen Spend Brand',
+            'Top Ink Spend Brand'
+        ]);
+        rows = rows.filter(row => !priceRelatedLabels.has(row.label));
+    }
+    collectionInsightsList.innerHTML = `<div class="insight-list">${rows.map(row => `
+        <div class="insight-item">
+            <span class="insight-label">${escapeHtml(row.label)}</span>
+            <span class="insight-value">${escapeHtml(row.value)}</span>
+        </div>
+    `).join('')}</div>`;
+}
+
+function renderCollectionCharts() {
+    if (!collectionChartsCard || !chartColorDistribution || !chartInkColorDistribution || !chartActivityTrend || !chartTopPenBrands || !chartTopInkBrands || !chartPenSpendBrands || !chartInkSpendBrands) return;
+    if (shouldHideChartsInShowcase()) {
+        collectionChartsCard.style.display = 'none';
+        return;
+    }
+    collectionChartsCard.style.display = '';
+    const hidePrices = shouldHidePricesInShowcase();
+    const penSpendBlock = chartPenSpendBrands ? chartPenSpendBrands.closest('.chart-block') : null;
+    const inkSpendBlock = chartInkSpendBrands ? chartInkSpendBrands.closest('.chart-block') : null;
+    if (penSpendBlock) penSpendBlock.style.display = hidePrices ? 'none' : '';
+    if (inkSpendBlock) inkSpendBlock.style.display = hidePrices ? 'none' : '';
+
+    const topPenBrandRows = getTopPenBrandRows();
+    chartTopPenBrands.innerHTML = buildMiniBarChart(topPenBrandRows, {
+        percentFn: (value) => `${value}`
+    });
+
+    const topInkBrandRows = getTopInkBrandRows();
+    chartTopInkBrands.innerHTML = buildMiniBarChart(topInkBrandRows, {
+        percentFn: (value) => `${value}`
+    });
+
+    const penSpendRows = getPenSpendByBrandRows();
+    if (!hidePrices) {
+        chartPenSpendBrands.innerHTML = buildMiniBarChart(penSpendRows, {
+            percentFn: (value) => formatMoney(value)
+        });
+    } else {
+        chartPenSpendBrands.innerHTML = '';
+    }
+
+    const inkSpendRows = getInkSpendByBrandRows();
+    if (!hidePrices) {
+        chartInkSpendBrands.innerHTML = buildMiniBarChart(inkSpendRows, {
+            percentFn: (value) => formatMoney(value)
+        });
+    } else {
+        chartInkSpendBrands.innerHTML = '';
+    }
+
+    const penColorRows = getPenColorDistributionRows();
+    chartColorDistribution.innerHTML = buildMiniBarChart(penColorRows, {
+        percentFn: (value) => `${value}`,
+        fillFn: (row) => `linear-gradient(90deg, ${getColorHexForCategory(row.label)} 0%, #48556a 100%)`
+    });
+
+    const inkColorRows = getInkColorDistributionRows();
+    chartInkColorDistribution.innerHTML = buildMiniBarChart(inkColorRows, {
+        percentFn: (value) => `${value}`,
+        fillFn: (row) => `linear-gradient(90deg, ${getColorHexForCategory(row.label)} 0%, #48556a 100%)`
+    });
+    renderGroupedInkSpectrum();
+
+    const trendRows = getActivityTrendRows();
+    chartActivityTrend.innerHTML = buildMiniBarChart(trendRows, {
+        percentFn: (value) => `${value}`
+    });
+    updateChartScrollMarkers();
+}
+
+function updateChartScrollMarkers() {
+    if (!collectionChartsCard) return;
+    const chartBlocks = collectionChartsCard.querySelectorAll('.chart-block');
+    chartBlocks.forEach((block) => {
+        const existingBlockMarker = block.querySelector('.chart-scroll-value-indicator');
+        if (existingBlockMarker) existingBlockMarker.remove();
+        block.classList.remove('has-scroll-indicator');
+
+        const heading = block.querySelector('h4');
+        if (heading) {
+            const existingHeadingMarker = heading.querySelector('.chart-scroll-indicator');
+            if (existingHeadingMarker) existingHeadingMarker.remove();
+        }
+
+        const list = block.querySelector('.mini-chart-list');
+        if (!list) return;
+
+        const isScrollable = (list.scrollHeight - list.clientHeight) > 1;
+        if (!isScrollable) return;
+
+        const marker = document.createElement('span');
+        marker.className = 'chart-scroll-value-indicator';
+        marker.textContent = '↕';
+        block.classList.add('has-scroll-indicator');
+        block.appendChild(marker);
+    });
 }
 
 function renderInkedPens() {
@@ -761,17 +2309,20 @@ function renderInkedPens() {
             const inkName = ink ? (ink.brand ? `${ink.brand} ${ink.name}` : ink.name) : 'Unknown Ink';
             const penName = pen.model;
             const penDetail = `${pen.brand} • ${pen.nib}`;
+            const safePenName = escapeHtml(penName);
+            const safePenDetail = escapeHtml(penDetail);
+            const safeInkName = escapeHtml(inkName);
 
             card.innerHTML = `
                 <div class="ink-swatch-bg" style="${bgStyle}; height: 120px;"></div>
                 <div class="card-content">
-                    <div class="pen-name" style="font-size: 16px; font-weight: 600;">${penName}</div>
-                    <div class="pen-detail" style="font-size: 12px; color: #666; margin-bottom: 8px;">${penDetail}</div>
+                    <div class="pen-name" style="font-size: 16px; font-weight: 600;">${safePenName}</div>
+                    <div class="pen-detail" style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 8px;">${safePenDetail}</div>
                     <div class="ink-pairing" style="display: flex; align-items: center; gap: 8px;">
                         <div class="ink-dot" style="background-color: ${inkColor}; width: 12px; height: 12px; border-radius: 50%;"></div>
-                        <span style="font-size: 13px; color: #444;">${inkName}</span>
+                        <span style="font-size: 13px; color: var(--color-text-main);">${safeInkName}</span>
                     </div>
-                    <div class="card-meta" style="margin-top: 8px; font-size: 11px; color: #888;">Inked ${new Date(item.date_inked).toLocaleDateString()}</div>
+                    <div class="card-meta" style="margin-top: 8px; font-size: 11px; color: var(--color-text-muted);">Inked ${formatDateByPreference(new Date(item.date_inked))}</div>
                 </div>
             `;
             inkedGrid.appendChild(card);
@@ -794,13 +2345,15 @@ function renderRecentInks() {
         const recent = [...libraryInks].reverse().slice(0, DASHBOARD_RECENT_LIMIT);
         recent.forEach(ink => {
             if (!ink) return;
+            const safeName = escapeHtml(ink.name);
+            const safeBrand = escapeHtml(ink.brand || '');
             const div = document.createElement('div');
             div.className = 'list-item';
             div.innerHTML = `
                 <div class="color-circle" style="background-color: ${ink.color_base || '#ccc'}; border-color: ${ink.color_accent || ink.color_base || '#999'}"></div>
                 <div class="item-info">
-                    <div class="item-title">${ink.name}</div>
-                    <div class="item-sub">${ink.brand || ''}</div>
+                    <div class="item-title">${safeName}</div>
+                    <div class="item-sub">${safeBrand}</div>
                 </div>
             `;
             listContainer.appendChild(div);
@@ -821,13 +2374,16 @@ function renderRecentPens() {
         const recent = [...appData.pens].reverse().slice(0, DASHBOARD_RECENT_LIMIT);
         recent.forEach(pen => {
             if (!pen) return;
+            const safeModel = escapeHtml(pen.model || 'Unnamed Pen');
+            const safeBrand = escapeHtml(pen.brand || '');
+            const safeNib = pen.nib ? escapeHtml(pen.nib) : '';
             const div = document.createElement('div');
             div.className = 'list-item';
             div.innerHTML = `
                 <div class="color-circle" style="background-color: ${pen.hex_color || '#d8dde6'}; border-color: ${pen.hex_color || '#d8dde6'}"></div>
                 <div class="item-info">
-                    <div class="item-title">${pen.model || 'Unnamed Pen'}</div>
-                    <div class="item-sub">${pen.brand || ''}${pen.nib ? ` • ${pen.nib}` : ''}</div>
+                    <div class="item-title">${safeModel}</div>
+                    <div class="item-sub">${safeBrand}${safeNib ? ` • ${safeNib}` : ''}</div>
                 </div>
             `;
             listContainer.appendChild(div);
@@ -843,18 +2399,23 @@ function renderRecentSwatches() {
     listContainer.innerHTML = '';
 
     try {
-        const swatches = appData.inks.filter(ink => ink && ink.image && ink.is_swatch);
+        const swatches = getAllSwatches();
         if (swatches.length === 0) return;
 
-        const recent = [...swatches].reverse().slice(0, DASHBOARD_RECENT_LIMIT);
-        recent.forEach(ink => {
+        const recent = [...swatches]
+            .sort((a, b) => getSwatchTimestamp(b) - getSwatchTimestamp(a))
+            .slice(0, DASHBOARD_RECENT_LIMIT);
+        recent.forEach((swatch) => {
+            const ink = getInkById(swatch.ink_id);
+            const safeInkName = escapeHtml((ink && ink.name) || 'Unnamed Swatch');
+            const safeInkBrand = escapeHtml((ink && ink.brand) || '');
             const div = document.createElement('div');
             div.className = 'list-item';
             div.innerHTML = `
-                <div class="color-circle" style="background-color: ${ink.color_base || '#d8dde6'}; border-color: ${ink.color_accent || ink.color_base || '#d8dde6'}"></div>
+                <div class="color-circle" style="background-color: ${(ink && ink.color_base) || '#d8dde6'}; border-color: ${(ink && (ink.color_accent || ink.color_base)) || '#d8dde6'}"></div>
                 <div class="item-info">
-                    <div class="item-title">${ink.name || 'Unnamed Swatch'}</div>
-                    <div class="item-sub">${ink.brand || ''}</div>
+                    <div class="item-title">${safeInkName}</div>
+                    <div class="item-sub">${safeInkBrand}</div>
                 </div>
             `;
             listContainer.appendChild(div);
@@ -879,6 +2440,7 @@ function renderRecentActivity() {
 
     items.forEach((entry) => {
         const iconSpec = getRecentActivityIcon(entry);
+        const safeMessage = escapeHtml(entry.message || 'Activity recorded');
         const div = document.createElement('div');
         div.className = 'list-item';
         div.innerHTML = `
@@ -886,7 +2448,7 @@ function renderRecentActivity() {
                 <i class="ph ${iconSpec.icon}" style="font-size: 16px; color: ${iconSpec.color};"></i>
             </div>
             <div class="item-info">
-                <div class="item-title">${entry.message || 'Activity recorded'}</div>
+                <div class="item-title">${safeMessage}</div>
                 <div class="item-sub">${formatActivityTimestamp(entry.timestamp)}</div>
             </div>
         `;
@@ -912,8 +2474,12 @@ function buildActivityLogbookHtml(items) {
     let lastDate = '';
     items.forEach((entry) => {
         const dateLabel = formatActivityDateLabel(entry.timestamp);
+        const safeId = escapeHtml(entry.id || '');
+        const safeMessage = escapeHtml(entry.message || 'Activity recorded');
+        const safeCategory = escapeHtml(entry.category || 'system');
+        const safeAction = escapeHtml(entry.action || 'updated');
         const deleteControl = isElectron
-            ? `<button class="activity-delete-btn" data-delete-activity-id="${entry.id}" title="Delete entry">
+            ? `<button class="activity-delete-btn" data-delete-activity-id="${safeId}" title="Delete entry">
                     <i class="ph ph-trash"></i>
                </button>`
             : '';
@@ -922,11 +2488,11 @@ function buildActivityLogbookHtml(items) {
             lastDate = dateLabel;
         }
         html += `
-            <div class="activity-logbook-item glass-panel" data-activity-id="${entry.id}">
+            <div class="activity-logbook-item glass-panel" data-activity-id="${safeId}">
                 <div class="activity-logbook-time">${formatActivityTimestamp(entry.timestamp)}</div>
                 <div>
-                    <div class="activity-logbook-message">${entry.message || 'Activity recorded'}</div>
-                    <div class="activity-logbook-meta">${entry.category || 'system'} • ${entry.action || 'updated'}</div>
+                    <div class="activity-logbook-message">${safeMessage}</div>
+                    <div class="activity-logbook-meta">${safeCategory} • ${safeAction}</div>
                 </div>
                 ${deleteControl}
             </div>
@@ -952,12 +2518,56 @@ function renderActivityPagination(totalItems) {
     activityPagination.style.display = totalItems > pageSize ? 'flex' : 'none';
 }
 
+function renderSettingsView() {
+    const prefs = getPreferences();
+    const showcasePrefs = getShowcasePreferences();
+    const filterPrefs = getActivityLogFilterPreferences();
+    const defaultsPrefs = getDefaultsPreferences();
+    const importExportPrefs = getImportExportPreferences();
+    const backupPrefs = getBackupPreferences();
+    const showcaseSort = getShowcaseSortPreferences();
+    if (toggleActivityVisible) toggleActivityVisible.checked = !!prefs.show_activity_log;
+    if (toggleRecentActivityVisible) toggleRecentActivityVisible.checked = !!prefs.show_recent_activity;
+    if (toggleOpenCardsEditMode) toggleOpenCardsEditMode.checked = shouldOpenCardsInEditMode();
+    if (toggleShowcasePricesVisible) toggleShowcasePricesVisible.checked = !!showcasePrefs.show_prices;
+    if (toggleShowcasePensVisible) toggleShowcasePensVisible.checked = !!showcasePrefs.show_pens;
+    if (toggleShowcaseInksVisible) toggleShowcaseInksVisible.checked = !!showcasePrefs.show_inks;
+    if (toggleShowcaseSwatchesVisible) toggleShowcaseSwatchesVisible.checked = !!showcasePrefs.show_swatches;
+    if (toggleShowcaseInsightsVisible) toggleShowcaseInsightsVisible.checked = !!showcasePrefs.show_insights;
+    if (toggleShowcaseChartsVisible) toggleShowcaseChartsVisible.checked = !!showcasePrefs.show_charts;
+    if (activityRetentionSelect) activityRetentionSelect.value = String(getActivityRetentionDays());
+    if (colorModeSelect) colorModeSelect.value = ['light', 'dark', 'auto'].includes(prefs.color_mode) ? prefs.color_mode : 'auto';
+    if (showcaseColorModeSelect) showcaseColorModeSelect.value = ['light', 'dark', 'auto'].includes(String(showcasePrefs.color_mode || '').toLowerCase())
+        ? String(showcasePrefs.color_mode).toLowerCase()
+        : 'auto';
+    if (toggleConfirmDestructive) toggleConfirmDestructive.checked = !!prefs.confirm_destructive_actions;
+    if (activityLogVerbositySelect) activityLogVerbositySelect.value = getActivityLogVerbosity();
+    if (toggleLogPenEdits) toggleLogPenEdits.checked = !!filterPrefs.pen_edits;
+    if (toggleLogInkEdits) toggleLogInkEdits.checked = !!filterPrefs.ink_edits;
+    if (toggleLogSwatchEvents) toggleLogSwatchEvents.checked = !!filterPrefs.swatches;
+    if (toggleLogDeleteEvents) toggleLogDeleteEvents.checked = !!filterPrefs.deletes;
+    if (showcaseTitleInput) showcaseTitleInput.value = normalizeShowcaseTitle(showcasePrefs.title);
+    if (showcaseSortPensSelect) showcaseSortPensSelect.value = showcaseSort.pens;
+    if (showcaseSortInksSelect) showcaseSortInksSelect.value = showcaseSort.inks;
+    if (showcaseSortSwatchesSelect) showcaseSortSwatchesSelect.value = showcaseSort.swatches;
+    if (defaultCurrencySelect) defaultCurrencySelect.value = String(defaultsPrefs.currency || 'USD').toUpperCase();
+    if (defaultDateFormatSelect) defaultDateFormatSelect.value = String(defaultsPrefs.date_format || 'system').toLowerCase();
+    if (defaultPenNibInput) defaultPenNibInput.value = String(defaultsPrefs.pen_nib || '');
+    if (defaultPenNibMaterialInput) defaultPenNibMaterialInput.value = String(defaultsPrefs.pen_nib_material || '');
+    if (defaultPenStatusSelect) defaultPenStatusSelect.value = String(defaultsPrefs.pen_status || '');
+    if (defaultInkTypeSelect) defaultInkTypeSelect.value = String(defaultsPrefs.ink_type || '');
+    if (toggleImportAutoValidate) toggleImportAutoValidate.checked = !!importExportPrefs.auto_validate_import;
+    if (toggleExportIncludeMetadata) toggleExportIncludeMetadata.checked = !!importExportPrefs.include_optional_metadata;
+    if (importConflictBehaviorSelect) importConflictBehaviorSelect.value = String(importExportPrefs.conflict_behavior || 'overwrite');
+    if (autoBackupFrequencySelect) autoBackupFrequencySelect.value = String(backupPrefs.auto_frequency || 'daily');
+    if (backupRetentionCountInput) backupRetentionCountInput.value = String(Number(backupPrefs.retention_count) || 30);
+    refreshBackupEffectiveStatus();
+    syncSettingsCustomSelectUI();
+}
+
 function renderActivityLogView() {
     if (!activityLogContainer) return;
 
-    const prefs = getPreferences();
-    if (toggleActivityVisible) toggleActivityVisible.checked = !!prefs.show_activity_log;
-    if (toggleRecentActivityVisible) toggleRecentActivityVisible.checked = !!prefs.show_recent_activity;
     if (activityRetentionSelect) activityRetentionSelect.value = String(getActivityRetentionDays());
     const hideActivityNav = shouldHideActivityInShowcase();
     if (navActivity) navActivity.style.display = hideActivityNav ? 'none' : '';
@@ -1005,6 +2615,99 @@ function persistActivityMaintenance(onErrorMessage) {
         },
         onErrorMessage
     });
+}
+
+function applyShowcaseSettingsFromForm() {
+    const prefs = getPreferences();
+    const showcase = prefs.showcase || {};
+    showcase.show_prices = !!(toggleShowcasePricesVisible && toggleShowcasePricesVisible.checked);
+    showcase.show_pens = !!(toggleShowcasePensVisible && toggleShowcasePensVisible.checked);
+    showcase.show_inks = !!(toggleShowcaseInksVisible && toggleShowcaseInksVisible.checked);
+    showcase.show_swatches = !!(toggleShowcaseSwatchesVisible && toggleShowcaseSwatchesVisible.checked);
+    showcase.show_insights = !!(toggleShowcaseInsightsVisible && toggleShowcaseInsightsVisible.checked);
+    showcase.show_charts = !!(toggleShowcaseChartsVisible && toggleShowcaseChartsVisible.checked);
+    showcase.title = normalizeShowcaseTitle(showcaseTitleInput ? showcaseTitleInput.value : showcase.title);
+    const selectedShowcaseMode = showcaseColorModeSelect ? String(showcaseColorModeSelect.value || '').toLowerCase().trim() : '';
+    showcase.color_mode = ['light', 'dark', 'auto'].includes(selectedShowcaseMode) ? selectedShowcaseMode : 'auto';
+    showcase.default_sort = {
+        pens: showcaseSortPensSelect ? String(showcaseSortPensSelect.value || 'newest') : 'newest',
+        inks: showcaseSortInksSelect ? String(showcaseSortInksSelect.value || 'newest') : 'newest',
+        swatches: showcaseSortSwatchesSelect ? String(showcaseSortSwatchesSelect.value || 'newest') : 'newest'
+    };
+    const selectedMode = colorModeSelect ? String(colorModeSelect.value || '').toLowerCase().trim() : '';
+    prefs.color_mode = ['light', 'dark', 'auto'].includes(selectedMode) ? selectedMode : 'auto';
+    prefs.open_cards_in_edit_mode = !!(toggleOpenCardsEditMode && toggleOpenCardsEditMode.checked);
+    prefs.confirm_destructive_actions = !!(toggleConfirmDestructive && toggleConfirmDestructive.checked);
+    prefs.activity_log_verbosity = activityLogVerbositySelect ? String(activityLogVerbositySelect.value || 'normal') : 'normal';
+    prefs.activity_log_filters = {
+        pen_edits: !!(toggleLogPenEdits && toggleLogPenEdits.checked),
+        ink_edits: !!(toggleLogInkEdits && toggleLogInkEdits.checked),
+        swatches: !!(toggleLogSwatchEvents && toggleLogSwatchEvents.checked),
+        deletes: !!(toggleLogDeleteEvents && toggleLogDeleteEvents.checked)
+    };
+    const existingCategoryPrefs = getActivityLogCategoryPreferences();
+    prefs.activity_log_categories = {
+        pen: !!existingCategoryPrefs.pen,
+        ink: !!existingCategoryPrefs.ink,
+        swatch: !!existingCategoryPrefs.swatch
+    };
+    prefs.defaults = {
+        currency: defaultCurrencySelect ? String(defaultCurrencySelect.value || 'USD').toUpperCase() : 'USD',
+        date_format: defaultDateFormatSelect ? String(defaultDateFormatSelect.value || 'system').toLowerCase() : 'system',
+        pen_nib: defaultPenNibInput ? String(defaultPenNibInput.value || '').trim() : '',
+        pen_nib_material: defaultPenNibMaterialInput ? String(defaultPenNibMaterialInput.value || '').trim() : '',
+        pen_status: defaultPenStatusSelect ? String(defaultPenStatusSelect.value || '').toLowerCase() : '',
+        ink_type: defaultInkTypeSelect ? String(defaultInkTypeSelect.value || '') : ''
+    };
+    prefs.import_export = {
+        auto_validate_import: !!(toggleImportAutoValidate && toggleImportAutoValidate.checked),
+        conflict_behavior: importConflictBehaviorSelect ? String(importConflictBehaviorSelect.value || 'overwrite').toLowerCase() : 'overwrite',
+        include_optional_metadata: !!(toggleExportIncludeMetadata && toggleExportIncludeMetadata.checked)
+    };
+    prefs.backup = {
+        auto_frequency: autoBackupFrequencySelect ? String(autoBackupFrequencySelect.value || 'daily').toLowerCase() : 'daily',
+        retention_count: backupRetentionCountInput ? Math.max(1, Math.min(365, Number(backupRetentionCountInput.value) || 30)) : 30,
+        include_images: true
+    };
+    prefs.showcase = showcase;
+    appData.preferences = prefs;
+    applyShowcaseTitleUi();
+    applyInterfacePreferences();
+    applyShowcaseSortDefaults();
+    applyShowcaseSectionVisibility();
+    refreshBackupEffectiveStatus();
+    if (!isElectron) {
+        const lastView = localStorage.getItem('lastView') || 'dashboard';
+        if (
+            (lastView === 'pens' && shouldHidePensInShowcase()) ||
+            (lastView === 'inks' && shouldHideInksInShowcase()) ||
+            (lastView === 'swatches' && shouldHideSwatchesInShowcase()) ||
+            (lastView === 'activity' && shouldHideActivityInShowcase())
+        ) {
+            switchView('dashboard');
+        }
+    }
+}
+
+async function persistShowcaseSettingsNow({ force = false } = {}) {
+    if (!isElectron) return false;
+    if (!force && (suppressSettingsPersist || showcaseExportInFlight)) return false;
+    applyShowcaseSettingsFromForm();
+    return await persistDataAndRefresh({
+        refresh: {
+            dashboard: true,
+            stats: true,
+            activity: true,
+            pens: true,
+            inks: true,
+            swatches: true
+        },
+        onErrorMessage: 'Failed to save showcase settings.'
+    });
+}
+
+function persistShowcaseSettings() {
+    void persistShowcaseSettingsNow();
 }
 
 function renderPens() {
@@ -1064,7 +2767,7 @@ function renderPens() {
             const card = document.createElement('div');
             card.className = 'pen-card-horizontal glass-panel';
             card.onclick = () => {
-                if (isElectron) {
+                if (isElectron && shouldOpenCardsInEditMode()) {
                     openPenModal(pen.id);
                 } else {
                     openPenDetailModal(pen.id, 'pens');
@@ -1111,18 +2814,23 @@ function renderPens() {
             const is90 = rotation === 90 || rotation === 270;
             const imgClass = is90 ? 'pen-photo-rotated' : '';
             const imgStyle = is90 ? `--rot: ${rotation}deg;` : `width: 100%; height: 100%; object-fit: cover; transform: rotate(${rotation}deg);`;
+            const safeBrand = escapeHtml(pen.brand || '');
+            const safeModel = escapeHtml(pen.model || '');
+            const safeFillingSystem = escapeHtml(pen.filling_system || 'Standard');
+            const safeNib = escapeHtml(pen.nib || '');
+            const safeNibMaterial = escapeHtml(pen.nib_material || 'Steel');
 
             card.innerHTML = `
                 <div class="pen-card-visual" style="${backgroundStyle}">
                     ${imagePath ? `<img src="${imagePath}" class="${imgClass}" style="${imgStyle}">` : `<i class="ph ph-pen-nib" style="font-size: 40px; color: rgba(0,0,0,0.1);"></i>`}
                 </div>
                 <div class="pen-card-info">
-                    <div class="pen-card-brand">${pen.brand}</div>
-                    <div class="pen-card-model">${pen.model}</div>
+                    <div class="pen-card-brand">${safeBrand}</div>
+                    <div class="pen-card-model">${safeModel}</div>
                     <div class="pen-card-meta">
-                        <span>${pen.filling_system || 'Standard'}</span>
-                        <span>${pen.nib}</span>
-                        <span>${pen.nib_material || 'Steel'}</span>
+                        <span>${safeFillingSystem}</span>
+                        <span>${safeNib}</span>
+                        <span>${safeNibMaterial}</span>
                     </div>
                     ${inkedStatusHTML}
                 </div>
@@ -1186,7 +2894,6 @@ const btnRemovePenPhoto = document.getElementById('btn-remove-pen-photo');
 // Ink Photo Handling
 const inkImageArea = document.getElementById('ink-image-area');
 const inkImagePreview = document.getElementById('ink-image-preview');
-const inkIsSwatchCheckbox = document.getElementById('ink-is-swatch-checkbox');
 let currentSelectedImagePath = null;
 
 if (inkImageArea) {
@@ -1231,7 +2938,6 @@ function openInkModal(inkId = null) {
         inkImageArea.querySelector('i').style.display = 'block';
         inkImageArea.querySelector('p').style.display = 'block';
     }
-    if (inkIsSwatchCheckbox) inkIsSwatchCheckbox.checked = false;
 
     if (inkId && typeof inkId === 'string') {
         const ink = appData.inks.find(i => i.id === inkId);
@@ -1244,6 +2950,7 @@ function openInkModal(inkId = null) {
             setCustomSelectValue('ink-type-input', normalizeInkType(ink.type) || 'Bottle');
             if (document.getElementById('ink-cl-input')) document.getElementById('ink-cl-input').value = ink.cl || '';
             if (document.getElementById('ink-amount-input')) document.getElementById('ink-amount-input').value = ink.amount || '1';
+            if (document.getElementById('ink-price-input')) document.getElementById('ink-price-input').value = ink.price || '';
 
             if (ink.image && inkImagePreview) {
                 inkImagePreview.src = resolveImageSource(ink.image);
@@ -1251,7 +2958,6 @@ function openInkModal(inkId = null) {
                 inkImageArea.querySelector('i').style.display = 'none';
                 inkImageArea.querySelector('p').style.display = 'none';
             }
-            if (inkIsSwatchCheckbox) inkIsSwatchCheckbox.checked = !!ink.is_swatch;
 
             // Initialize Colors
             initInkColors(ink.hex_colors, ink.color_base, ink.color_accent);
@@ -1286,6 +2992,7 @@ function openInkModal(inkId = null) {
             modalInk.querySelector('h2').textContent = 'Edit Ink';
         }
     } else {
+        const defaults = getDefaultsPreferences();
         // Force re-enable inputs in case they got stuck
         const inputs = modalInk.querySelectorAll('input, textarea, select');
         inputs.forEach(input => {
@@ -1305,9 +3012,10 @@ function openInkModal(inkId = null) {
 
         // Reset all new fields
         if (document.getElementById('ink-line-input')) document.getElementById('ink-line-input').value = '';
-        setCustomSelectValue('ink-type-input', 'Bottle');
+        setCustomSelectValue('ink-type-input', String(defaults.ink_type || ''));
         if (document.getElementById('ink-cl-input')) document.getElementById('ink-cl-input').value = '';
         if (document.getElementById('ink-amount-input')) document.getElementById('ink-amount-input').value = '1';
+        if (document.getElementById('ink-price-input')) document.getElementById('ink-price-input').value = '';
 
         setCustomSelectValue('ink-shading', 'None');
         setCustomSelectValue('ink-sheen', 'None');
@@ -1607,9 +3315,17 @@ function openPenModal(penId = null) {
     // Populate Ink Select Custom Options
     const inkSelectOptions = document.getElementById('pen-ink-select-options');
     if (inkSelectOptions) {
+        const sortedLibraryInks = [...getLibraryInks()].sort((a, b) => {
+            const nameCompare = String(a?.name || '').localeCompare(String(b?.name || ''), undefined, { sensitivity: 'base' });
+            if (nameCompare !== 0) return nameCompare;
+            return String(a?.brand || '').localeCompare(String(b?.brand || ''), undefined, { sensitivity: 'base' });
+        });
         let html = `<div class="custom-option" data-value="">Nothing (Clean)</div>`;
-        getLibraryInks().forEach(ink => {
-            html += `<div class="custom-option" data-value="${ink.id}">${ink.name} (${ink.brand})</div>`;
+        sortedLibraryInks.forEach(ink => {
+            const safeInkId = escapeHtml(ink.id || '');
+            const safeInkName = escapeHtml(ink.name || '');
+            const safeInkBrand = escapeHtml(ink.brand || '');
+            html += `<div class="custom-option" data-value="${safeInkId}">${safeInkName} (${safeInkBrand})</div>`;
         });
         inkSelectOptions.innerHTML = html;
         // Re-bind click events for new options
@@ -1675,6 +3391,7 @@ function openPenModal(penId = null) {
             modalPen.querySelector('h2').textContent = 'Edit Pen';
         }
     } else {
+        const defaults = getDefaultsPreferences();
         // Create Mode
         // Force re-enable pen inputs in case they got stuck
         const inputs = modalPen.querySelectorAll('input, select, textarea');
@@ -1692,8 +3409,8 @@ function openPenModal(penId = null) {
             }, 100);
         }
         if (penModelInput) penModelInput.value = '';
-        if (penNibInput) penNibInput.value = '';
-        if (penNibMaterialInput) penNibMaterialInput.value = '';
+        if (penNibInput) penNibInput.value = String(defaults.pen_nib || '');
+        if (penNibMaterialInput) penNibMaterialInput.value = String(defaults.pen_nib_material || '');
         if (penMaterialInput) penMaterialInput.value = '';
         if (penFillingSystemInput) penFillingSystemInput.value = '';
         if (penColorInput) penColorInput.value = '';
@@ -1715,7 +3432,15 @@ function openPenModal(penId = null) {
         if (penPhotoText) penPhotoText.style.display = 'block';
         currentPenImagePath = null;
 
-        if (penInkSelect) setCustomSelectValue('pen-ink-select', "");
+        if (penInkSelect) {
+            if (String(defaults.pen_status || '') === 'inked') {
+                const firstInk = [...(getLibraryInks() || [])]
+                    .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || ''), undefined, { sensitivity: 'base' }))[0];
+                setCustomSelectValue('pen-ink-select', firstInk ? firstInk.id : "");
+            } else {
+                setCustomSelectValue('pen-ink-select', "");
+            }
+        }
 
         btnSavePen.textContent = 'Add Pen';
         if (btnDeletePen) btnDeletePen.style.display = 'none';
@@ -1744,9 +3469,13 @@ function closeAllModals() {
     const addSwatchModal = document.getElementById('modal-add-swatch');
     const lifecycle = getModalLifecycle();
     if (!lifecycle) return;
+    closeSwatchCalendar();
     lifecycle.closeAllModals([modalInk, modalPen, modalSwatchDetail, modalPenDetail, addSwatchModal]);
     currentSwatchDetailInkId = null;
+    currentSwatchDetailSwatchId = null;
     currentPenDetailPenId = null;
+    currentEditingSwatchId = null;
+    setSwatchFormMode('create');
 }
 
 async function confirmAction(messageOrOptions, title = 'Confirm') {
@@ -1760,6 +3489,11 @@ async function confirmAction(messageOrOptions, title = 'Confirm') {
             cancelId: 0,
             confirmedIndex: 1
         };
+    const isDestructive = !!options.destructive;
+    if (isDestructive && !getPreferences().confirm_destructive_actions) {
+        if (typeof options.bypassResult === 'boolean') return options.bypassResult;
+        return true;
+    }
 
     if (isElectron && window.electronAPI && typeof window.electronAPI.confirmDialog === 'function') {
         const result = await window.electronAPI.confirmDialog({
@@ -1795,15 +3529,189 @@ function reviveModalInputs(modalEl) {
     lifecycle.reviveModalInputs(modalEl);
 }
 
-function openSwatchDetailModal(inkId, sourceView = 'swatches') {
+let settingsTooltipEl = null;
+let activeSettingsTooltipTarget = null;
+let settingsTooltipDelayTimer = null;
+let pendingSettingsTooltipTarget = null;
+let pendingSettingsTooltipPoint = { x: null, y: null };
+let lastSettingsPointerPoint = { x: null, y: null };
+let appNoticeEl = null;
+let appNoticeTimer = null;
+let suppressSettingsPersist = false;
+let showcaseExportInFlight = false;
+const SETTINGS_TOOLTIP_DELAY_MS = 500;
+
+function ensureSettingsTooltipEl() {
+    if (settingsTooltipEl) return settingsTooltipEl;
+    const el = document.createElement('div');
+    el.className = 'settings-tooltip-floating';
+    el.setAttribute('role', 'tooltip');
+    el.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(el);
+    settingsTooltipEl = el;
+    return settingsTooltipEl;
+}
+
+function positionSettingsTooltip(clientX, clientY) {
+    if (!settingsTooltipEl) return;
+    const offsetX = 14;
+    const offsetY = 18;
+    const margin = 10;
+    const rect = settingsTooltipEl.getBoundingClientRect();
+    let x = Number(clientX) + offsetX;
+    let y = Number(clientY) + offsetY;
+    const maxX = window.innerWidth - rect.width - margin;
+    const maxY = window.innerHeight - rect.height - margin;
+    x = Math.min(Math.max(margin, x), Math.max(margin, maxX));
+    y = Math.min(Math.max(margin, y), Math.max(margin, maxY));
+    settingsTooltipEl.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+}
+
+function showSettingsTooltip(target, clientX = null, clientY = null) {
+    if (!target) return;
+    const text = String(target.getAttribute('data-tooltip') || '').trim();
+    if (!text) return;
+    const el = ensureSettingsTooltipEl();
+    activeSettingsTooltipTarget = target;
+    el.textContent = text;
+    el.classList.add('is-visible');
+    el.setAttribute('aria-hidden', 'false');
+    if (typeof clientX === 'number' && typeof clientY === 'number') {
+        positionSettingsTooltip(clientX, clientY);
+    } else {
+        const rect = target.getBoundingClientRect();
+        positionSettingsTooltip(rect.left + (rect.width / 2), rect.top + (rect.height / 2));
+    }
+}
+
+function clearPendingSettingsTooltip() {
+    if (settingsTooltipDelayTimer) {
+        clearTimeout(settingsTooltipDelayTimer);
+        settingsTooltipDelayTimer = null;
+    }
+    pendingSettingsTooltipTarget = null;
+    pendingSettingsTooltipPoint.x = null;
+    pendingSettingsTooltipPoint.y = null;
+}
+
+function scheduleSettingsTooltip(target, clientX = null, clientY = null) {
+    if (!target) return;
+    const text = String(target.getAttribute('data-tooltip') || '').trim();
+    if (!text) return;
+    if (activeSettingsTooltipTarget === target && settingsTooltipEl && settingsTooltipEl.classList.contains('is-visible')) return;
+
+    pendingSettingsTooltipTarget = target;
+    if (typeof clientX === 'number' && typeof clientY === 'number') {
+        pendingSettingsTooltipPoint.x = clientX;
+        pendingSettingsTooltipPoint.y = clientY;
+    }
+
+    if (settingsTooltipDelayTimer) return;
+    settingsTooltipDelayTimer = setTimeout(() => {
+        settingsTooltipDelayTimer = null;
+        const nextTarget = pendingSettingsTooltipTarget;
+        const x = pendingSettingsTooltipPoint.x;
+        const y = pendingSettingsTooltipPoint.y;
+        pendingSettingsTooltipTarget = null;
+        pendingSettingsTooltipPoint.x = null;
+        pendingSettingsTooltipPoint.y = null;
+        if (!nextTarget) return;
+        if (!viewSettings || !viewSettings.contains(nextTarget)) return;
+        showSettingsTooltip(nextTarget, x, y);
+    }, SETTINGS_TOOLTIP_DELAY_MS);
+}
+
+function hideSettingsTooltip() {
+    clearPendingSettingsTooltip();
+    activeSettingsTooltipTarget = null;
+    if (!settingsTooltipEl) return;
+    settingsTooltipEl.classList.remove('is-visible');
+    settingsTooltipEl.setAttribute('aria-hidden', 'true');
+    settingsTooltipEl.style.transform = 'translate3d(-9999px, -9999px, 0)';
+}
+
+function recoverSettingsInteractivity() {
+    if (!viewSettings) return;
+    viewSettings.style.pointerEvents = 'auto';
+    const settingsShell = viewSettings.querySelector('.settings-shell');
+    if (settingsShell) settingsShell.style.pointerEvents = 'auto';
+    document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+        if (!overlay) return;
+        overlay.style.pointerEvents = 'none';
+        if (overlay !== modalInk && overlay !== modalPen && overlay !== modalSwatchDetail && overlay !== modalPenDetail && overlay !== modalAddSwatch) {
+            overlay.style.display = 'none';
+        }
+    });
+}
+
+function reviveSettingsTextInputs() {
+    const textLikeInputs = [
+        showcaseTitleInput,
+        backupRetentionCountInput,
+        defaultPenNibInput,
+        defaultPenNibMaterialInput
+    ].filter(Boolean);
+
+    textLikeInputs.forEach((el) => {
+        el.disabled = false;
+        el.readOnly = false;
+        el.style.pointerEvents = 'auto';
+    });
+}
+
+function ensureAppNoticeEl() {
+    if (appNoticeEl) return appNoticeEl;
+    const el = document.createElement('div');
+    el.className = 'app-notice-floating';
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-atomic', 'true');
+    document.body.appendChild(el);
+    appNoticeEl = el;
+    return appNoticeEl;
+}
+
+function showAppNotice(message, type = 'info') {
+    const text = String(message || '').trim();
+    if (!text) return;
+    const el = ensureAppNoticeEl();
+    if (appNoticeTimer) {
+        clearTimeout(appNoticeTimer);
+        appNoticeTimer = null;
+    }
+    el.textContent = text;
+    el.classList.remove('is-success', 'is-error');
+    if (type === 'success') el.classList.add('is-success');
+    if (type === 'error') el.classList.add('is-error');
+    el.classList.add('is-visible');
+    appNoticeTimer = setTimeout(() => {
+        el.classList.remove('is-visible');
+    }, 2600);
+}
+
+function updateInkDetailMetadataLayout() {
+    const metadataArea = document.getElementById('swatch-detail-metadata');
+    if (!metadataArea || currentSwatchDetailSourceView !== 'inks') return;
+    const paperSection = metadataArea.querySelector('[data-field="paper-compatibility"]');
+    if (!paperSection) return;
+
+    // On wider layouts keep Paper Compatibility beside Permanence; stack when narrow.
+    const width = metadataArea.clientWidth || 0;
+    paperSection.style.gridColumn = width >= 520 ? 'span 1' : 'span 2';
+}
+
+function openSwatchDetailModal(entityId, sourceView = 'swatches') {
     if (!modalSwatchDetail) return;
     activateModal(modalSwatchDetail);
-    const ink = appData.inks.find(i => i.id === inkId);
+    const isSwatchCardView = sourceView === 'swatches';
+    const swatch = isSwatchCardView ? getSwatchById(entityId) : getLatestSwatchForInk(entityId);
+    const ink = isSwatchCardView ? getInkById(swatch && swatch.ink_id) : getInkById(entityId);
     if (!ink) return;
-    currentSwatchDetailInkId = inkId;
+    currentSwatchDetailInkId = entityId;
+    currentSwatchDetailSwatchId = swatch ? swatch.id : null;
     currentSwatchDetailSourceView = sourceView;
-    if (btnDeleteSwatchDetail) {
-        btnDeleteSwatchDetail.style.display = isElectron ? 'inline-block' : 'none';
+    if (btnEditSwatchDetail) {
+        btnEditSwatchDetail.textContent = sourceView === 'inks' ? 'Edit Ink' : 'Edit Swatch';
+        btnEditSwatchDetail.style.display = (isElectron && (sourceView === 'inks' || !!swatch)) ? 'inline-block' : 'none';
     }
 
     const img = document.getElementById('swatch-detail-img');
@@ -1814,10 +3722,6 @@ function openSwatchDetailModal(inkId, sourceView = 'swatches') {
     const name = document.getElementById('swatch-detail-name');
     const brand = document.getElementById('swatch-detail-brand');
     const standaloneBadge = document.getElementById('swatch-detail-standalone-badge');
-    const c1 = document.getElementById('swatch-detail-color-1');
-    const c2 = document.getElementById('swatch-detail-color-2');
-    const props = document.getElementById('swatch-detail-properties');
-
     // 1. Hide modal immediately to prevent "ghost" content from previous ink
     modalSwatchDetail.style.display = 'none';
     if (contentArea) contentArea.scrollTop = 0;
@@ -1834,9 +3738,14 @@ function openSwatchDetailModal(inkId, sourceView = 'swatches') {
 
     // 3. Populate basic data
     if (name) name.textContent = ink.name;
-    if (brand) brand.textContent = (ink.brand || 'Custom') + (ink.line ? ` - ${ink.line}` : '');
+    if (brand) {
+        const baseBrand = ink.brand || 'Custom';
+        brand.textContent = isSwatchCardView
+            ? baseBrand + (ink.line ? ` - ${ink.line}` : '')
+            : baseBrand;
+    }
     if (standaloneBadge) {
-        standaloneBadge.style.display = isOrphanSwatchInk(ink) ? 'inline-flex' : 'none';
+        standaloneBadge.style.display = (!swatch || swatch.ink_id) ? 'none' : 'inline-flex';
     }
 
     // Handle Colors
@@ -1856,10 +3765,10 @@ function openSwatchDetailModal(inkId, sourceView = 'swatches') {
         });
     }
 
-    const createSection = (label, value, extraStyle = '') => `
-        <div style="margin: 0; padding: 0; ${extraStyle}">
-            <h4 style="text-transform: uppercase; font-size: 11px; font-family: var(--font-body); letter-spacing: 1.5px; color: #aaa; margin: 0 0 4px 0; padding: 0; font-weight: 700; line-height: 1.2;">${label}</h4>
-            <p style="font-size: 15px; color: #555; line-height: 1.6; font-family: var(--font-body) !important; font-weight: 400; margin: 0; padding: 0; text-transform: none !important; letter-spacing: normal !important;">${value || 'None'}</p>
+    const createSection = (label, value, extraStyle = '', fieldKey = '') => `
+        <div ${fieldKey ? `data-field="${escapeHtml(fieldKey)}"` : ''} style="margin: 0; padding: 0; ${extraStyle}">
+            <h4 style="text-transform: uppercase; font-size: 11px; font-family: var(--font-body); letter-spacing: 1.5px; color: #aaa; margin: 0 0 4px 0; padding: 0; font-weight: 700; line-height: 1.2;">${escapeHtml(label)}</h4>
+            <p style="font-size: 15px; color: #555; line-height: 1.6; font-family: var(--font-body) !important; font-weight: 400; margin: 0; padding: 0; text-transform: none !important; letter-spacing: normal !important;">${escapeHtml(value || 'None')}</p>
         </div>
     `;
 
@@ -1867,37 +3776,62 @@ function openSwatchDetailModal(inkId, sourceView = 'swatches') {
     if (metadataArea) {
         const baseTypeVal = (Array.isArray(ink.base_type) ? ink.base_type : [ink.base_type || 'Dye']).join(', ');
         const paperVal = (ink.paper_compatibility || []).join(', ') || 'No specific data';
+        const amount = parseAmountNumber(ink.amount, 1);
+        const bottleAmountLabel = `${amount} bottle${amount === 1 ? '' : 's'}`;
+        const unitPrice = parsePriceNumber(ink.price);
+        const unitPriceLabel = Number.isFinite(unitPrice) && unitPrice > 0 ? formatMoney(unitPrice) : 'N/A';
+        const totalPrice = Number.isFinite(unitPrice) && unitPrice > 0
+            ? formatMoney(unitPrice * amount)
+            : 'N/A';
 
-        metadataArea.innerHTML = `
-            ${createSection('Base Type', baseTypeVal)}
-            ${createSection('Shading', ink.shading)}
-            ${createSection('Sheen', ink.sheen)}
-            ${createSection('Flow', ink.flow)}
-            ${createSection('Lubrication', ink.lubrication)}
-            ${createSection('Dry Time', ink.dry_time)}
-            ${createSection('Permanence', ink.permanence)}
-            ${createSection('Paper', ink.swatch_paper || 'Not specified')}
-            ${createSection('Nib Used', ink.swatch_nib || 'Not specified')}
-            ${createSection('Date Sampled', ink.swatch_date || 'Not specified')}
-            ${createSection('Lighting', ink.swatch_lighting || 'Unknown')}
-            ${createSection('Paper Compatibility', paperVal, 'grid-column: span 2;')}
-        `;
+        if (isSwatchCardView) {
+            metadataArea.innerHTML = `
+                ${createSection('Paper', (swatch && swatch.swatch_paper) || 'Not specified')}
+                ${createSection('Nib Used', (swatch && swatch.swatch_nib) || 'Not specified')}
+                ${createSection('Date Sampled', (swatch && swatch.swatch_date) || 'Not specified')}
+                ${createSection('Lighting', (swatch && swatch.swatch_lighting) || 'Unknown')}
+            `;
+        } else {
+            const hidePrices = shouldHidePricesInShowcase();
+            const swatchCount = getSwatchesForInk(ink.id).length;
+            metadataArea.innerHTML = `
+                ${createSection('Ink Line', ink.line || 'Not specified')}
+                ${createSection('Type', normalizeInkType(ink.type) || 'Bottle')}
+                ${createSection('Volume (cl)', ink.cl || 'Not specified')}
+                ${createSection('Amount', bottleAmountLabel)}
+                ${hidePrices ? '' : createSection('Price (Per Bottle)', unitPriceLabel)}
+                ${hidePrices ? '' : createSection('Total Price', totalPrice)}
+                ${createSection('Shading', ink.shading)}
+                ${createSection('Sheen', ink.sheen)}
+                ${createSection('Shimmer', ink.shimmer)}
+                ${createSection('Flow', ink.flow)}
+                ${createSection('Lubrication', ink.lubrication)}
+                ${createSection('Dry Time', ink.dry_time)}
+                ${createSection('Base Type', baseTypeVal)}
+                ${createSection('Permanence', ink.permanence)}
+                ${createSection('Paper Compatibility', paperVal, '', 'paper-compatibility')}
+                ${createSection('Swatches', `${swatchCount}`)}
+            `;
+        }
+        requestAnimationFrame(updateInkDetailMetadataLayout);
     }
 
     const notesArea = document.getElementById('swatch-detail-notes-area');
-    const swatchNotes = (ink.swatch_notes && ink.swatch_notes.trim()) ? ink.swatch_notes : ink.notes;
+    const detailNotes = isSwatchCardView
+        ? ((swatch && swatch.swatch_notes) || '')
+        : (ink.notes || '');
     if (notesArea) {
-        if (swatchNotes && swatchNotes.trim()) {
+        if (detailNotes && detailNotes.trim()) {
             notesArea.style.display = 'block';
-            notesArea.innerHTML = createSection('Notes', swatchNotes);
+            notesArea.innerHTML = createSection(isSwatchCardView ? 'Observations' : 'Notes', detailNotes);
         } else {
             notesArea.style.display = 'none';
         }
     }
 
     // 4. Handle Image and Layout Decision
-    if (ink.image && img) {
-        const imagePath = resolveImageSource(ink.image);
+    if (swatch && swatch.image && img) {
+        const imagePath = resolveImageSource(swatch.image);
 
         img.onload = () => {
             const ratio = img.naturalWidth / img.naturalHeight;
@@ -1911,6 +3845,7 @@ function openSwatchDetailModal(inkId, sourceView = 'swatches') {
                 }
             }
             modalSwatchDetail.style.display = 'flex';
+            requestAnimationFrame(updateInkDetailMetadataLayout);
             img.onload = null;
             img.onerror = null;
         };
@@ -1920,6 +3855,7 @@ function openSwatchDetailModal(inkId, sourceView = 'swatches') {
             if (imageContainer) imageContainer.style.display = 'none';
             if (container) container.style.width = '550px';
             modalSwatchDetail.style.display = 'flex';
+            requestAnimationFrame(updateInkDetailMetadataLayout);
             img.onload = null;
             img.onerror = null;
         };
@@ -1930,6 +3866,7 @@ function openSwatchDetailModal(inkId, sourceView = 'swatches') {
         if (imageContainer) imageContainer.style.display = 'none';
         if (container) container.style.width = '550px';
         modalSwatchDetail.style.display = 'flex';
+        requestAnimationFrame(updateInkDetailMetadataLayout);
     }
 }
 
@@ -1951,6 +3888,9 @@ function openPenDetailModal(penId, sourceView = 'pens') {
     const layout = document.getElementById('pen-detail-layout');
     const container = document.getElementById('pen-detail-modal-container');
     const visualContainer = document.getElementById('pen-detail-visual-container');
+    if (btnEditPenDetail) {
+        btnEditPenDetail.style.display = isElectron ? 'inline-block' : 'none';
+    }
 
     // Reset scroll & layout
     const contentArea = document.getElementById('pen-detail-content');
@@ -1958,7 +3898,7 @@ function openPenDetailModal(penId, sourceView = 'pens') {
     if (layout) layout.style.flexDirection = 'row';
     if (container) container.style.width = '800px';
     if (visualContainer) {
-        visualContainer.style.background = pen.hex_color || 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)';
+        visualContainer.style.background = pen.hex_color || getPenDetailDefaultVisualBackground();
         visualContainer.style.flex = '1';
         visualContainer.style.height = 'auto';
         visualContainer.style.minHeight = '400px';
@@ -1986,8 +3926,8 @@ function openPenDetailModal(penId, sourceView = 'pens') {
 
     const createSection = (label, value) => `
         <div style="margin: 0; padding: 0;">
-            <h4 style="text-transform: uppercase; font-size: 11px; font-family: var(--font-body); letter-spacing: 1.5px; color: #aaa; margin: 0 0 4px 0; padding: 0; font-weight: 700; line-height: 1.2;">${label}</h4>
-            <p style="font-size: 15px; color: #555; line-height: 1.6; font-family: var(--font-body) !important; font-weight: 400; margin: 0; padding: 0;">${value || 'None'}</p>
+            <h4 style="text-transform: uppercase; font-size: 11px; font-family: var(--font-body); letter-spacing: 1.5px; color: #aaa; margin: 0 0 4px 0; padding: 0; font-weight: 700; line-height: 1.2;">${escapeHtml(label)}</h4>
+            <p style="font-size: 15px; color: #555; line-height: 1.6; font-family: var(--font-body) !important; font-weight: 400; margin: 0; padding: 0;">${escapeHtml(value || 'None')}</p>
         </div>
     `;
 
@@ -2002,6 +3942,7 @@ function openPenDetailModal(penId, sourceView = 'pens') {
     const isMobileDetail = !!(window.matchMedia && window.matchMedia('(max-width: 1024px)').matches);
 
     if (metadataArea) {
+        const hidePrices = shouldHidePricesInShowcase();
         const mobileCurrentInkName = linkedInk
             ? `${linkedInk.brand ? `${linkedInk.brand} ` : ''}${linkedInk.name || ''}`.trim()
             : 'Nothing (Clean)';
@@ -2012,7 +3953,7 @@ function openPenDetailModal(penId, sourceView = 'pens') {
             ${createSection('Body Material', pen.material || 'Standard')}
             ${createSection('Filling System', pen.filling_system || 'Not Specified')}
             ${createSection('Color', pen.color || 'Not Specified')}
-            ${createSection('Price', formatPrice(pen.price))}
+            ${hidePrices ? '' : createSection('Price', formatPrice(pen.price))}
             ${isMobileDetail && linkedInk ? `
             <div style="margin: 0; padding: 0;">
                 <h4 style="text-transform: uppercase; font-size: 11px; font-family: var(--font-body); letter-spacing: 1.5px; color: #aaa; margin: 0 0 4px 0; padding: 0; font-weight: 700; line-height: 1.2;">Currently Inked With</h4>
@@ -2061,7 +4002,7 @@ function openPenDetailModal(penId, sourceView = 'pens') {
                 const rotation = pen.image_rotation || 0;
                 const isRotated = rotation === 90 || rotation === 270;
 
-                visualContainer.style.background = pen.hex_color || 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)';
+                visualContainer.style.background = pen.hex_color || getPenDetailDefaultVisualBackground();
                 visualContainer.style.flex = '1';
                 visualContainer.style.height = 'auto';
                 visualContainer.style.minHeight = '500px';
@@ -2115,6 +4056,9 @@ async function saveNewInk() {
     const brand = inkBrandInput ? inkBrandInput.value : "Custom";
     const wasEdit = !!currentEditingId;
     const existingInk = wasEdit ? findInkById(currentEditingId) : null;
+    const existingInkSnapshot = wasEdit
+        ? cloneEntityForDiff(existingInk, ['hex_colors', 'base_type', 'paper_compatibility'])
+        : null;
 
     const validationMsg = document.getElementById('ink-validation-msg');
     validationMsg.style.display = 'none';
@@ -2125,6 +4069,7 @@ async function saveNewInk() {
         return;
     }
 
+    const previousImagePath = existingInk && existingInk.image ? existingInk.image : null;
     let imageFilename = null;
     if (currentSelectedImagePath && !currentSelectedImagePath.startsWith('images/')) {
         imageFilename = await window.electronAPI.saveImage(currentSelectedImagePath, 'ink', { brand, model: name });
@@ -2143,8 +4088,6 @@ async function saveNewInk() {
             appData.inks[index].color_base = colorBase;
             appData.inks[index].color_accent = colorAccent;
             appData.inks[index].hex_colors = allColors;
-            appData.inks[index].is_swatch = !!(document.getElementById('ink-is-swatch-checkbox')?.checked);
-            appData.inks[index].is_orphan_swatch = false;
 
             if (imageFilename) {
                 appData.inks[index].image = imageFilename;
@@ -2156,6 +4099,7 @@ async function saveNewInk() {
             appData.inks[index].type = normalizeInkType(document.getElementById('ink-type-input')?.value) || 'Bottle';
             appData.inks[index].cl = document.getElementById('ink-cl-input')?.value;
             appData.inks[index].amount = document.getElementById('ink-amount-input')?.value;
+            appData.inks[index].price = document.getElementById('ink-price-input')?.value || '';
 
             appData.inks[index].shading = document.getElementById('ink-shading')?.value;
             appData.inks[index].sheen = document.getElementById('ink-sheen')?.value;
@@ -2185,6 +4129,7 @@ async function saveNewInk() {
             type: normalizeInkType(document.getElementById('ink-type-input')?.value) || 'Bottle',
             cl: document.getElementById('ink-cl-input')?.value || '',
             amount: document.getElementById('ink-amount-input')?.value || '1',
+            price: document.getElementById('ink-price-input')?.value || '',
             color_base: colorBase,
             color_accent: colorAccent,
             hex_colors: allColors,
@@ -2198,17 +4143,50 @@ async function saveNewInk() {
             permanence: document.getElementById('ink-permanence')?.value || 'None',
             paper_compatibility: Array.from(paperCheckboxes).filter(cb => cb.checked).map(cb => cb.value),
             notes: document.getElementById('ink-notes')?.value || '',
-            image: imageFilename,
-            is_swatch: !!(document.getElementById('ink-is-swatch-checkbox')?.checked),
-            is_orphan_swatch: false
+            image: imageFilename
         };
         appData.inks.push(newInk);
         logActivity('created', 'ink', `Added ink: ${formatInkName(newInk)}.`, { entityId: newInk.id });
     }
 
     if (wasEdit && existingInk) {
-        logActivity('updated', 'ink', `Updated ink: ${formatInkName(existingInk)}.`, { entityId: existingInk.id });
+        const updatedInk = findInkById(existingInk.id);
+        const changedLabels = getChangedFieldLabels(existingInkSnapshot, updatedInk, [
+            { key: 'name', label: 'Name' },
+            { key: 'brand', label: 'Brand' },
+            { key: 'line', label: 'Ink Line' },
+            { key: 'type', label: 'Type' },
+            { key: 'cl', label: 'Volume (cl)' },
+            { key: 'amount', label: 'Amount' },
+            { key: 'price', label: 'Price' },
+            { key: 'hex_colors', label: 'Colors', mode: 'array' },
+            { key: 'shading', label: 'Shading' },
+            { key: 'sheen', label: 'Sheen' },
+            { key: 'shimmer', label: 'Shimmer' },
+            { key: 'flow', label: 'Flow' },
+            { key: 'lubrication', label: 'Lubrication' },
+            { key: 'dry_time', label: 'Dry Time' },
+            { key: 'base_type', label: 'Base Type', mode: 'array' },
+            { key: 'permanence', label: 'Permanence' },
+            { key: 'paper_compatibility', label: 'Paper Compatibility', mode: 'array' },
+            { key: 'notes', label: 'Notes' },
+            { key: 'image', label: 'Image' }
+        ]);
+        const details = formatChangedFieldsCompact(changedLabels);
+        const message = details
+            ? `Updated ink: ${formatInkName(updatedInk)} (${details}).`
+            : `Updated ink: ${formatInkName(updatedInk)}.`;
+        logActivity('updated', 'ink', message, { entityId: existingInk.id });
     }
+
+    const nextImagePath = currentEditingId
+        ? ((appData.inks.find(i => i.id === currentEditingId) || {}).image || '')
+        : imageFilename;
+    const shouldDeletePreviousImage = wasEdit
+        && previousImagePath
+        && nextImagePath
+        && previousImagePath !== nextImagePath
+        && isManagedImagePathForDeletion(previousImagePath);
 
     await persistDataAndRefresh({
         refresh: {
@@ -2219,6 +4197,9 @@ async function saveNewInk() {
             autocomplete: true
         },
         onSuccess: async () => {
+            if (shouldDeletePreviousImage) {
+                await window.electronAPI.deleteImage(previousImagePath);
+            }
             currentSelectedImagePath = null;
             closeAllModals();
         },
@@ -2234,6 +4215,10 @@ async function saveNewPen() {
     const normalizedPenColor = normalizeCsvValues(penColorInput.value).join(', ');
     const wasEdit = !!currentEditingId;
     const existingPen = wasEdit ? findPenById(currentEditingId) : null;
+    const existingPenSnapshot = wasEdit
+        ? cloneEntityForDiff(existingPen, ['hex_colors'])
+        : null;
+    const previousImagePath = wasEdit && existingPen ? (existingPen.image || null) : null;
     const previousLink = wasEdit ? (appData.currently_inked || []).find(ci => ci.pen_id === currentEditingId) : null;
     const previousInkId = previousLink ? previousLink.ink_id : '';
 
@@ -2365,7 +4350,25 @@ async function saveNewPen() {
     if (!wasEdit && targetPen) {
         logActivity('created', 'pen', `Added pen: ${formatPenName(targetPen)}.`, { entityId: targetPenId });
     } else if (wasEdit && targetPen) {
-        logActivity('updated', 'pen', `Updated pen: ${formatPenName(targetPen)}.`, { entityId: targetPenId });
+        const changedLabels = getChangedFieldLabels(existingPenSnapshot, targetPen, [
+            { key: 'brand', label: 'Brand' },
+            { key: 'model', label: 'Model' },
+            { key: 'nib', label: 'Nib Size' },
+            { key: 'nib_material', label: 'Nib Material' },
+            { key: 'material', label: 'Body Material' },
+            { key: 'filling_system', label: 'Filling System' },
+            { key: 'color', label: 'Color' },
+            { key: 'hex_colors', label: 'Pen Colors', mode: 'array' },
+            { key: 'price', label: 'Price' },
+            { key: 'notes', label: 'Notes' },
+            { key: 'image', label: 'Image' },
+            { key: 'image_rotation', label: 'Image Rotation' }
+        ]);
+        const details = formatChangedFieldsCompact(changedLabels);
+        const message = details
+            ? `Updated pen: ${formatPenName(targetPen)} (${details}).`
+            : `Updated pen: ${formatPenName(targetPen)}.`;
+        logActivity('updated', 'pen', message, { entityId: targetPenId });
     }
 
     const currentLink = (appData.currently_inked || []).find(ci => ci.pen_id === targetPenId);
@@ -2388,6 +4391,11 @@ async function saveNewPen() {
         }
     }
 
+    const shouldDeletePreviousImage = wasEdit
+        && previousImagePath
+        && previousImagePath !== imageFilename
+        && isManagedImagePathForDeletion(previousImagePath);
+
     await persistDataAndRefresh({
         refresh: {
             pens: true,
@@ -2396,6 +4404,9 @@ async function saveNewPen() {
             autocomplete: true
         },
         onSuccess: async () => {
+            if (shouldDeletePreviousImage) {
+                await window.electronAPI.deleteImage(previousImagePath);
+            }
             currentPenImagePath = null;
             closeAllModals();
         },
@@ -2408,6 +4419,7 @@ async function deleteInk() {
     if (!(await confirmAction({
         title: 'Delete Ink',
         message: 'Delete this ink and all its inking history?',
+        destructive: true,
         buttons: ['Keep Ink', 'Delete Ink'],
         defaultId: 0,
         cancelId: 0,
@@ -2416,30 +4428,14 @@ async function deleteInk() {
 
     const inkToDelete = appData.inks.find(i => i.id === currentEditingId);
     if (!inkToDelete) return;
-    const hasLinkedSwatch = !!(inkToDelete.image && inkToDelete.is_swatch);
-    let deleteLinkedSwatch = true;
-
-    if (hasLinkedSwatch) {
-        deleteLinkedSwatch = await confirmAction({
-            title: 'Delete Linked Swatch?',
-            message: 'This ink has a linked swatch.',
-            detail: 'Choose "Delete Ink Only" to keep the swatch as a standalone entry.',
-            buttons: ['Delete Ink Only', 'Delete Ink + Swatch'],
-            defaultId: 0,
-            cancelId: 0,
-            confirmedIndex: 1
-        });
-    }
-
-    const inkImagePath = inkToDelete.image || null;
+    const linkedSwatches = getSwatchesForInk(currentEditingId);
+    const linkedSwatchImages = linkedSwatches.map((s) => s.image).filter(Boolean);
     appData.currently_inked = appData.currently_inked.filter(ci => ci.ink_id !== currentEditingId);
-
-    if (!deleteLinkedSwatch && hasLinkedSwatch) {
-        inkToDelete.is_orphan_swatch = true;
-        logActivity('deleted', 'ink', `Deleted ink only and kept swatch: ${formatInkName(inkToDelete)}.`, { entityId: currentEditingId });
-    } else {
-        appData.inks = appData.inks.filter(i => i.id !== currentEditingId);
-        logActivity('deleted', 'ink', `Deleted ink: ${formatInkName(inkToDelete)}.`, { entityId: currentEditingId });
+    appData.swatches = getAllSwatches().filter((swatch) => swatch.ink_id !== currentEditingId);
+    appData.inks = appData.inks.filter(i => i.id !== currentEditingId);
+    logActivity('deleted', 'ink', `Deleted ink: ${formatInkName(inkToDelete)}.`, { entityId: currentEditingId });
+    if (linkedSwatches.length > 0) {
+        logActivity('deleted', 'swatch', `Deleted ${linkedSwatches.length} swatch${linkedSwatches.length === 1 ? '' : 'es'} linked to ${formatInkName(inkToDelete)}.`, { entityId: currentEditingId });
     }
 
     await persistDataAndRefresh({
@@ -2452,8 +4448,8 @@ async function deleteInk() {
         },
         onSuccess: async () => {
             currentSelectedImagePath = null;
-            if (deleteLinkedSwatch && inkImagePath) {
-                await window.electronAPI.deleteImage(inkImagePath);
+            for (const imagePath of linkedSwatchImages) {
+                await window.electronAPI.deleteImage(imagePath);
             }
             closeAllModals();
             currentEditingId = null;
@@ -2467,6 +4463,7 @@ async function deletePen() {
     if (!(await confirmAction({
         title: 'Delete Pen',
         message: 'Delete this pen?',
+        destructive: true,
         buttons: ['Keep Pen', 'Delete Pen'],
         defaultId: 0,
         cancelId: 0,
@@ -2505,28 +4502,28 @@ async function deletePen() {
 
 async function deleteCurrentSwatch() {
     if (!currentSwatchDetailInkId) return;
-    const swatchInk = appData.inks.find(i => i.id === currentSwatchDetailInkId);
-    if (!swatchInk || !swatchInk.image || !swatchInk.is_swatch) return;
+    const swatchId = currentSwatchDetailSwatchId
+        || (currentSwatchDetailSourceView === 'inks'
+            ? ((getLatestSwatchForInk(currentSwatchDetailInkId) || {}).id || '')
+            : currentSwatchDetailInkId);
+    const swatch = getSwatchById(swatchId);
+    if (!swatch || !swatch.image) return;
+    const swatchInk = getInkById(swatch.ink_id);
+    if (!swatchInk) return;
 
     if (!(await confirmAction({
         title: 'Delete Swatch',
         message: 'Delete this swatch image?',
+        destructive: true,
         buttons: ['Keep Swatch', 'Delete Swatch'],
         defaultId: 0,
         cancelId: 0,
         confirmedIndex: 1
     }))) return;
 
-    const swatchImagePath = swatchInk.image;
-    if (isOrphanSwatchInk(swatchInk)) {
-        appData.inks = appData.inks.filter(i => i.id !== currentSwatchDetailInkId);
-        logActivity('deleted', 'swatch', `Deleted standalone swatch: ${formatInkName(swatchInk)}.`, { entityId: currentSwatchDetailInkId });
-    } else {
-        swatchInk.image = '';
-        swatchInk.is_swatch = false;
-        swatchInk.is_orphan_swatch = false;
-        logActivity('deleted', 'swatch', `Deleted swatch image for ${formatInkName(swatchInk)}.`, { entityId: currentSwatchDetailInkId });
-    }
+    const swatchImagePath = swatch.image;
+    appData.swatches = getAllSwatches().filter((item) => item.id !== swatchId);
+    logActivity('deleted', 'swatch', `Deleted swatch for ${formatInkName(swatchInk)}.`, { entityId: swatchId });
 
     await persistDataAndRefresh({
         refresh: {
@@ -2544,6 +4541,7 @@ async function deleteCurrentSwatch() {
                 modalSwatchDetail.style.display = 'none';
             }
             currentSwatchDetailInkId = null;
+            currentSwatchDetailSwatchId = null;
         },
         onErrorMessage: 'Failed to delete swatch!'
     });
@@ -2600,6 +4598,7 @@ function closeDetailModals() {
     if (isModalVisible(modalSwatchDetail)) modalSwatchDetail.style.display = 'none';
     if (isModalVisible(modalPenDetail)) modalPenDetail.style.display = 'none';
     currentSwatchDetailInkId = null;
+    currentSwatchDetailSwatchId = null;
     currentPenDetailPenId = null;
 }
 
@@ -2713,6 +4712,7 @@ if (btnRemovePenPhoto) {
         if (await confirmAction({
             title: 'Remove Photo',
             message: 'Remove this photo?',
+            destructive: true,
             buttons: ['Keep Photo', 'Remove Photo'],
             defaultId: 0,
             cancelId: 0,
@@ -2778,19 +4778,45 @@ if (btnExportBackup) {
 if (btnImportBackup) {
     btnImportBackup.addEventListener('click', async () => {
         if (!isElectron || !window.electronAPI || typeof window.electronAPI.importBackup !== 'function') return;
-        const proceed = await confirmAction(
-            'Importing a backup will replace your current data and may replace images. Continue?',
-            'Import Backup'
-        );
+        const importExportPrefs = getImportExportPreferences();
+        const proceed = await confirmAction({
+            title: 'Import Backup',
+            message: 'Importing a backup will replace your current data and may replace images. Continue?',
+            destructive: true,
+            buttons: ['Cancel', 'Import Backup'],
+            defaultId: 0,
+            cancelId: 0,
+            confirmedIndex: 1
+        });
         if (!proceed) return;
-        const result = await window.electronAPI.importBackup();
+        const importPrefs = getImportExportPreferences();
+        const result = await window.electronAPI.importBackup({
+            auto_validate_import: !!importPrefs.auto_validate_import,
+            conflict_behavior: String(importPrefs.conflict_behavior || 'overwrite').toLowerCase()
+        });
         if (result && result.success) {
             const reloaded = await window.electronAPI.loadData();
             if (reloaded) {
+                if (importExportPrefs.auto_validate_import) {
+                    const basicValid = Array.isArray(reloaded.pens)
+                        && Array.isArray(reloaded.inks)
+                        && Array.isArray(reloaded.currently_inked)
+                        && Array.isArray(reloaded.activity_log);
+                    if (!basicValid) {
+                        alert('Imported backup validation failed. Data shape is unexpected.');
+                        return;
+                    }
+                }
                 appData = ensureAppDataDefaults(reloaded);
             }
+            applyShowcaseTitleUi();
+            applyInterfacePreferences();
+            applyShowcaseSortDefaults();
+            applyShowcaseSectionVisibility();
             updateAutocompleteLists();
             renderDashboard();
+            renderStatsPage();
+            renderSettingsView();
             renderPens();
             renderInks();
             renderSwatches();
@@ -2807,12 +4833,110 @@ if (btnImportBackup) {
 if (btnExportShowcase) {
     btnExportShowcase.addEventListener('click', async () => {
         if (!isElectron || !window.electronAPI || typeof window.electronAPI.exportShowcase !== 'function') return;
-        const result = await window.electronAPI.exportShowcase();
-        if (result && result.success) {
-            alert(`Showcase exported successfully:\n${result.path}`);
-        } else if (!(result && result.canceled)) {
-            alert(`Showcase export failed: ${result && result.message ? result.message : 'Unknown error.'}`);
+        if (showcaseExportInFlight) return;
+        showcaseExportInFlight = true;
+        try {
+            hideSettingsTooltip();
+            suppressSettingsPersist = true;
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
+            suppressSettingsPersist = false;
+            await persistShowcaseSettingsNow({ force: true });
+
+            const result = await window.electronAPI.exportShowcase();
+            if (result && result.success) {
+                showAppNotice(`Showcase exported: ${result.path}`, 'success');
+            } else if (!(result && result.canceled)) {
+                showAppNotice(`Showcase export failed: ${result && result.message ? result.message : 'Unknown error.'}`, 'error');
+            }
+        } finally {
+            suppressSettingsPersist = false;
+            showcaseExportInFlight = false;
+            hideSettingsTooltip();
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
+            resetOverlayState();
+            recoverSettingsInteractivity();
+            reviveSettingsTextInputs();
+            if (window.electronAPI && typeof window.electronAPI.focusWindow === 'function') {
+                await window.electronAPI.focusWindow();
+            }
+            if (typeof window.focus === 'function') {
+                window.focus();
+            }
+            requestAnimationFrame(() => {
+                recoverSettingsInteractivity();
+                reviveSettingsTextInputs();
+            });
         }
+    });
+}
+
+function downloadTextFile(filename, text, mimeType = 'text/plain') {
+    const blob = new Blob([text], { type: `${mimeType};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
+function buildActivityCsv() {
+    const includeMeta = !!getImportExportPreferences().include_optional_metadata;
+    const headers = includeMeta
+        ? ['id', 'timestamp', 'date', 'action', 'category', 'entity_id', 'message', 'metadata_json']
+        : ['id', 'timestamp', 'date', 'action', 'category', 'entity_id', 'message'];
+    const escapeCsv = (value) => {
+        const v = String(value == null ? '' : value);
+        return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    };
+    const lines = [(headers.map(escapeCsv).join(','))];
+    (appData.activity_log || []).forEach((entry) => {
+        const row = [
+            entry.id || '',
+            entry.timestamp || '',
+            formatDateByPreference(new Date(entry.timestamp || 0), { time: true }),
+            entry.action || '',
+            entry.category || '',
+            entry.entity_id || '',
+            entry.message || ''
+        ];
+        if (includeMeta) row.push(JSON.stringify(entry.metadata || {}));
+        lines.push(row.map(escapeCsv).join(','));
+    });
+    return lines.join('\r\n');
+}
+
+if (btnExportActivityCsv) {
+    btnExportActivityCsv.addEventListener('click', () => {
+        const stamp = toIsoLocalDate(new Date());
+        downloadTextFile(`activity-log-${stamp}.csv`, buildActivityCsv(), 'text/csv');
+    });
+}
+
+if (btnExportActivityJson) {
+    btnExportActivityJson.addEventListener('click', () => {
+        const includeMeta = !!getImportExportPreferences().include_optional_metadata;
+        const payload = (appData.activity_log || []).map((entry) => {
+            const out = {
+                id: entry.id || '',
+                timestamp: entry.timestamp || 0,
+                date: formatDateByPreference(new Date(entry.timestamp || 0), { time: true }),
+                action: entry.action || '',
+                category: entry.category || '',
+                entity_id: entry.entity_id || '',
+                message: entry.message || ''
+            };
+            if (includeMeta) out.metadata = entry.metadata || {};
+            return out;
+        });
+        const stamp = toIsoLocalDate(new Date());
+        downloadTextFile(`activity-log-${stamp}.json`, JSON.stringify(payload, null, 2), 'application/json');
     });
 }
 
@@ -2820,7 +4944,28 @@ if (btnSaveInk) btnSaveInk.addEventListener('click', saveNewInk);
 if (btnSavePen) btnSavePen.addEventListener('click', saveNewPen);
 if (btnDeleteInk) btnDeleteInk.addEventListener('click', deleteInk);
 if (btnDeletePen) btnDeletePen.addEventListener('click', deletePen);
-if (btnDeleteSwatchDetail) btnDeleteSwatchDetail.addEventListener('click', deleteCurrentSwatch);
+if (btnEditSwatchDetail) {
+    btnEditSwatchDetail.addEventListener('click', () => {
+        if (currentSwatchDetailSourceView === 'inks') {
+            if (currentSwatchDetailInkId) {
+                openInkModal(currentSwatchDetailInkId);
+            }
+            return;
+        }
+        const swatchId = currentSwatchDetailSwatchId
+            || (currentSwatchDetailSourceView === 'inks'
+                ? ((getLatestSwatchForInk(currentSwatchDetailInkId) || {}).id || '')
+                : currentSwatchDetailInkId);
+        if (!swatchId) return;
+        openEditSwatchModal(swatchId);
+    });
+}
+if (btnEditPenDetail) {
+    btnEditPenDetail.addEventListener('click', () => {
+        if (!currentPenDetailPenId) return;
+        openPenModal(currentPenDetailPenId);
+    });
+}
 
 // Keyboard Shortcuts (Save on Enter)
 const inkInputs = [inkNameInput, inkBrandInput];
@@ -2866,10 +5011,93 @@ document.querySelectorAll('.close-modal, .cancel-modal').forEach(btn => {
     btn.addEventListener('click', closeAllModals);
 });
 
+if (viewSettings) {
+    viewSettings.addEventListener('mousedown', (e) => {
+        const target = e.target && e.target.closest
+            ? e.target.closest('#view-settings input[type="text"], #view-settings input[type="number"], #view-settings textarea')
+            : null;
+        if (!target) return;
+        target.disabled = false;
+        target.readOnly = false;
+        target.style.pointerEvents = 'auto';
+        if (window.electronAPI && typeof window.electronAPI.focusWindow === 'function') {
+            window.electronAPI.focusWindow();
+        }
+        setTimeout(() => {
+            if (typeof target.focus === 'function') target.focus();
+        }, 0);
+    });
+
+    viewSettings.addEventListener('mouseover', (e) => {
+        const target = e.target && e.target.closest ? e.target.closest('[data-tooltip]') : null;
+        if (!target || !viewSettings.contains(target)) return;
+        lastSettingsPointerPoint.x = e.clientX;
+        lastSettingsPointerPoint.y = e.clientY;
+        scheduleSettingsTooltip(target, e.clientX, e.clientY);
+    });
+
+    viewSettings.addEventListener('mousemove', (e) => {
+        const target = e.target && e.target.closest ? e.target.closest('[data-tooltip]') : null;
+        if (!target || !viewSettings.contains(target)) return;
+        lastSettingsPointerPoint.x = e.clientX;
+        lastSettingsPointerPoint.y = e.clientY;
+        if (activeSettingsTooltipTarget && target === activeSettingsTooltipTarget) {
+            positionSettingsTooltip(e.clientX, e.clientY);
+            return;
+        }
+        scheduleSettingsTooltip(target, e.clientX, e.clientY);
+    });
+
+    viewSettings.addEventListener('mouseout', (e) => {
+        const related = e.relatedTarget;
+        if (activeSettingsTooltipTarget && related && activeSettingsTooltipTarget.contains(related)) return;
+        const next = related && related.closest ? related.closest('[data-tooltip]') : null;
+        if (next && viewSettings.contains(next)) {
+            scheduleSettingsTooltip(next, e.clientX, e.clientY);
+            return;
+        }
+        hideSettingsTooltip();
+    });
+
+    viewSettings.addEventListener('focusin', (e) => {
+        const target = e.target && e.target.closest ? e.target.closest('[data-tooltip]') : null;
+        if (!target || !viewSettings.contains(target)) return;
+        if (activeSettingsTooltipTarget === target && settingsTooltipEl && settingsTooltipEl.classList.contains('is-visible')) return;
+        const hasPointer = Number.isFinite(lastSettingsPointerPoint.x) && Number.isFinite(lastSettingsPointerPoint.y);
+        if (hasPointer && target.matches(':hover')) {
+            showSettingsTooltip(target, lastSettingsPointerPoint.x, lastSettingsPointerPoint.y);
+            return;
+        }
+        const rect = target.getBoundingClientRect();
+        showSettingsTooltip(target, rect.left + (rect.width / 2), rect.top + (rect.height / 2));
+    });
+
+    viewSettings.addEventListener('focusout', (e) => {
+        const next = e.relatedTarget && e.relatedTarget.closest ? e.relatedTarget.closest('[data-tooltip]') : null;
+        if (next && viewSettings.contains(next)) return;
+        hideSettingsTooltip();
+    });
+
+    viewSettings.addEventListener('scroll', () => {
+        if (activeSettingsTooltipTarget) hideSettingsTooltip();
+    }, true);
+}
+
 // Nav Listeners
 if (navDashboard) navDashboard.addEventListener('click', (e) => {
     e.preventDefault();
     switchView('dashboard');
+    renderDashboard();
+});
+if (navStats) navStats.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchView('stats');
+    renderStatsPage();
+});
+if (navSettings) navSettings.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchView('settings');
+    renderSettingsView();
 });
 if (navPens) navPens.addEventListener('click', (e) => {
     e.preventDefault();
@@ -2920,6 +5148,112 @@ if (toggleRecentActivityVisible) {
     });
 }
 
+if (toggleShowcaseInsightsVisible) {
+    toggleShowcaseInsightsVisible.addEventListener('change', persistShowcaseSettings);
+}
+
+if (toggleShowcasePricesVisible) {
+    toggleShowcasePricesVisible.addEventListener('change', persistShowcaseSettings);
+}
+
+if (toggleShowcasePensVisible) {
+    toggleShowcasePensVisible.addEventListener('change', persistShowcaseSettings);
+}
+
+if (toggleShowcaseInksVisible) {
+    toggleShowcaseInksVisible.addEventListener('change', persistShowcaseSettings);
+}
+
+if (toggleShowcaseSwatchesVisible) {
+    toggleShowcaseSwatchesVisible.addEventListener('change', persistShowcaseSettings);
+}
+
+if (toggleShowcaseChartsVisible) {
+    toggleShowcaseChartsVisible.addEventListener('change', persistShowcaseSettings);
+}
+
+if (colorModeSelect) {
+    colorModeSelect.addEventListener('change', persistShowcaseSettings);
+}
+if (toggleOpenCardsEditMode) {
+    toggleOpenCardsEditMode.addEventListener('change', persistShowcaseSettings);
+}
+if (showcaseColorModeSelect) {
+    showcaseColorModeSelect.addEventListener('change', persistShowcaseSettings);
+}
+
+if (toggleConfirmDestructive) {
+    toggleConfirmDestructive.addEventListener('change', persistShowcaseSettings);
+}
+
+if (activityLogVerbositySelect) {
+    activityLogVerbositySelect.addEventListener('change', persistShowcaseSettings);
+}
+
+if (toggleLogPenEdits) {
+    toggleLogPenEdits.addEventListener('change', persistShowcaseSettings);
+}
+
+if (toggleLogInkEdits) {
+    toggleLogInkEdits.addEventListener('change', persistShowcaseSettings);
+}
+
+if (toggleLogSwatchEvents) {
+    toggleLogSwatchEvents.addEventListener('change', persistShowcaseSettings);
+}
+
+if (toggleLogDeleteEvents) {
+    toggleLogDeleteEvents.addEventListener('change', persistShowcaseSettings);
+}
+
+if (showcaseSortPensSelect) {
+    showcaseSortPensSelect.addEventListener('change', persistShowcaseSettings);
+}
+
+if (showcaseSortInksSelect) {
+    showcaseSortInksSelect.addEventListener('change', persistShowcaseSettings);
+}
+
+if (showcaseSortSwatchesSelect) {
+    showcaseSortSwatchesSelect.addEventListener('change', persistShowcaseSettings);
+}
+
+if (defaultCurrencySelect) defaultCurrencySelect.addEventListener('change', persistShowcaseSettings);
+if (defaultDateFormatSelect) defaultDateFormatSelect.addEventListener('change', persistShowcaseSettings);
+if (defaultPenStatusSelect) defaultPenStatusSelect.addEventListener('change', persistShowcaseSettings);
+if (defaultInkTypeSelect) defaultInkTypeSelect.addEventListener('change', persistShowcaseSettings);
+if (toggleImportAutoValidate) toggleImportAutoValidate.addEventListener('change', persistShowcaseSettings);
+if (toggleExportIncludeMetadata) toggleExportIncludeMetadata.addEventListener('change', persistShowcaseSettings);
+if (importConflictBehaviorSelect) importConflictBehaviorSelect.addEventListener('change', persistShowcaseSettings);
+if (autoBackupFrequencySelect) autoBackupFrequencySelect.addEventListener('change', persistShowcaseSettings);
+
+if (defaultPenNibInput) {
+    defaultPenNibInput.addEventListener('change', persistShowcaseSettings);
+    defaultPenNibInput.addEventListener('blur', persistShowcaseSettings);
+}
+if (defaultPenNibMaterialInput) {
+    defaultPenNibMaterialInput.addEventListener('change', persistShowcaseSettings);
+    defaultPenNibMaterialInput.addEventListener('blur', persistShowcaseSettings);
+}
+if (backupRetentionCountInput) {
+    backupRetentionCountInput.addEventListener('change', persistShowcaseSettings);
+    backupRetentionCountInput.addEventListener('blur', persistShowcaseSettings);
+}
+
+if (showcaseTitleInput) {
+    showcaseTitleInput.addEventListener('input', () => {
+        applyShowcaseTitlePreview(showcaseTitleInput.value);
+    });
+    showcaseTitleInput.addEventListener('change', persistShowcaseSettings);
+    showcaseTitleInput.addEventListener('blur', persistShowcaseSettings);
+    showcaseTitleInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            showcaseTitleInput.blur();
+        }
+    });
+}
+
 if (activityRetentionSelect) {
     activityRetentionSelect.addEventListener('change', () => {
         const selected = Number(activityRetentionSelect.value);
@@ -2942,6 +5276,7 @@ if (btnDeleteOlderActivity) {
         if (!(await confirmAction({
             title: 'Delete Older Activity',
             message: `Delete ${removableCount} activity entries older than ${days} days?`,
+            destructive: true,
             buttons: ['Keep Logs', 'Delete Older Logs'],
             defaultId: 0,
             cancelId: 0,
@@ -2964,6 +5299,7 @@ if (btnClearAllActivity) {
             title: 'Clear All Activity Logs',
             message: `Delete all ${total} activity entries?`,
             detail: 'This action cannot be undone.',
+            destructive: true,
             buttons: ['Keep Logs', 'Clear All'],
             defaultId: 0,
             cancelId: 0,
@@ -3058,11 +5394,73 @@ if (activityCalendarToday) {
     });
 }
 
+if (swatchDatePickerToggle) {
+    swatchDatePickerToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (swatchCalendarPopover && swatchCalendarPopover.classList.contains('open')) {
+            closeSwatchCalendar();
+        } else {
+            openSwatchCalendar();
+        }
+    });
+}
+
+document.getElementById('swatch-date-input')?.addEventListener('click', () => {
+    if (swatchCalendarPopover && swatchCalendarPopover.classList.contains('open')) return;
+    openSwatchCalendar();
+});
+
+if (swatchCalendarPrev) {
+    swatchCalendarPrev.addEventListener('click', () => {
+        swatchCalendarViewDate = new Date(swatchCalendarViewDate.getFullYear(), swatchCalendarViewDate.getMonth() - 1, 1);
+        renderSwatchCalendar();
+    });
+}
+
+if (swatchCalendarNext) {
+    swatchCalendarNext.addEventListener('click', () => {
+        if (swatchCalendarNext.disabled) return;
+        swatchCalendarViewDate = new Date(swatchCalendarViewDate.getFullYear(), swatchCalendarViewDate.getMonth() + 1, 1);
+        renderSwatchCalendar();
+    });
+}
+
+if (swatchCalendarGrid) {
+    swatchCalendarGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-swatch-calendar-date]');
+        if (!btn) return;
+        const iso = btn.getAttribute('data-swatch-calendar-date');
+        if (!iso) return;
+        setSwatchDateInputValue(iso);
+        closeSwatchCalendar();
+    });
+}
+
+if (swatchCalendarClear) {
+    swatchCalendarClear.addEventListener('click', () => {
+        setSwatchDateInputValue('');
+        closeSwatchCalendar();
+    });
+}
+
+if (swatchCalendarToday) {
+    swatchCalendarToday.addEventListener('click', () => {
+        setSwatchDateInputValue(toIsoLocalDate(new Date()));
+        closeSwatchCalendar();
+    });
+}
+
 document.addEventListener('click', (e) => {
-    if (!activityCalendarPopover || !activityDatePickerToggle) return;
-    if (!activityCalendarPopover.classList.contains('open')) return;
-    if (activityCalendarPopover.contains(e.target) || activityDatePickerToggle.contains(e.target)) return;
-    closeActivityCalendar();
+    if (activityCalendarPopover && activityDatePickerToggle && activityCalendarPopover.classList.contains('open')) {
+        if (!activityCalendarPopover.contains(e.target) && !activityDatePickerToggle.contains(e.target)) {
+            closeActivityCalendar();
+        }
+    }
+    if (swatchCalendarPopover && swatchDatePickerToggle && swatchCalendarPopover.classList.contains('open')) {
+        if (!swatchCalendarPopover.contains(e.target) && !swatchDatePickerToggle.contains(e.target)) {
+            closeSwatchCalendar();
+        }
+    }
 });
 
 if (activityLogContainer) {
@@ -3074,6 +5472,7 @@ if (activityLogContainer) {
         if (!(await confirmAction({
             title: 'Delete Activity Entry',
             message: 'Delete this activity entry?',
+            destructive: true,
             buttons: ['Keep Entry', 'Delete Entry'],
             defaultId: 0,
             cancelId: 0,
@@ -3174,14 +5573,19 @@ function renderPenFilters() {
 
     const createGroup = (label, html) => `
         <div class="filter-group">
-            <label style="font-size: 15px; font-weight: 700; color: var(--color-text-main); text-transform: none; letter-spacing: 0;">${label}</label>
+            <label style="font-size: 15px; font-weight: 700; color: var(--color-text-main); text-transform: none; letter-spacing: 0;">${escapeHtml(label)}</label>
             ${html}
         </div>
     `;
 
     const createTagList = (category, options) => `
         <div class="filter-tags">
-            ${options.map(opt => `<span class="filter-tag ${(activePensFilters[category] || []).includes(opt) ? 'active' : ''}" onclick="togglePenFilterTag('${category}', '${opt}')">${opt}</span>`).join('')}
+            ${options.map((opt) => {
+                const safeCategory = escapeJsSingleQuoted(category);
+                const safeOptJs = escapeJsSingleQuoted(opt);
+                const safeOptHtml = escapeHtml(opt);
+                return `<span class="filter-tag ${(activePensFilters[category] || []).includes(opt) ? 'active' : ''}" onclick="togglePenFilterTag('${safeCategory}', '${safeOptJs}')">${safeOptHtml}</span>`;
+            }).join('')}
         </div>
     `;
 
@@ -3286,20 +5690,29 @@ function renderFilters() {
 
     const createGroup = (label, html) => `
         <div class="filter-group">
-            <label style="font-size: 15px; font-weight: 700; color: var(--color-text-main); text-transform: none; letter-spacing: 0;">${label}</label>
+            <label style="font-size: 15px; font-weight: 700; color: var(--color-text-main); text-transform: none; letter-spacing: 0;">${escapeHtml(label)}</label>
             ${html}
         </div>
     `;
 
     const createTagList = (category, options) => `
         <div class="filter-tags">
-            ${options.map(opt => `<span class="filter-tag ${(activeInksFilters[category] || []).includes(opt) ? 'active' : ''}" onclick="toggleFilterTag('${category}', '${opt}')">${opt}</span>`).join('')}
+            ${options.map((opt) => {
+                const safeCategory = escapeJsSingleQuoted(category);
+                const safeOptJs = escapeJsSingleQuoted(opt);
+                const safeOptHtml = escapeHtml(opt);
+                return `<span class="filter-tag ${(activeInksFilters[category] || []).includes(opt) ? 'active' : ''}" onclick="toggleFilterTag('${safeCategory}', '${safeOptJs}')">${safeOptHtml}</span>`;
+            }).join('')}
         </div>
     `;
 
     const createVolumeTagList = (options) => `
         <div class="filter-tags">
-            ${options.map(opt => `<span class="filter-tag ${(activeInksFilters.volume || []).includes(opt) ? 'active' : ''}" onclick="toggleFilterTag('volume', '${opt}')">${opt} cl</span>`).join('')}
+            ${options.map((opt) => {
+                const safeOptJs = escapeJsSingleQuoted(opt);
+                const safeOptHtml = escapeHtml(opt);
+                return `<span class="filter-tag ${(activeInksFilters.volume || []).includes(opt) ? 'active' : ''}" onclick="toggleFilterTag('volume', '${safeOptJs}')">${safeOptHtml} cl</span>`;
+            }).join('')}
         </div>
     `;
 
@@ -3310,8 +5723,8 @@ function renderFilters() {
                 ${colors.length > 0 ? colors.map(c => `
                     <div class="color-chip ${(activeInksFilters.color || []).includes(c) ? 'active' : ''}" 
                          style="background: ${c}; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(0,0,0,0.3); box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex-shrink: 0;" 
-                         onclick="toggleFilterTag('color', '${c}')"
-                         title="${c}"></div>
+                         onclick="toggleFilterTag('color', '${escapeJsSingleQuoted(c)}')"
+                         title="${escapeHtml(c)}"></div>
                 `).join('') : '<span style="color: #999; font-size: 13px; font-style: italic; display: block;">No colors detected.</span>'}
             </div>
         `)}
@@ -3338,17 +5751,34 @@ function renderSwatchFilters() {
 
     const previousScrollTop = container.scrollTop;
 
-    const swatches = appData.inks.filter(i => i.image && i.is_swatch);
-    const brands = [...new Set(swatches.map(i => i.brand).filter(Boolean))].sort();
+    const swatches = getAllSwatches()
+        .map((swatch) => ({ swatch, ink: getInkById(swatch.ink_id) }))
+        .filter((item) => item.ink && item.swatch && item.swatch.image);
+    const brands = [...new Set(swatches.map(({ ink }) => ink.brand).filter(Boolean))].sort();
     const types = ['Bottle', 'Sample', 'Cartridge'];
     const flowOpts = ['Dry', 'Average', 'Wet'];
     const lubOpts = ['None', 'Low', 'Medium', 'High'];
     const dryTimeOpts = ['Fast', 'Average', 'Slow'];
-    const baseTypes = [...new Set(swatches.flatMap(i => i.base_type || []))].sort();
-    const permanences = [...new Set(swatches.map(i => i.permanence).filter(Boolean))].sort();
+    const baseTypes = [...new Set(swatches.flatMap(({ ink }) => ink.base_type || []))].sort();
+    const permanences = [...new Set(swatches.map(({ ink }) => ink.permanence).filter(Boolean))].sort();
+    const lightingValues = [...new Set(
+        swatches
+            .map(({ swatch }) => String((swatch && swatch.swatch_lighting) || 'Unknown').trim())
+            .filter(Boolean)
+    )].sort((a, b) => {
+        if (a === 'Unknown') return -1;
+        if (b === 'Unknown') return 1;
+        return a.localeCompare(b, undefined, { sensitivity: 'base' });
+    });
+    const nibs = [...new Set(
+        swatches.flatMap(({ swatch }) => normalizeCsvValues((swatch && swatch.swatch_nib) || ''))
+    )].sort();
+    const papers = [...new Set(
+        swatches.flatMap(({ swatch }) => normalizeCsvValues((swatch && swatch.swatch_paper) || ''))
+    )].sort();
 
     const colorHexes = new Set();
-    swatches.forEach(s => { if (s.color_base) colorHexes.add(s.color_base); });
+    swatches.forEach(({ ink }) => { if (ink.color_base) colorHexes.add(ink.color_base); });
 
     const getHue = (hex) => {
         if (!hex) return 0;
@@ -3372,36 +5802,45 @@ function renderSwatchFilters() {
 
     const createGroup = (label, html) => `
         <div class="filter-group">
-            <label style="font-size: 15px; font-weight: 700; color: var(--color-text-main); text-transform: none; letter-spacing: 0;">${label}</label>
+            <label style="font-size: 15px; font-weight: 700; color: var(--color-text-main); text-transform: none; letter-spacing: 0;">${escapeHtml(label)}</label>
             ${html}
         </div>
     `;
 
     const createTagList = (category, options) => `
         <div class="filter-tags">
-            ${options.map(opt => `<span class="filter-tag ${(activeSwatchesFilters[category] || []).includes(opt) ? 'active' : ''}" onclick="toggleSwatchFilterTag('${category}', '${opt}')">${opt}</span>`).join('')}
+            ${options.map((opt) => {
+                const safeCategory = escapeJsSingleQuoted(category);
+                const safeOptJs = escapeJsSingleQuoted(opt);
+                const safeOptHtml = escapeHtml(opt);
+                return `<span class="filter-tag ${(activeSwatchesFilters[category] || []).includes(opt) ? 'active' : ''}" onclick="toggleSwatchFilterTag('${safeCategory}', '${safeOptJs}')">${safeOptHtml}</span>`;
+            }).join('')}
         </div>
     `;
 
-    container.innerHTML = `
-        ${createGroup('Brand', createTagList('brand', brands))}
-        ${createGroup('Color Group', `
+    const sections = [];
+    sections.push(createGroup('Brand', createTagList('brand', brands)));
+    sections.push(createGroup('Color Group', `
             <div class="color-chips" style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; min-height: 24px;">
                 ${colors.length > 0 ? colors.map(c => `
                     <div class="color-chip ${(activeSwatchesFilters.color || []).includes(c) ? 'active' : ''}" 
                          style="background: ${c}; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(0,0,0,0.3); box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex-shrink: 0;" 
-                         onclick="toggleSwatchFilterTag('color', '${c}')"
-                         title="${c}"></div>
+                         onclick="toggleSwatchFilterTag('color', '${escapeJsSingleQuoted(c)}')"
+                         title="${escapeHtml(c)}"></div>
                 `).join('') : '<span style="color: #999; font-size: 13px; font-style: italic; display: block;">No colors detected.</span>'}
             </div>
-        `)}
-        ${createGroup('Flow', createTagList('flow', flowOpts))}
-        ${createGroup('Lubrication', createTagList('lubrication', lubOpts))}
-        ${createGroup('Dry Time', createTagList('dryTime', dryTimeOpts))}
-        ${createGroup('Type', createTagList('type', types))}
-        ${createGroup('Base Type', createTagList('baseType', baseTypes))}
-        ${createGroup('Permanence', createTagList('permanence', permanences))}
-    `;
+    `));
+    sections.push(createGroup('Flow', createTagList('flow', flowOpts)));
+    sections.push(createGroup('Lubrication', createTagList('lubrication', lubOpts)));
+    sections.push(createGroup('Dry Time', createTagList('dryTime', dryTimeOpts)));
+    sections.push(createGroup('Type', createTagList('type', types)));
+    sections.push(createGroup('Base Type', createTagList('baseType', baseTypes)));
+    sections.push(createGroup('Permanence', createTagList('permanence', permanences)));
+    sections.push(createGroup('Lighting', createTagList('lighting', lightingValues)));
+    if (nibs.length > 0) sections.push(createGroup('Nib Used', createTagList('nib', nibs)));
+    if (papers.length > 0) sections.push(createGroup('Paper', createTagList('paper', papers)));
+
+    container.innerHTML = sections.join('');
 
     if (previousScrollTop > 0) container.scrollTop = previousScrollTop;
 }
@@ -3489,7 +5928,7 @@ function renderInks() {
             card.className = 'inked-card glass-panel';
             card.style.cursor = 'pointer';
             card.onclick = () => {
-                if (isElectron) {
+                if (isElectron && shouldOpenCardsInEditMode()) {
                     openInkModal(ink.id);
                 } else {
                     openSwatchDetailModal(ink.id, 'inks');
@@ -3499,16 +5938,20 @@ function renderInks() {
             // Consistently use gradient for list view
             const bgStyle = `background: linear-gradient(135deg, ${ink.color_base || '#ccc'}, ${ink.color_accent || ink.color_base || '#999'})`;
 
-            // Swatch Indicator
-            const hasSwatch = (ink.image && ink.is_swatch) ? '<i class="ph-fill ph-image" style="color: var(--color-accent); margin-left: auto;"></i>' : '';
+            const swatchCount = getSwatchesForInk(ink.id).length;
+            const hasSwatch = swatchCount > 0
+                ? `<span style="color: var(--color-text-muted); margin-left: auto; font-size: 12px; font-weight: 700;">${swatchCount}</span>`
+                : '';
+            const safeInkName = escapeHtml(ink.name || '');
+            const safeInkBrand = escapeHtml(ink.brand || '');
 
             card.innerHTML = `
                 <div class="ink-swatch-bg" style="${bgStyle}; height: 100px;"></div>
                 <div class="card-content">
                     <div style="display: flex; justify-content: space-between; align-items: start;">
                         <div>
-                            <div class="pen-name" style="font-size: 15px; font-weight: 600;">${ink.name}</div>
-                            <div class="pen-detail" style="font-size: 12px; color: #666;">${ink.brand || ''}</div>
+                            <div class="pen-name" style="font-size: 15px; font-weight: 600;">${safeInkName}</div>
+                            <div class="pen-detail" style="font-size: 12px; color: var(--color-text-muted);">${safeInkBrand}</div>
                         </div>
                         ${hasSwatch}
                     </div>
@@ -3527,28 +5970,40 @@ function renderSwatches() {
     if (!grid) return;
     grid.innerHTML = '';
 
-    // Filter inks that have images AND are explicitly marked as swatches
-    let swatches = appData.inks.filter(i => i.image && i.is_swatch);
+    let swatches = getAllSwatches()
+        .map((swatch) => ({ swatch, ink: getInkById(swatch.ink_id) }))
+        .filter((item) => item.ink && item.swatch && item.swatch.image);
 
-    // 1. Apply Search Filter
     if (searchSwatchesQuery) {
         const q = searchSwatchesQuery.toLowerCase();
-        swatches = swatches.filter(ink =>
-            ink.name.toLowerCase().includes(q) ||
-            (ink.brand && ink.brand.toLowerCase().includes(q))
+        swatches = swatches.filter(({ swatch, ink }) =>
+            (ink.name || '').toLowerCase().includes(q) ||
+            (ink.brand || '').toLowerCase().includes(q) ||
+            (swatch.swatch_paper || '').toLowerCase().includes(q) ||
+            (swatch.swatch_nib || '').toLowerCase().includes(q)
         );
     }
 
-    // 2. Apply Custom Filters
-    swatches = swatches.filter(ink => {
+    swatches = swatches.filter(({ swatch, ink }) => {
         if (activeSwatchesFilters.brand.length > 0 && !activeSwatchesFilters.brand.includes(ink.brand)) return false;
         if (activeSwatchesFilters.type.length > 0 && !activeSwatchesFilters.type.includes(ink.type)) return false;
         if (activeSwatchesFilters.flow.length > 0 && !activeSwatchesFilters.flow.includes(ink.flow)) return false;
         if (activeSwatchesFilters.lubrication.length > 0 && !activeSwatchesFilters.lubrication.includes(ink.lubrication)) return false;
         if (activeSwatchesFilters.dryTime.length > 0 && !activeSwatchesFilters.dryTime.includes(ink.dry_time)) return false;
         if (activeSwatchesFilters.permanence.length > 0 && !activeSwatchesFilters.permanence.includes(ink.permanence)) return false;
-
         if (activeSwatchesFilters.color.length > 0 && !activeSwatchesFilters.color.includes(ink.color_base)) return false;
+        if (activeSwatchesFilters.lighting.length > 0) {
+            const swatchLighting = String((swatch && swatch.swatch_lighting) || 'Unknown').trim() || 'Unknown';
+            if (!activeSwatchesFilters.lighting.includes(swatchLighting)) return false;
+        }
+        if (activeSwatchesFilters.nib.length > 0) {
+            const swatchNibs = normalizeCsvValues((swatch && swatch.swatch_nib) || '');
+            if (!activeSwatchesFilters.nib.some((nib) => swatchNibs.includes(nib))) return false;
+        }
+        if (activeSwatchesFilters.paper.length > 0) {
+            const swatchPapers = normalizeCsvValues((swatch && swatch.swatch_paper) || '');
+            if (!activeSwatchesFilters.paper.some((paper) => swatchPapers.includes(paper))) return false;
+        }
 
         if (activeSwatchesFilters.baseType.length > 0) {
             const inkBaseTypes = ink.base_type || [];
@@ -3557,14 +6012,13 @@ function renderSwatches() {
         return true;
     });
 
-    // 3. Apply Sorting
     swatches.sort((a, b) => {
-        if (activeSwatchesSort === 'name-asc') return a.name.localeCompare(b.name);
-        if (activeSwatchesSort === 'name-desc') return b.name.localeCompare(a.name);
-        if (activeSwatchesSort === 'brand-asc') return (a.brand || '').localeCompare(b.brand || '');
-        if (activeSwatchesSort === 'brand-desc') return (b.brand || '').localeCompare(a.brand || '');
-        if (activeSwatchesSort === 'newest') return b.id.localeCompare(a.id);
-        if (activeSwatchesSort === 'oldest') return a.id.localeCompare(b.id);
+        if (activeSwatchesSort === 'name-asc') return (a.ink.name || '').localeCompare(b.ink.name || '');
+        if (activeSwatchesSort === 'name-desc') return (b.ink.name || '').localeCompare(a.ink.name || '');
+        if (activeSwatchesSort === 'brand-asc') return (a.ink.brand || '').localeCompare(b.ink.brand || '');
+        if (activeSwatchesSort === 'brand-desc') return (b.ink.brand || '').localeCompare(a.ink.brand || '');
+        if (activeSwatchesSort === 'newest') return getSwatchTimestamp(b.swatch) - getSwatchTimestamp(a.swatch);
+        if (activeSwatchesSort === 'oldest') return getSwatchTimestamp(a.swatch) - getSwatchTimestamp(b.swatch);
         return 0;
     });
 
@@ -3573,19 +6027,28 @@ function renderSwatches() {
         return;
     }
 
-    swatches.forEach(ink => {
+    swatches.forEach(({ swatch, ink }) => {
         const card = document.createElement('div');
         card.className = 'inked-card glass-panel';
         card.style.cursor = 'pointer';
-        card.onclick = () => openSwatchDetailModal(ink.id, 'swatches');
+        card.onclick = () => {
+            if (isElectron && shouldOpenCardsInEditMode()) {
+                openEditSwatchModal(swatch.id);
+            } else {
+                openSwatchDetailModal(swatch.id, 'swatches');
+            }
+        };
 
-        const imagePath = resolveImageSource(ink.image);
+        const imagePath = resolveImageSource(swatch.image);
+        const safeInkName = escapeHtml(ink.name || '');
+        const safeInkBrand = escapeHtml(ink.brand || '');
+        const safeSwatchNib = swatch.swatch_nib ? escapeHtml(swatch.swatch_nib) : '';
 
         card.innerHTML = `
             <div class="ink-swatch-bg" style="height: 150px; background-image: url('${imagePath}'); background-size: cover; background-position: center;"></div>
             <div class="card-content">
-                <div class="pen-name" style="font-weight: 600;">${ink.name}</div>
-                <div class="pen-detail" style="font-size: 12px; color: #666;">${ink.brand}</div>
+                <div class="pen-name" style="font-weight: 600;">${safeInkName}</div>
+                <div class="pen-detail" style="font-size: 12px; color: var(--color-text-muted);">${safeInkBrand}${safeSwatchNib ? ` • ${safeSwatchNib}` : ''}</div>
             </div>
         `;
         grid.appendChild(card);
@@ -3595,6 +6058,11 @@ function renderSwatches() {
 function isModalVisible(modalEl) {
     return !!(modalEl && getComputedStyle(modalEl).display !== 'none');
 }
+
+window.addEventListener('resize', () => {
+    if (!isModalVisible(modalSwatchDetail)) return;
+    requestAnimationFrame(updateInkDetailMetadataLayout);
+});
 
 function getFilteredSortedPensForDetails() {
     let pens = [...(appData.pens || [])];
@@ -3700,17 +6168,21 @@ function getFilteredSortedInksForDetails() {
 }
 
 function getFilteredSortedSwatchesForDetails() {
-    let swatches = appData.inks.filter(i => i.image && i.is_swatch);
+    let swatches = getAllSwatches()
+        .map((swatch) => ({ swatch, ink: getInkById(swatch.ink_id) }))
+        .filter((item) => item.ink && item.swatch && item.swatch.image);
 
     if (searchSwatchesQuery) {
         const q = searchSwatchesQuery.toLowerCase();
-        swatches = swatches.filter(ink =>
-            ink.name.toLowerCase().includes(q) ||
-            (ink.brand && ink.brand.toLowerCase().includes(q))
+        swatches = swatches.filter(({ swatch, ink }) =>
+            (ink.name || '').toLowerCase().includes(q) ||
+            (ink.brand || '').toLowerCase().includes(q) ||
+            (swatch.swatch_paper || '').toLowerCase().includes(q) ||
+            (swatch.swatch_nib || '').toLowerCase().includes(q)
         );
     }
 
-    swatches = swatches.filter(ink => {
+    swatches = swatches.filter(({ swatch, ink }) => {
         if (activeSwatchesFilters.brand.length > 0 && !activeSwatchesFilters.brand.includes(ink.brand)) return false;
         if (activeSwatchesFilters.type.length > 0 && !activeSwatchesFilters.type.includes(ink.type)) return false;
         if (activeSwatchesFilters.flow.length > 0 && !activeSwatchesFilters.flow.includes(ink.flow)) return false;
@@ -3718,6 +6190,18 @@ function getFilteredSortedSwatchesForDetails() {
         if (activeSwatchesFilters.dryTime.length > 0 && !activeSwatchesFilters.dryTime.includes(ink.dry_time)) return false;
         if (activeSwatchesFilters.permanence.length > 0 && !activeSwatchesFilters.permanence.includes(ink.permanence)) return false;
         if (activeSwatchesFilters.color.length > 0 && !activeSwatchesFilters.color.includes(ink.color_base)) return false;
+        if (activeSwatchesFilters.lighting.length > 0) {
+            const swatchLighting = String((swatch && swatch.swatch_lighting) || 'Unknown').trim() || 'Unknown';
+            if (!activeSwatchesFilters.lighting.includes(swatchLighting)) return false;
+        }
+        if (activeSwatchesFilters.nib.length > 0) {
+            const swatchNibs = normalizeCsvValues((swatch && swatch.swatch_nib) || '');
+            if (!activeSwatchesFilters.nib.some((nib) => swatchNibs.includes(nib))) return false;
+        }
+        if (activeSwatchesFilters.paper.length > 0) {
+            const swatchPapers = normalizeCsvValues((swatch && swatch.swatch_paper) || '');
+            if (!activeSwatchesFilters.paper.some((paper) => swatchPapers.includes(paper))) return false;
+        }
         if (activeSwatchesFilters.baseType.length > 0) {
             const inkBaseTypes = ink.base_type || [];
             if (!activeSwatchesFilters.baseType.some(bt => inkBaseTypes.includes(bt))) return false;
@@ -3726,16 +6210,16 @@ function getFilteredSortedSwatchesForDetails() {
     });
 
     swatches.sort((a, b) => {
-        if (activeSwatchesSort === 'name-asc') return a.name.localeCompare(b.name);
-        if (activeSwatchesSort === 'name-desc') return b.name.localeCompare(a.name);
-        if (activeSwatchesSort === 'brand-asc') return (a.brand || '').localeCompare(b.brand || '');
-        if (activeSwatchesSort === 'brand-desc') return (b.brand || '').localeCompare(a.brand || '');
-        if (activeSwatchesSort === 'newest') return b.id.localeCompare(a.id);
-        if (activeSwatchesSort === 'oldest') return a.id.localeCompare(b.id);
+        if (activeSwatchesSort === 'name-asc') return (a.ink.name || '').localeCompare(b.ink.name || '');
+        if (activeSwatchesSort === 'name-desc') return (b.ink.name || '').localeCompare(a.ink.name || '');
+        if (activeSwatchesSort === 'brand-asc') return (a.ink.brand || '').localeCompare(b.ink.brand || '');
+        if (activeSwatchesSort === 'brand-desc') return (b.ink.brand || '').localeCompare(a.ink.brand || '');
+        if (activeSwatchesSort === 'newest') return getSwatchTimestamp(b.swatch) - getSwatchTimestamp(a.swatch);
+        if (activeSwatchesSort === 'oldest') return getSwatchTimestamp(a.swatch) - getSwatchTimestamp(b.swatch);
         return 0;
     });
 
-    return swatches;
+    return swatches.map((item) => item.swatch);
 }
 
 function navigateDetailModal(step) {
@@ -3768,8 +6252,23 @@ function navigateDetailModal(step) {
 
 
 // Event Listeners for Filters/Sort (Inks)
+function closeAllFilterSidebars() {
+    [
+        document.getElementById('filter-sidebar'),
+        document.getElementById('filter-sidebar-pens'),
+        document.getElementById('filter-sidebar-swatches')
+    ].forEach((sidebar) => {
+        if (!sidebar || !sidebar.classList.contains('active')) return;
+        sidebar.classList.remove('active');
+        setTimeout(() => {
+            sidebar.style.display = 'none';
+        }, 400);
+    });
+}
+
 document.getElementById('btn-sort-inks')?.addEventListener('click', (e) => {
     e.stopPropagation();
+    closeAllFilterSidebars();
     const dropdown = document.getElementById('sort-dropdown');
     if (dropdown) dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
 });
@@ -3787,6 +6286,7 @@ document.querySelectorAll('.sort-option').forEach(btn => {
 // Event Listeners for Filters/Sort (Pens)
 document.getElementById('btn-sort-pens')?.addEventListener('click', (e) => {
     e.stopPropagation();
+    closeAllFilterSidebars();
     const dropdown = document.getElementById('sort-dropdown-pens');
     if (dropdown) dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
 });
@@ -3807,18 +6307,10 @@ if (document.getElementById('btn-add-ink-header')) document.getElementById('btn-
 
 
 
-document.addEventListener('click', () => {
-    const dropdownInk = document.getElementById('sort-dropdown');
-    if (dropdownInk) dropdownInk.style.display = 'none';
-    const dropdownPen = document.getElementById('sort-dropdown-pens');
-    if (dropdownPen) dropdownPen.style.display = 'none';
-    const dropdownSwatch = document.getElementById('sort-dropdown-swatches');
-    if (dropdownSwatch) dropdownSwatch.style.display = 'none';
-});
-
 // Event Listeners for Filters/Sort (Swatches)
 document.getElementById('btn-sort-swatches')?.addEventListener('click', (e) => {
     e.stopPropagation();
+    closeAllFilterSidebars();
     const dropdown = document.getElementById('sort-dropdown-swatches');
     if (dropdown) dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
 });
@@ -3853,7 +6345,9 @@ document.getElementById('close-filters-swatches')?.addEventListener('click', () 
 document.getElementById('reset-filters-swatches')?.addEventListener('click', () => {
     activeSwatchesFilters = {
         brand: [], type: [], color: [], flow: [],
-        lubrication: [], dryTime: [], baseType: [], permanence: []
+        lubrication: [], dryTime: [], baseType: [], permanence: [],
+        lighting: [],
+        nib: [], paper: []
     };
     renderSwatchFilters();
     renderSwatches();
@@ -3915,9 +6409,14 @@ document.getElementById('reset-filters-pens')?.addEventListener('click', () => {
     renderPens();
 });
 
-// Click outside to close Filters
-// Click outside to close Filters
 document.addEventListener('click', (e) => {
+    const dropdownInk = document.getElementById('sort-dropdown');
+    if (dropdownInk) dropdownInk.style.display = 'none';
+    const dropdownPen = document.getElementById('sort-dropdown-pens');
+    if (dropdownPen) dropdownPen.style.display = 'none';
+    const dropdownSwatch = document.getElementById('sort-dropdown-swatches');
+    if (dropdownSwatch) dropdownSwatch.style.display = 'none';
+
     // If target was removed from DOM (e.g. by re-render), ignore it
     if (!document.body.contains(e.target)) return;
 
@@ -4347,6 +6846,8 @@ function extractPenColors(imgElement) {
 
 // Custom Control Logic
 function setupCustomControls() {
+    enhanceSettingsCustomSelects();
+
     // 1. Custom Selects
     document.querySelectorAll('.custom-select-trigger').forEach(trigger => {
         trigger.addEventListener('click', (e) => {
@@ -4572,21 +7073,26 @@ function setupCustomSelectOptions(container) {
 
             const trigger = wrapper.querySelector('.custom-select-trigger');
             const hiddenInput = wrapper.querySelector('input[type="hidden"]');
+            const nativeSelect = wrapper.querySelector('select.activity-select');
+            if (!trigger) return;
 
-            if (trigger && hiddenInput) {
-                const val = option.dataset.value;
-                const text = option.textContent;
+            const val = option.dataset.value;
+            const text = option.textContent;
+            const triggerLabel = trigger.querySelector('span');
 
-                hiddenInput.value = val;
-                trigger.querySelector('span').textContent = text;
-
-                trigger.classList.remove('open');
-                container.classList.remove('show');
-
-                // Active state
-                container.querySelectorAll('.custom-option').forEach(o => o.classList.remove('selected'));
-                option.classList.add('selected');
+            if (hiddenInput) hiddenInput.value = val;
+            if (nativeSelect) {
+                nativeSelect.value = val;
+                nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
             }
+            if (triggerLabel) triggerLabel.textContent = text;
+
+            trigger.classList.remove('open');
+            container.classList.remove('show');
+
+            // Active state
+            container.querySelectorAll('.custom-option').forEach(o => o.classList.remove('selected'));
+            option.classList.add('selected');
         };
     });
 }
@@ -4633,6 +7139,9 @@ const btnAddSwatchHeader = document.getElementById('btn-add-swatch-header');
 let currentSwatchSource = 'auto';
 let currentSwatchImageCandidate = null; // { type: 'url'|'upload', value: string }
 let currentUploadPath = null;
+let currentSwatchFormMode = 'create';
+let currentEditingSwatchId = null;
+const btnDeleteSwatchUnified = document.getElementById('btn-delete-swatch-unified');
 
 // Event Listeners for Opening Source Modal
 if (btnAddSwatchHeader) {
@@ -4652,7 +7161,94 @@ function openAddSwatchModal() {
     if (modalAddSwatch) {
         activateModal(modalAddSwatch);
         populateInkSelect('fetch-swatch-ink-wrapper', 'fetch-swatch-ink-options', 'fetch-swatch-ink-input');
-        resetSwatchForm();
+        resetSwatchForm('create');
+    }
+}
+
+function syncSettingsCustomSelectUI() {
+    document.querySelectorAll('#view-settings .settings-custom-select-wrapper').forEach((wrapper) => {
+        const select = wrapper.querySelector('select.activity-select');
+        const triggerLabel = wrapper.querySelector('.custom-select-trigger .current-value');
+        const options = wrapper.querySelector('.custom-options');
+        if (!select || !triggerLabel || !options) return;
+
+        const selectedOption = select.options[select.selectedIndex] || select.options[0];
+        if (selectedOption) triggerLabel.textContent = selectedOption.textContent;
+
+        options.querySelectorAll('.custom-option').forEach((opt) => {
+            opt.classList.toggle('selected', opt.dataset.value === select.value);
+        });
+    });
+}
+
+function enhanceSettingsCustomSelects() {
+    const settingsView = document.getElementById('view-settings');
+    if (!settingsView) return;
+
+    settingsView.querySelectorAll('select.activity-select').forEach((selectEl) => {
+        if (selectEl.dataset.customEnhanced === '1') return;
+        if (!selectEl.id) return;
+        selectEl.dataset.customEnhanced = '1';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'custom-select-wrapper-outer settings-custom-select-wrapper';
+
+        const trigger = document.createElement('div');
+        trigger.className = 'custom-select-trigger';
+        trigger.tabIndex = 0;
+        trigger.innerHTML = `<span class="current-value"></span><i class="ph ph-caret-down"></i>`;
+
+        const options = document.createElement('div');
+        options.className = 'custom-options settings-custom-options';
+        options.dataset.target = selectEl.id;
+        options.innerHTML = Array.from(selectEl.options).map((opt) => {
+            const selectedClass = opt.selected ? ' selected' : '';
+            return `<div class="custom-option${selectedClass}" data-value="${escapeHtml(opt.value)}">${escapeHtml(opt.textContent || '')}</div>`;
+        }).join('');
+
+        const parent = selectEl.parentElement;
+        if (!parent) return;
+        parent.insertBefore(wrapper, selectEl);
+        wrapper.appendChild(selectEl);
+        wrapper.appendChild(trigger);
+        wrapper.appendChild(options);
+
+        selectEl.classList.add('settings-native-select-hidden');
+        selectEl.tabIndex = -1;
+        selectEl.addEventListener('change', () => {
+            syncSettingsCustomSelectUI();
+        });
+    });
+
+    syncSettingsCustomSelectUI();
+}
+
+function setSwatchFormMode(mode = 'create') {
+    currentSwatchFormMode = mode === 'edit' ? 'edit' : 'create';
+    const titleEl = document.getElementById('swatch-modal-title');
+    const saveBtn = document.getElementById('btn-save-swatch-unified');
+    const inkWrapper = document.getElementById('fetch-swatch-ink-wrapper');
+    if (titleEl) titleEl.textContent = currentSwatchFormMode === 'edit' ? 'Edit Swatch' : 'Add Swatch';
+    if (saveBtn) saveBtn.textContent = currentSwatchFormMode === 'edit' ? 'Save Changes' : 'Save Swatch';
+    if (inkWrapper) {
+        inkWrapper.style.pointerEvents = currentSwatchFormMode === 'edit' ? 'none' : '';
+        inkWrapper.style.opacity = currentSwatchFormMode === 'edit' ? '0.75' : '';
+    }
+    if (btnDeleteSwatchUnified) {
+        btnDeleteSwatchUnified.style.display = (isElectron && currentSwatchFormMode === 'edit') ? 'inline-block' : 'none';
+    }
+}
+
+function setSwatchLinkedInkSelection(inkId = '') {
+    const input = document.getElementById('fetch-swatch-ink-input');
+    const wrapper = document.getElementById('fetch-swatch-ink-wrapper');
+    const ink = getInkById(inkId);
+    if (input) input.value = inkId || '';
+    if (wrapper) {
+        const cv = wrapper.querySelector('.current-value');
+        if (cv) {
+            cv.textContent = ink ? `${ink.brand ? `${ink.brand} ` : ''}${ink.name}` : 'Select an ink...';
+        }
     }
 }
 
@@ -4710,19 +7306,15 @@ function updateSwatchControlsState() {
     });
 }
 
-function resetSwatchForm() {
+function resetSwatchForm(mode = 'create') {
+    setSwatchFormMode(mode);
+    currentEditingSwatchId = null;
     currentSwatchSource = 'auto';
     currentSwatchImageCandidate = null;
     currentUploadPath = null;
     setSwatchValidation('');
 
-    const inkInput = document.getElementById('fetch-swatch-ink-input');
-    if (inkInput) inkInput.value = '';
-    const inkWrapper = document.getElementById('fetch-swatch-ink-wrapper');
-    if (inkWrapper) {
-        const cv = inkWrapper.querySelector('.current-value');
-        if (cv) cv.textContent = 'Select an ink...';
-    }
+    setSwatchLinkedInkSelection('');
 
     const nameAuto = document.getElementById('fetch-swatch-name-auto');
     if (nameAuto) nameAuto.value = '';
@@ -4731,16 +7323,45 @@ function resetSwatchForm() {
 
     const paper = document.getElementById('swatch-paper-input');
     const nib = document.getElementById('swatch-nib-input');
-    const date = document.getElementById('swatch-date-input');
     const notes = document.getElementById('swatch-notes-input');
     if (paper) paper.value = '';
     if (nib) nib.value = '';
-    if (date) date.value = new Date().toISOString().slice(0, 10);
+    setSwatchDateInputValue(new Date().toISOString().slice(0, 10));
     if (notes) notes.value = '';
     setCustomSelectValue('swatch-lighting-input', 'Unknown');
 
     setSwatchSource('auto');
     setSwatchPreviewState('empty');
+    updateSwatchControlsState();
+}
+
+async function openEditSwatchModal(swatchId) {
+    const swatch = getSwatchById(swatchId);
+    if (!swatch) return;
+    const ink = getInkById(swatch.ink_id);
+    if (!ink) return;
+
+    closeAllModals();
+    if (!modalAddSwatch) return;
+
+    activateModal(modalAddSwatch);
+    populateInkSelect('fetch-swatch-ink-wrapper', 'fetch-swatch-ink-options', 'fetch-swatch-ink-input');
+    resetSwatchForm('edit');
+
+    currentEditingSwatchId = swatch.id;
+    setSwatchLinkedInkSelection(ink.id);
+
+    const paper = document.getElementById('swatch-paper-input');
+    const nib = document.getElementById('swatch-nib-input');
+    const notes = document.getElementById('swatch-notes-input');
+    if (paper) paper.value = swatch.swatch_paper || '';
+    if (nib) nib.value = swatch.swatch_nib || '';
+    setSwatchDateInputValue(swatch.swatch_date || '');
+    if (notes) notes.value = swatch.swatch_notes || '';
+    setCustomSelectValue('swatch-lighting-input', swatch.swatch_lighting || 'Unknown');
+
+    currentSwatchImageCandidate = null;
+    setSwatchPreviewState('image', { src: resolveImageSource(swatch.image) });
     updateSwatchControlsState();
 }
 
@@ -4804,7 +7425,7 @@ function populateInkSelect(wrapperId, optionsId, inputId) {
     const sortedInks = [...getLibraryInks()].sort((a, b) => a.name.localeCompare(b.name));
 
     optionsContainer.innerHTML = sortedInks.map(ink =>
-        `<div class="custom-option" data-value="${ink.id}">${ink.brand ? ink.brand + ' ' : ''}${ink.name}</div>`
+        `<div class="custom-option" data-value="${escapeHtml(ink.id || '')}">${escapeHtml(ink.brand ? ink.brand + ' ' : '')}${escapeHtml(ink.name || '')}</div>`
     ).join('');
 
     // Custom binding to handle the "Auto Search" logic for Fetch Modal
@@ -4937,11 +7558,11 @@ document.getElementById('btn-choose-upload-swatch')?.addEventListener('click', a
 
 document.getElementById('btn-save-swatch-unified')?.addEventListener('click', async () => {
     const inkId = document.getElementById('fetch-swatch-ink-input')?.value;
-    if (!inkId) {
+    if (!inkId && currentSwatchFormMode !== 'edit') {
         setSwatchValidation('Please select an ink.');
         return;
     }
-    if (!currentSwatchImageCandidate) {
+    if (currentSwatchFormMode !== 'edit' && !currentSwatchImageCandidate) {
         setSwatchValidation('Please add a swatch image.');
         return;
     }
@@ -4949,15 +7570,75 @@ document.getElementById('btn-save-swatch-unified')?.addEventListener('click', as
     const ink = appData.inks.find(i => i.id === inkId);
     const imageMetadata = ink ? { brand: ink.brand, model: ink.name } : { brand: 'unknown', model: 'ink' };
     const swatchMetadata = getSwatchMetadataPayload();
-    let savedFilename = null;
+    const isEditMode = currentSwatchFormMode === 'edit';
 
+    if (isEditMode) {
+        const swatch = getSwatchById(currentEditingSwatchId);
+        if (!swatch) {
+            setSwatchValidation('Swatch not found.');
+            return;
+        }
+        const linkedInk = getInkById(swatch.ink_id);
+        const editMetadata = linkedInk ? { brand: linkedInk.brand, model: linkedInk.name } : imageMetadata;
+        let newFilename = swatch.image || '';
+        let oldFilenameToDelete = '';
+
+        if (currentSwatchImageCandidate) {
+            if (currentSwatchImageCandidate.type === 'upload') {
+                newFilename = await window.electronAPI.saveImage(currentSwatchImageCandidate.value, 'swatch', editMetadata);
+            } else if (currentSwatchImageCandidate.type === 'url') {
+                const result = await window.electronAPI.saveImageUrl(currentSwatchImageCandidate.value, 'swatch', editMetadata);
+                if (result && result.success) newFilename = result.filename;
+            }
+            if (!newFilename) {
+                setSwatchValidation('Failed to save swatch image.');
+                return;
+            }
+            if (swatch.image && swatch.image !== newFilename) {
+                oldFilenameToDelete = swatch.image;
+            }
+        }
+
+        swatch.image = newFilename;
+        swatch.swatch_paper = swatchMetadata.swatch_paper || '';
+        swatch.swatch_nib = swatchMetadata.swatch_nib || '';
+        swatch.swatch_date = swatchMetadata.swatch_date || '';
+        swatch.swatch_lighting = swatchMetadata.swatch_lighting || 'Unknown';
+        swatch.swatch_notes = swatchMetadata.swatch_notes || '';
+
+        const targetInk = getInkById(swatch.ink_id);
+        if (targetInk) {
+            logActivity('updated', 'swatch', `Updated swatch for ${formatInkName(targetInk)}.`, { entityId: swatch.id });
+        }
+
+        await persistDataAndRefresh({
+            refresh: {
+                dashboard: true,
+                swatches: true,
+                inks: true,
+                activity: true,
+                autocomplete: true
+            },
+            onSuccess: async () => {
+                if (oldFilenameToDelete) {
+                    await window.electronAPI.deleteImage(oldFilenameToDelete);
+                }
+                closeAllModals();
+                switchView('swatches');
+                renderSwatches();
+            },
+            onErrorMessage: 'Failed to update swatch!'
+        });
+        return;
+    }
+
+    let savedFilename = null;
     if (currentSwatchImageCandidate.type === 'upload') {
         savedFilename = await window.electronAPI.saveImage(currentSwatchImageCandidate.value, 'swatch', imageMetadata);
     } else if (currentSwatchImageCandidate.type === 'url') {
         const result = await window.electronAPI.saveImageUrl(currentSwatchImageCandidate.value, 'swatch', imageMetadata);
         if (result && result.success) savedFilename = result.filename;
     }
-
     if (!savedFilename) {
         setSwatchValidation('Failed to save swatch image.');
         return;
@@ -4969,32 +7650,83 @@ document.getElementById('btn-save-swatch-unified')?.addEventListener('click', as
     renderSwatches();
 });
 
-// Helper to Update App Data
-async function updateInkWithImage(inkId, filename, swatchMetadata = null) {
-    const inkIndex = appData.inks.findIndex(i => i.id === inkId);
-    if (inkIndex !== -1) {
-        appData.inks[inkIndex].image = filename;
-        appData.inks[inkIndex].is_swatch = true; // Explicitly marked as swatch via swatch flow
-        appData.inks[inkIndex].is_orphan_swatch = false;
-        if (swatchMetadata) {
-            appData.inks[inkIndex].swatch_paper = swatchMetadata.swatch_paper || '';
-            appData.inks[inkIndex].swatch_nib = swatchMetadata.swatch_nib || '';
-            appData.inks[inkIndex].swatch_date = swatchMetadata.swatch_date || '';
-            appData.inks[inkIndex].swatch_lighting = swatchMetadata.swatch_lighting || 'Unknown';
-            appData.inks[inkIndex].swatch_notes = swatchMetadata.swatch_notes || '';
-        }
-        logActivity('created', 'swatch', `Added swatch for ${formatInkName(appData.inks[inkIndex])}.`, { entityId: inkId });
+if (btnDeleteSwatchUnified) {
+    btnDeleteSwatchUnified.addEventListener('click', async () => {
+        if (currentSwatchFormMode !== 'edit') return;
+        const swatchId = currentEditingSwatchId || '';
+        const swatch = getSwatchById(swatchId);
+        if (!swatch) return;
+        const ink = getInkById(swatch.ink_id);
+        const inkName = ink ? formatInkName(ink) : 'this ink';
+
+        if (!(await confirmAction({
+            title: 'Delete Swatch',
+            message: `Delete swatch for ${inkName}?`,
+            destructive: true,
+            buttons: ['Keep Swatch', 'Delete Swatch'],
+            defaultId: 0,
+            cancelId: 0,
+            confirmedIndex: 1
+        }))) return;
+
+        const swatchImagePath = swatch.image || '';
+        appData.swatches = getAllSwatches().filter((item) => item.id !== swatchId);
+        logActivity('deleted', 'swatch', `Deleted swatch for ${inkName}.`, { entityId: swatchId });
+
         await persistDataAndRefresh({
             refresh: {
                 dashboard: true,
-                swatches: true,
                 inks: true,
+                swatches: true,
                 activity: true,
                 autocomplete: true
             },
-            onErrorMessage: 'Failed to save swatch image data!'
+            onSuccess: async () => {
+                if (swatchImagePath) {
+                    await window.electronAPI.deleteImage(swatchImagePath);
+                }
+                closeAllModals();
+                switchView('swatches');
+                renderSwatches();
+            },
+            onErrorMessage: 'Failed to delete swatch!'
         });
-    }
+    });
+}
+
+function makeClientId(prefix = 'id') {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// Helper to Update App Data
+async function updateInkWithImage(inkId, filename, swatchMetadata = null) {
+    const ink = appData.inks.find(i => i.id === inkId);
+    if (!ink) return;
+
+    const payload = swatchMetadata || {};
+    appData.swatches = Array.isArray(appData.swatches) ? appData.swatches : [];
+    appData.swatches.push({
+        id: makeClientId('swatch'),
+        ink_id: inkId,
+        image: filename,
+        swatch_paper: payload.swatch_paper || '',
+        swatch_nib: payload.swatch_nib || '',
+        swatch_date: payload.swatch_date || '',
+        swatch_lighting: payload.swatch_lighting || 'Unknown',
+        swatch_notes: payload.swatch_notes || '',
+        created_at: Date.now()
+    });
+    logActivity('created', 'swatch', `Added swatch for ${formatInkName(ink)}.`, { entityId: inkId });
+    await persistDataAndRefresh({
+        refresh: {
+            dashboard: true,
+            swatches: true,
+            inks: true,
+            activity: true,
+            autocomplete: true
+        },
+        onErrorMessage: 'Failed to save swatch image data!'
+    });
 }
 
 // DOM Elements

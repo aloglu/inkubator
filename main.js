@@ -18,6 +18,14 @@ if (typeof app.setName === 'function') {
 if (process.platform === 'win32' && typeof app.setAppUserModelId === 'function') {
   app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
 }
+if (
+  process.platform === 'linux'
+  && process.env.INKUBATOR_DISABLE_XDG_PORTAL_FALLBACK !== '1'
+  && app.commandLine
+  && typeof app.commandLine.appendSwitch === 'function'
+) {
+  app.commandLine.appendSwitch('xdg-portal-required-version', '4');
+}
 
 function getBundledDataPath() {
   return path.join(__dirname, 'data.json');
@@ -849,9 +857,27 @@ function isPathInside(parent, candidate) {
 //  File System Handlers (The "Manager" Logic)
 // ----------------------------------------------------------------
 
-const sharp = require('sharp');
+let sharpModule = null;
 let ort = null;
 let penModelSessionPromise = null;
+
+function getSharpOrThrow() {
+  if (sharpModule) return sharpModule;
+  try {
+    sharpModule = require('sharp');
+    return sharpModule;
+  } catch (error) {
+    const message = [
+      'Image processing module "sharp" is unavailable in this build.',
+      'Build Linux artifacts on Linux with optional dependencies included.',
+      `Original error: ${error && error.message ? error.message : String(error)}`
+    ].join(' ');
+    const wrapped = new Error(message);
+    wrapped.code = 'SHARP_UNAVAILABLE';
+    wrapped.cause = error;
+    throw wrapped;
+  }
+}
 
 async function getOrtModule() {
   if (!ort) {
@@ -1145,6 +1171,7 @@ function isolatePenCorePoints(points, width, height) {
 }
 
 async function detectPenColorsWithML(sourcePath) {
+  const sharp = getSharpOrThrow();
   const modelSize = 320;
   const { data: rgbBuffer } = await sharp(sourcePath)
     .removeAlpha()
@@ -1231,6 +1258,7 @@ ipcMain.handle('save-data', async (event, newData) => {
 ipcMain.handle('save-image', async (event, sourcePath, type, metadata) => {
   if (!sourcePath) return null;
   try {
+    const sharp = getSharpOrThrow();
     const typeFolder = (type === 'pen') ? 'pens' : (type === 'ink' ? 'inks' : 'swatches');
     const imagesDir = path.join(getImagesPath(), typeFolder);
     await fs.ensureDir(imagesDir);
@@ -1304,11 +1332,30 @@ ipcMain.handle('delete-image', async (event, relativePath) => {
 });
 
 // 5. Open File Dialog (For picking images)
+async function showOpenDialogSafe(target, options, contextLabel = 'open file dialog') {
+  try {
+    if (target && !target.isDestroyed()) {
+      return await dialog.showOpenDialog(target, options);
+    }
+    return await dialog.showOpenDialog(options);
+  } catch (error) {
+    const message = `Failed to open system file picker for ${contextLabel}: ${error.message}`;
+    console.error('Open Dialog Error:', error);
+    return {
+      canceled: false,
+      filePaths: [],
+      __error: message
+    };
+  }
+}
+
 ipcMain.handle('dialog:openFile', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
+  const target = BrowserWindow.getFocusedWindow() || mainWindow;
+  const { canceled, filePaths, __error } = await showOpenDialogSafe(target, {
     properties: ['openFile'],
     filters: [{ name: 'Images', extensions: ['jpg', 'png', 'jpeg', 'webp', 'heic', 'heif'] }]
-  });
+  }, 'image selection');
+  if (__error) throw new Error(__error);
   if (canceled) {
     return null;
   } else {
@@ -1352,10 +1399,11 @@ ipcMain.handle('images:base-url', async () => {
 ipcMain.handle('backup:export', async () => {
   try {
     const target = BrowserWindow.getFocusedWindow() || mainWindow;
-    const { canceled, filePaths } = await dialog.showOpenDialog(target, {
+    const { canceled, filePaths, __error } = await showOpenDialogSafe(target, {
       title: 'Choose backup destination folder',
       properties: ['openDirectory', 'createDirectory']
-    });
+    }, 'backup export');
+    if (__error) return { success: false, message: __error };
     if (canceled || !filePaths || filePaths.length === 0) {
       return { success: false, canceled: true };
     }
@@ -1371,10 +1419,11 @@ ipcMain.handle('backup:export', async () => {
 ipcMain.handle('backup:import', async (event, importOptions = {}) => {
   try {
     const target = BrowserWindow.getFocusedWindow() || mainWindow;
-    const { canceled, filePaths } = await dialog.showOpenDialog(target, {
+    const { canceled, filePaths, __error } = await showOpenDialogSafe(target, {
       title: 'Select backup folder to import',
       properties: ['openDirectory']
-    });
+    }, 'backup import');
+    if (__error) return { success: false, message: __error };
     if (canceled || !filePaths || filePaths.length === 0) {
       return { success: false, canceled: true };
     }
@@ -1389,10 +1438,11 @@ ipcMain.handle('backup:import', async (event, importOptions = {}) => {
 ipcMain.handle('showcase:export', async () => {
   try {
     const target = BrowserWindow.getFocusedWindow() || mainWindow;
-    const { canceled, filePaths } = await dialog.showOpenDialog(target, {
+    const { canceled, filePaths, __error } = await showOpenDialogSafe(target, {
       title: 'Choose destination for showcase folder',
       properties: ['openDirectory', 'createDirectory']
-    });
+    }, 'showcase export');
+    if (__error) return { success: false, message: __error };
     if (target && !target.isDestroyed()) {
       target.show();
       target.focus();
@@ -1517,6 +1567,7 @@ ipcMain.handle('fetch-inkswatch', async (event, query) => {
 // 6. Save Image from URL (Processes and saves as WebP)
 ipcMain.handle('save-image-url', async (event, url, type, metadata) => {
   try {
+    const sharp = getSharpOrThrow();
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
 

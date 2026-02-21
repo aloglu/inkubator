@@ -2899,7 +2899,13 @@ let currentSelectedImagePath = null;
 if (inkImageArea) {
     inkImageArea.addEventListener('click', async () => {
         if (!isElectron) return alert("Upload is only available in the Manager app.");
-        const filePath = await window.electronAPI.selectImage();
+        let filePath = null;
+        try {
+            filePath = await window.electronAPI.selectImage();
+        } catch (error) {
+            alert(`Image selection failed: ${error && error.message ? error.message : error}`);
+            return;
+        }
         if (filePath) {
             currentSelectedImagePath = filePath;
             inkImagePreview.onload = () => {
@@ -4657,7 +4663,13 @@ setupDetailModalGestures();
 if (uploadPenPhotoArea) {
     uploadPenPhotoArea.onclick = async () => {
         if (!isElectron) return alert("Upload is only available in the Manager (Electron) app.");
-        const filePath = await window.electronAPI.selectImage();
+        let filePath = null;
+        try {
+            filePath = await window.electronAPI.selectImage();
+        } catch (error) {
+            alert(`Image selection failed: ${error && error.message ? error.message : error}`);
+            return;
+        }
         if (filePath) {
             currentPenImagePath = filePath;
             if (uploadPenPreview) {
@@ -4765,7 +4777,13 @@ if (btnAddInkHeader) {
 if (btnExportBackup) {
     btnExportBackup.addEventListener('click', async () => {
         if (!isElectron || !window.electronAPI || typeof window.electronAPI.exportBackup !== 'function') return;
-        const result = await window.electronAPI.exportBackup();
+        let result = null;
+        try {
+            result = await window.electronAPI.exportBackup();
+        } catch (error) {
+            alert(`Backup export failed: ${error && error.message ? error.message : error}`);
+            return;
+        }
         if (result && result.success) {
             refreshBackupStatus();
             alert(`Backup exported successfully:\n${result.path}`);
@@ -4790,10 +4808,16 @@ if (btnImportBackup) {
         });
         if (!proceed) return;
         const importPrefs = getImportExportPreferences();
-        const result = await window.electronAPI.importBackup({
-            auto_validate_import: !!importPrefs.auto_validate_import,
-            conflict_behavior: String(importPrefs.conflict_behavior || 'overwrite').toLowerCase()
-        });
+        let result = null;
+        try {
+            result = await window.electronAPI.importBackup({
+                auto_validate_import: !!importPrefs.auto_validate_import,
+                conflict_behavior: String(importPrefs.conflict_behavior || 'overwrite').toLowerCase()
+            });
+        } catch (error) {
+            alert(`Backup import failed: ${error && error.message ? error.message : error}`);
+            return;
+        }
         if (result && result.success) {
             const reloaded = await window.electronAPI.loadData();
             if (reloaded) {
@@ -4844,7 +4868,13 @@ if (btnExportShowcase) {
             suppressSettingsPersist = false;
             await persistShowcaseSettingsNow({ force: true });
 
-            const result = await window.electronAPI.exportShowcase();
+            let result = null;
+            try {
+                result = await window.electronAPI.exportShowcase();
+            } catch (error) {
+                showAppNotice(`Showcase export failed: ${error && error.message ? error.message : error}`, 'error');
+                return;
+            }
             if (result && result.success) {
                 showAppNotice(`Showcase exported: ${result.path}`, 'success');
             } else if (!(result && result.canceled)) {
@@ -7550,7 +7580,13 @@ document.getElementById('btn-choose-upload-swatch')?.addEventListener('click', a
         setSwatchValidation('Please select an ink first.');
         return;
     }
-    const path = await window.electronAPI.selectImage();
+    let path = null;
+    try {
+        path = await window.electronAPI.selectImage();
+    } catch (error) {
+        setSwatchValidation(`Image selection failed: ${error && error.message ? error.message : error}`);
+        return;
+    }
     if (!path) return;
     setSwatchValidation('');
     await setSwatchPreviewFromUpload(path);

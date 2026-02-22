@@ -25,7 +25,7 @@ Inkubator is a local-first desktop application for managing and cataloging fount
 * **Showcase Export**: The application generates a responsive, read-only static website from the local database.
 * **Deployment**: The `showcase/` directory is portable and compatible with any static hosting provider (e.g., GitHub Pages, Vercel, S3).
 
-### Technical Stack
+## Technical Stack
 
 * **Core Runtime**: Electron / Node.js
 * **Frontend**: Vanilla JavaScript / CSS3

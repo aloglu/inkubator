@@ -22,6 +22,15 @@ if (process.platform === 'win32' && typeof app.setAppUserModelId === 'function')
   app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
 }
 if (
+  process.platform === 'win32'
+  && process.env.INKUBATOR_ALLOW_GPU !== '1'
+  && typeof app.disableHardwareAcceleration === 'function'
+) {
+  // Windows Sandbox/VM environments can render a blank white compositor surface
+  // even when the DOM is interactive; force software rendering by default.
+  app.disableHardwareAcceleration();
+}
+if (
   process.platform === 'linux'
   && process.env.INKUBATOR_DISABLE_XDG_PORTAL_FALLBACK !== '1'
   && app.commandLine

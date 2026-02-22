@@ -190,6 +190,16 @@ jobs:
             mv "$file" "${file/-linux-x86_64.rpm/-linux-x64.rpm}"
           done
 
+      - name: Remove generic Windows installer artifact
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          for file in release-assets/**/Inkubator-*-win.exe; do
+            if [[ "$file" != *"-win-x64.exe" && "$file" != *"-win-arm64.exe" ]]; then
+              rm -f "$file"
+            fi
+          done
+
       - name: List downloadable files
         run: |
           echo "Collected files:"

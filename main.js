@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const fs = require('fs-extra');
 const { normalizeAppData } = require('./lib/data-schema');
+const packageInfo = require('./package.json');
 
 let mainWindow;
 const AUTO_BACKUP_DEFAULT_MAX_FILES = 30;
@@ -11,6 +12,8 @@ const AUTO_BACKUP_TICK_MS = 15 * 60 * 1000;
 const APP_NAME = 'Inkubator';
 const WINDOWS_APP_USER_MODEL_ID = 'com.inkubator.app';
 let autoBackupIntervalHandle = null;
+const GITHUB_REPO = 'aloglu/inkubator';
+const GITHUB_RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases`;
 
 if (typeof app.setName === 'function') {
   app.setName(APP_NAME);
@@ -86,6 +89,39 @@ function clampInt(value, min, max, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+function normalizeVersionForCompare(rawVersion) {
+  const cleaned = String(rawVersion || '')
+    .trim()
+    .replace(/^v/i, '')
+    .split('+')[0]
+    .split('-')[0];
+  const parts = cleaned.split('.').map((part) => Number.parseInt(part, 10));
+  if (parts.length === 0 || parts.some((part) => Number.isNaN(part))) return null;
+  return parts;
+}
+
+function compareVersions(currentVersion, latestVersion) {
+  const current = normalizeVersionForCompare(currentVersion);
+  const latest = normalizeVersionForCompare(latestVersion);
+  if (!current || !latest) return 0;
+  const maxLen = Math.max(current.length, latest.length);
+  for (let i = 0; i < maxLen; i += 1) {
+    const a = current[i] || 0;
+    const b = latest[i] || 0;
+    if (a > b) return 1;
+    if (a < b) return -1;
+  }
+  return 0;
+}
+
+function resolveReleaseVersion(release) {
+  const tag = String(release?.tag_name || '').trim();
+  if (tag) return tag.replace(/^v/i, '');
+  const name = String(release?.name || '').trim();
+  if (name) return name.replace(/^v/i, '');
+  return '';
 }
 
 function toNormalizedData(input) {
@@ -1395,6 +1431,56 @@ ipcMain.handle('images:base-url', async () => {
   }
 });
 
+ipcMain.handle('release:status', async () => {
+  const currentVersion = app.getVersion();
+  const currentTag = `v${currentVersion}`;
+  try {
+    const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': `${packageInfo.name || 'inkubator'}/${currentVersion}`
+      }
+    });
+    if (!response.ok) {
+      return {
+        success: false,
+        currentVersion,
+        currentTag,
+        releasesUrl: GITHUB_RELEASES_URL,
+        message: `GitHub API responded with ${response.status}.`
+      };
+    }
+    const release = await response.json();
+    const latestTag = String(release?.tag_name || '').trim() || null;
+    const latestVersion = resolveReleaseVersion(release) || null;
+    const publishedAt = release?.published_at || release?.created_at || null;
+    const releaseUrl = release?.html_url || GITHUB_RELEASES_URL;
+    const hasUpdate = latestVersion
+      ? compareVersions(currentVersion, latestVersion) < 0
+      : (latestTag ? latestTag !== currentTag : false);
+    return {
+      success: true,
+      currentVersion,
+      currentTag,
+      latestVersion,
+      latestTag,
+      hasUpdate,
+      releaseUrl,
+      releasesUrl: GITHUB_RELEASES_URL,
+      publishedAt
+    };
+  } catch (error) {
+    console.error('Release Status Error:', error);
+    return {
+      success: false,
+      currentVersion,
+      currentTag,
+      releasesUrl: GITHUB_RELEASES_URL,
+      message: error.message
+    };
+  }
+});
+
 // 5b. Manual backup export (full data + images)
 ipcMain.handle('backup:export', async () => {
   try {
@@ -1499,6 +1585,20 @@ ipcMain.handle('focus-window', async () => {
     return { success: false, message: 'No active window to focus.' };
   } catch (error) {
     console.error("Focus Window Error:", error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('open-external-url', async (event, rawUrl) => {
+  try {
+    const parsed = new URL(String(rawUrl || ''));
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return { success: false, message: 'Only http/https URLs are allowed.' };
+    }
+    await shell.openExternal(parsed.toString());
+    return { success: true };
+  } catch (error) {
+    console.error('Open External URL Error:', error);
     return { success: false, message: error.message };
   }
 });

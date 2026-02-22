@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     exportShowcase: () => ipcRenderer.invoke('showcase:export'),
     confirmDialog: (options) => ipcRenderer.invoke('dialog:confirm', options),
     focusWindow: () => ipcRenderer.invoke('focus-window'),
+    openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
+    getReleaseStatus: () => ipcRenderer.invoke('release:status'),
     // New methods
     fetchInkSwatch: (query) => ipcRenderer.invoke('fetch-inkswatch', query),
     saveImageUrl: (url, type, metadata) => ipcRenderer.invoke('save-image-url', url, type, metadata),

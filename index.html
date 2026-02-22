@@ -258,6 +258,10 @@
                                             <input type="checkbox" id="toggle-activity-visible" checked>
                                             <span>Show Activity Log on showcase website</span>
                                         </label>
+                                        <label class="activity-pref-toggle" for="toggle-showcase-activity-filters-visible" data-tooltip="Show or hide the Activity Log filter toolbar on the showcase website.">
+                                            <input type="checkbox" id="toggle-showcase-activity-filters-visible" checked>
+                                            <span>Show Activity Log filters on showcase website</span>
+                                        </label>
                                         <label class="activity-pref-toggle" for="toggle-recent-activity-visible" data-tooltip="Show or hide the Recent Activity panel on the showcase website.">
                                             <input type="checkbox" id="toggle-recent-activity-visible" checked>
                                             <span>Show Recent Activity on showcase website</span>
@@ -485,6 +489,20 @@
                                             <option value="Sample">Sample</option>
                                             <option value="Cartridge">Cartridge</option>
                                         </select>
+                                    </div>
+                                </section>
+
+                                <section class="settings-card settings-card-updates">
+                                    <h4 class="settings-title">App Version & Updates</h4>
+                                    <div class="settings-help-text" id="app-version-text">Version: -</div>
+                                    <div class="settings-help-text" id="app-update-status-text">Update status unavailable.</div>
+                                    <div class="settings-showcase-actions">
+                                        <button class="btn-glass" id="btn-check-updates" data-tooltip="Check GitHub Releases for a newer app version.">
+                                            <span>Check for Updates</span>
+                                        </button>
+                                        <a class="btn-glass" id="btn-open-releases" href="https://github.com/aloglu/inkubator/releases" target="_blank" rel="noopener noreferrer">
+                                            <span>Open Releases</span>
+                                        </a>
                                     </div>
                                 </section>
                             </div>
@@ -740,26 +758,102 @@
 
                 <section class="section-container">
                     <div class="activity-log-shell">
-                        <button class="activity-date-icon-btn" id="activity-date-picker-toggle" title="Filter by date">
-                            <i class="ph ph-calendar-blank"></i>
-                        </button>
-                        <div class="activity-calendar-popover glass-panel" id="activity-calendar-popover">
-                            <div class="activity-calendar-head">
-                                <button class="activity-calendar-nav-btn" id="activity-calendar-prev" title="Previous month"><i class="ph ph-caret-left"></i></button>
-                                <div id="activity-calendar-month-label">Month Year</div>
-                                <button class="activity-calendar-nav-btn" id="activity-calendar-next" title="Next month"><i class="ph ph-caret-right"></i></button>
+                        <div class="activity-toolbar glass-panel" id="activity-filter-toolbar">
+                            <div class="activity-toolbar-left">
+                                <div class="activity-inline-controls">
+                                    <label for="activity-filter-type" class="activity-inline-label">Type</label>
+                                    <select id="activity-filter-type" class="activity-select">
+                                        <option value="all" selected>All</option>
+                                    </select>
+                                </div>
+                                <div class="activity-inline-controls">
+                                    <label for="activity-filter-action" class="activity-inline-label">Action</label>
+                                    <select id="activity-filter-action" class="activity-select">
+                                        <option value="all" selected>All</option>
+                                    </select>
+                                </div>
+                                <div class="activity-inline-controls">
+                                    <label for="activity-filter-search" class="activity-inline-label">Search</label>
+                                    <input type="text" id="activity-filter-search" class="activity-filter-input" placeholder="Message, action, type, or item ID">
+                                </div>
                             </div>
-                            <div class="activity-calendar-weekdays">
-                                <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
-                            </div>
-                            <div class="activity-calendar-grid" id="activity-calendar-grid"></div>
-                            <div class="activity-calendar-footer">
-                                <button class="btn-glass" id="activity-calendar-clear">Clear</button>
-                                <button class="btn-glass" id="activity-calendar-today">Today</button>
+                            <div class="activity-toolbar-right">
+                                <div class="activity-inline-controls activity-filter-date-wrap" id="activity-filter-date-from-wrap">
+                                    <label for="activity-filter-date-from" class="activity-inline-label">From</label>
+                                    <div class="activity-filter-date-input-wrap">
+                                        <input type="text" id="activity-filter-date-from" class="activity-filter-date-input" placeholder="YYYY-MM-DD" readonly>
+                                        <button class="activity-date-icon-btn activity-inline-date-btn" id="activity-filter-date-from-toggle" title="Choose from date" type="button">
+                                            <i class="ph ph-calendar"></i>
+                                        </button>
+                                        <div class="activity-calendar-popover glass-panel activity-inline-calendar-popover" id="activity-filter-date-from-popover">
+                                            <div class="activity-calendar-head">
+                                                <button class="activity-calendar-nav-btn" id="activity-filter-date-from-prev" title="Previous month" type="button"><i class="ph ph-caret-left"></i></button>
+                                                <div id="activity-filter-date-from-month-label">Month Year</div>
+                                                <button class="activity-calendar-nav-btn" id="activity-filter-date-from-next" title="Next month" type="button"><i class="ph ph-caret-right"></i></button>
+                                            </div>
+                                            <div class="activity-calendar-weekdays">
+                                                <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                                            </div>
+                                            <div class="activity-calendar-grid" id="activity-filter-date-from-grid"></div>
+                                            <div class="activity-calendar-footer">
+                                                <button class="btn-glass" id="activity-filter-date-from-clear" type="button">Clear</button>
+                                                <button class="btn-glass" id="activity-filter-date-from-today" type="button">Today</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="activity-inline-controls activity-filter-date-wrap" id="activity-filter-date-to-wrap">
+                                    <label for="activity-filter-date-to" class="activity-inline-label">To</label>
+                                    <div class="activity-filter-date-input-wrap">
+                                        <input type="text" id="activity-filter-date-to" class="activity-filter-date-input" placeholder="YYYY-MM-DD" readonly>
+                                        <button class="activity-date-icon-btn activity-inline-date-btn" id="activity-filter-date-to-toggle" title="Choose to date" type="button">
+                                            <i class="ph ph-calendar"></i>
+                                        </button>
+                                        <div class="activity-calendar-popover glass-panel activity-inline-calendar-popover" id="activity-filter-date-to-popover">
+                                            <div class="activity-calendar-head">
+                                                <button class="activity-calendar-nav-btn" id="activity-filter-date-to-prev" title="Previous month" type="button"><i class="ph ph-caret-left"></i></button>
+                                                <div id="activity-filter-date-to-month-label">Month Year</div>
+                                                <button class="activity-calendar-nav-btn" id="activity-filter-date-to-next" title="Next month" type="button"><i class="ph ph-caret-right"></i></button>
+                                            </div>
+                                            <div class="activity-calendar-weekdays">
+                                                <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                                            </div>
+                                            <div class="activity-calendar-grid" id="activity-filter-date-to-grid"></div>
+                                            <div class="activity-calendar-footer">
+                                                <button class="btn-glass" id="activity-filter-date-to-clear" type="button">Clear</button>
+                                                <button class="btn-glass" id="activity-filter-date-to-today" type="button">Today</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="btn-glass" id="btn-activity-filters-reset">
+                                    <i class="ph ph-funnel"></i>
+                                    <span>Reset Filters</span>
+                                </button>
                             </div>
                         </div>
-                        <div class="activity-log-container" id="activity-log-container">
-                            <!-- Activity entries injected here -->
+                        <div class="activity-log-stage">
+                            <button class="activity-date-icon-btn" id="activity-date-picker-toggle" title="Filter by date" type="button">
+                                <i class="ph ph-calendar-blank"></i>
+                            </button>
+                            <div class="activity-calendar-popover glass-panel" id="activity-calendar-popover">
+                                <div class="activity-calendar-head">
+                                    <button class="activity-calendar-nav-btn" id="activity-calendar-prev" title="Previous month" type="button"><i class="ph ph-caret-left"></i></button>
+                                    <div id="activity-calendar-month-label">Month Year</div>
+                                    <button class="activity-calendar-nav-btn" id="activity-calendar-next" title="Next month" type="button"><i class="ph ph-caret-right"></i></button>
+                                </div>
+                                <div class="activity-calendar-weekdays">
+                                    <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                                </div>
+                                <div class="activity-calendar-grid" id="activity-calendar-grid"></div>
+                                <div class="activity-calendar-footer">
+                                    <button class="btn-glass" id="activity-calendar-clear" type="button">Clear</button>
+                                    <button class="btn-glass" id="activity-calendar-today" type="button">Today</button>
+                                </div>
+                            </div>
+                            <div class="activity-log-container" id="activity-log-container">
+                                <!-- Activity entries injected here -->
+                            </div>
                         </div>
                     </div>
                     <div class="activity-pagination glass-panel" id="activity-pagination">
@@ -855,8 +949,9 @@
                             <input type="number" id="ink-amount-input" placeholder="e.g. 1">
                         </div>
                         <div class="ink-inline-field">
-                            <label>Price ($)</label>
+                            <label>Price</label>
                             <div class="ink-price-input-wrap">
+                                <span class="ink-price-prefix" id="ink-price-prefix" aria-hidden="true">$</span>
                                 <input type="number" id="ink-price-input" placeholder="e.g. 24" step="0.01">
                                 <span class="ink-price-info" aria-label="Per bottle" tabindex="0">i</span>
                             </div>
@@ -1155,8 +1250,11 @@
                             </div>
                         </div>
                         <div class="input-group">
-                            <label>Price ($)</label>
-                            <input type="number" id="pen-price-input" placeholder="e.g. 150" step="0.01">
+                            <label>Price</label>
+                            <div class="ink-price-input-wrap">
+                                <span class="ink-price-prefix" id="pen-price-prefix" aria-hidden="true">$</span>
+                                <input type="number" id="pen-price-input" placeholder="e.g. 150" step="0.01">
+                            </div>
                         </div>
 
                         <div class="input-group full-width">

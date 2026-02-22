@@ -26,10 +26,10 @@
     "defaults": {
       "currency": "USD",
       "date_format": "system",
-      "pen_nib": "M",
-      "pen_nib_material": "Steel",
-      "pen_status": "clean",
-      "ink_type": "Bottle"
+      "pen_nib": "",
+      "pen_nib_material": "",
+      "pen_status": "",
+      "ink_type": ""
     },
     "import_export": {
       "auto_validate_import": true,
@@ -39,7 +39,7 @@
     "backup": {
       "auto_frequency": "daily",
       "retention_count": 30,
-      "include_images": false
+      "include_images": true
     },
     "showcase": {
       "title": "Inkubator",
@@ -48,6 +48,7 @@
       "show_pens": true,
       "show_inks": true,
       "show_swatches": true,
+      "show_activity_filters": true,
       "default_sort": {
         "pens": "newest",
         "inks": "newest",

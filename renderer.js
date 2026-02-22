@@ -30,11 +30,17 @@ const backupStatus = document.getElementById('backup-status');
 const btnExportBackup = document.getElementById('btn-export-backup');
 const btnImportBackup = document.getElementById('btn-import-backup');
 const btnExportShowcase = document.getElementById('btn-export-showcase');
+const appVersionText = document.getElementById('app-version-text');
+const appUpdateStatusText = document.getElementById('app-update-status-text');
+const btnCheckUpdates = document.getElementById('btn-check-updates');
+const btnOpenReleases = document.getElementById('btn-open-releases');
 const appLogoTitle = document.getElementById('app-logo-title');
 const activityLogContainer = document.getElementById('activity-log-container');
+const activityFilterToolbar = document.getElementById('activity-filter-toolbar');
 const recentActivityList = document.getElementById('recent-activity-list');
 const recentActivityCard = document.getElementById('recent-activity-card');
 const toggleActivityVisible = document.getElementById('toggle-activity-visible');
+const toggleShowcaseActivityFiltersVisible = document.getElementById('toggle-showcase-activity-filters-visible');
 const toggleRecentActivityVisible = document.getElementById('toggle-recent-activity-visible');
 const toggleShowcasePricesVisible = document.getElementById('toggle-showcase-prices-visible');
 const toggleShowcasePensVisible = document.getElementById('toggle-showcase-pens-visible');
@@ -70,6 +76,8 @@ const importConflictBehaviorSelect = document.getElementById('import-conflict-be
 const autoBackupFrequencySelect = document.getElementById('auto-backup-frequency-select');
 const backupRetentionCountInput = document.getElementById('backup-retention-count-input');
 const backupSettingsEffective = document.getElementById('backup-settings-effective');
+const inkPricePrefix = document.getElementById('ink-price-prefix');
+const penPricePrefix = document.getElementById('pen-price-prefix');
 const activityDatePickerToggle = document.getElementById('activity-date-picker-toggle');
 const activityCalendarPopover = document.getElementById('activity-calendar-popover');
 const activityCalendarPrev = document.getElementById('activity-calendar-prev');
@@ -79,6 +87,7 @@ const activityCalendarGrid = document.getElementById('activity-calendar-grid');
 const activityCalendarClear = document.getElementById('activity-calendar-clear');
 const activityCalendarToday = document.getElementById('activity-calendar-today');
 const swatchDatePickerToggle = document.getElementById('swatch-date-picker-toggle');
+const swatchDatePickerWrap = document.querySelector('.swatch-date-picker-wrap');
 const swatchCalendarPopover = document.getElementById('swatch-calendar-popover');
 const swatchCalendarPrev = document.getElementById('swatch-calendar-prev');
 const swatchCalendarNext = document.getElementById('swatch-calendar-next');
@@ -94,6 +103,30 @@ const activityPageSizeSelect = document.getElementById('activity-page-size');
 const activityPagePrevBtn = document.getElementById('activity-page-prev');
 const activityPageNextBtn = document.getElementById('activity-page-next');
 const activityPageStatus = document.getElementById('activity-page-status');
+const activityFilterTypeSelect = document.getElementById('activity-filter-type');
+const activityFilterActionSelect = document.getElementById('activity-filter-action');
+const activityFilterSearchInput = document.getElementById('activity-filter-search');
+const activityFilterDateFromWrap = document.getElementById('activity-filter-date-from-wrap');
+const activityFilterDateToWrap = document.getElementById('activity-filter-date-to-wrap');
+const activityFilterDateFromInput = document.getElementById('activity-filter-date-from');
+const activityFilterDateToInput = document.getElementById('activity-filter-date-to');
+const activityFilterDateFromToggle = document.getElementById('activity-filter-date-from-toggle');
+const activityFilterDateFromPopover = document.getElementById('activity-filter-date-from-popover');
+const activityFilterDateFromPrev = document.getElementById('activity-filter-date-from-prev');
+const activityFilterDateFromNext = document.getElementById('activity-filter-date-from-next');
+const activityFilterDateFromMonthLabel = document.getElementById('activity-filter-date-from-month-label');
+const activityFilterDateFromGrid = document.getElementById('activity-filter-date-from-grid');
+const activityFilterDateFromClear = document.getElementById('activity-filter-date-from-clear');
+const activityFilterDateFromToday = document.getElementById('activity-filter-date-from-today');
+const activityFilterDateToToggle = document.getElementById('activity-filter-date-to-toggle');
+const activityFilterDateToPopover = document.getElementById('activity-filter-date-to-popover');
+const activityFilterDateToPrev = document.getElementById('activity-filter-date-to-prev');
+const activityFilterDateToNext = document.getElementById('activity-filter-date-to-next');
+const activityFilterDateToMonthLabel = document.getElementById('activity-filter-date-to-month-label');
+const activityFilterDateToGrid = document.getElementById('activity-filter-date-to-grid');
+const activityFilterDateToClear = document.getElementById('activity-filter-date-to-clear');
+const activityFilterDateToToday = document.getElementById('activity-filter-date-to-today');
+const btnActivityFiltersReset = document.getElementById('btn-activity-filters-reset');
 const collectionInsightsCard = document.getElementById('collection-insights-card');
 const collectionChartsCard = document.getElementById('collection-charts-card');
 const collectionInsightsList = document.getElementById('collection-insights-list');
@@ -109,12 +142,20 @@ const groupedSpectrumList = document.getElementById('grouped-spectrum-list');
 // State
 let isElectron = false;
 let electronImagesBaseUrl = '';
+let latestReleaseStatus = null;
 const MAX_ACTIVITY_ENTRIES = 5000;
 const DASHBOARD_RECENT_LIMIT = 5;
 let activityCurrentPage = 1;
 let activityPageSize = 20;
 let activityDateFilter = '';
+let activityTypeFilter = 'all';
+let activityActionFilter = 'all';
+let activitySearchFilter = '';
+let activityDateFromFilter = '';
+let activityDateToFilter = '';
 let activityCalendarViewDate = new Date();
+let activityFilterDateFromCalendarViewDate = new Date();
+let activityFilterDateToCalendarViewDate = new Date();
 let swatchCalendarViewDate = new Date();
 let appData = {
     pens: [],
@@ -157,7 +198,7 @@ let appData = {
         backup: {
             auto_frequency: 'daily',
             retention_count: 30,
-            include_images: false
+            include_images: true
         },
         showcase: {
             title: 'Inkubator',
@@ -166,6 +207,7 @@ let appData = {
             show_pens: true,
             show_inks: true,
             show_swatches: true,
+            show_activity_filters: true,
             default_sort: {
                 pens: 'newest',
                 inks: 'newest',
@@ -471,7 +513,7 @@ function ensureAppDataDefaults(data) {
             retention_count: Number.isFinite(parsedBackupRetention) && parsedBackupRetention >= 1
                 ? Math.min(365, Math.round(parsedBackupRetention))
                 : 30,
-            include_images: typeof incomingBackup.include_images === 'boolean' ? incomingBackup.include_images : false
+            include_images: typeof incomingBackup.include_images === 'boolean' ? incomingBackup.include_images : true
         },
         showcase: {
             title: normalizeShowcaseTitle(incomingShowcase.title),
@@ -480,6 +522,9 @@ function ensureAppDataDefaults(data) {
             show_pens: typeof incomingShowcase.show_pens === 'boolean' ? incomingShowcase.show_pens : true,
             show_inks: typeof incomingShowcase.show_inks === 'boolean' ? incomingShowcase.show_inks : true,
             show_swatches: typeof incomingShowcase.show_swatches === 'boolean' ? incomingShowcase.show_swatches : true,
+            show_activity_filters: typeof incomingShowcase.show_activity_filters === 'boolean'
+                ? incomingShowcase.show_activity_filters
+                : true,
             default_sort: {
                 pens: allowedPensSort.includes(String(incomingShowcaseSort.pens || '')) ? String(incomingShowcaseSort.pens) : 'newest',
                 inks: allowedInksSort.includes(String(incomingShowcaseSort.inks || '')) ? String(incomingShowcaseSort.inks) : 'newest',
@@ -612,6 +657,10 @@ function shouldLogActivityEvent(action, category) {
 
 function shouldHideActivityInShowcase() {
     return !isElectron && !getPreferences().show_activity_log;
+}
+
+function shouldHideActivityFiltersInShowcase() {
+    return !isElectron && !getShowcasePreferences().show_activity_filters;
 }
 
 function shouldHideRecentActivityInShowcase() {
@@ -981,6 +1030,129 @@ function renderActivityCalendar() {
             iso === selectedIso ? 'selected' : ''
         ].filter(Boolean).join(' ');
         return `<button class="${cls}" data-calendar-date="${iso}" type="button" ${isFuture ? 'disabled' : ''}>${date.getDate()}</button>`;
+    }).join('');
+}
+
+function setActivityFilterDateInputValue(which, iso = '') {
+    if (which === 'from') {
+        if (activityFilterDateFromInput) activityFilterDateFromInput.value = iso || '';
+        if (activityFilterDateFromToggle) activityFilterDateFromToggle.classList.toggle('active', !!iso);
+        return;
+    }
+    if (which === 'to') {
+        if (activityFilterDateToInput) activityFilterDateToInput.value = iso || '';
+        if (activityFilterDateToToggle) activityFilterDateToToggle.classList.toggle('active', !!iso);
+    }
+}
+
+function closeActivityFilterDateCalendar(which) {
+    if (which === 'from') {
+        if (activityFilterDateFromPopover) activityFilterDateFromPopover.classList.remove('open');
+        if (activityFilterDateFromToggle) {
+            activityFilterDateFromToggle.classList.remove('open');
+            activityFilterDateFromToggle.blur();
+        }
+        return;
+    }
+    if (which === 'to') {
+        if (activityFilterDateToPopover) activityFilterDateToPopover.classList.remove('open');
+        if (activityFilterDateToToggle) {
+            activityFilterDateToToggle.classList.remove('open');
+            activityFilterDateToToggle.blur();
+        }
+    }
+}
+
+function closeActivityFilterDateCalendars() {
+    closeActivityFilterDateCalendar('from');
+    closeActivityFilterDateCalendar('to');
+}
+
+function openActivityFilterDateCalendar(which) {
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    if (which === 'from') {
+        if (!activityFilterDateFromPopover) return;
+        const selected = parseIsoLocalDate(activityDateFromFilter);
+        activityFilterDateFromCalendarViewDate = selected && selected <= todayMidnight ? selected : today;
+        renderActivityFilterDateCalendar('from');
+        closeActivityFilterDateCalendar('to');
+        closeActivityCalendar();
+        activityFilterDateFromPopover.classList.add('open');
+        if (activityFilterDateFromToggle) activityFilterDateFromToggle.classList.add('open');
+        return;
+    }
+    if (which === 'to') {
+        if (!activityFilterDateToPopover) return;
+        const selected = parseIsoLocalDate(activityDateToFilter);
+        activityFilterDateToCalendarViewDate = selected && selected <= todayMidnight ? selected : today;
+        renderActivityFilterDateCalendar('to');
+        closeActivityFilterDateCalendar('from');
+        closeActivityCalendar();
+        activityFilterDateToPopover.classList.add('open');
+        if (activityFilterDateToToggle) activityFilterDateToToggle.classList.add('open');
+    }
+}
+
+function renderActivityFilterDateCalendar(which) {
+    const isFrom = which === 'from';
+    const grid = isFrom ? activityFilterDateFromGrid : activityFilterDateToGrid;
+    const monthLabel = isFrom ? activityFilterDateFromMonthLabel : activityFilterDateToMonthLabel;
+    const currentIso = isFrom ? activityDateFromFilter : activityDateToFilter;
+    const viewDate = isFrom ? activityFilterDateFromCalendarViewDate : activityFilterDateToCalendarViewDate;
+    const nextBtn = isFrom ? activityFilterDateFromNext : activityFilterDateToNext;
+
+    if (!grid || !monthLabel || !viewDate) return;
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startWeekday = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevMonthDays = new Date(year, month, 0).getDate();
+    const todayIso = toIsoLocalDate(new Date());
+    const todayDate = new Date();
+    const todayMidnight = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
+    const todayMonthStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1).getTime();
+    const viewMonthStart = new Date(year, month, 1).getTime();
+    const eventDateSet = new Set((appData.activity_log || []).map(entry => {
+        const ts = typeof entry.timestamp === 'number' ? entry.timestamp : 0;
+        return toIsoLocalDate(new Date(ts));
+    }));
+
+    monthLabel.textContent = formatDateByPreference(firstDay, { monthYear: true });
+    if (nextBtn) {
+        nextBtn.disabled = viewMonthStart >= todayMonthStart;
+    }
+
+    const cells = [];
+    for (let i = startWeekday - 1; i >= 0; i -= 1) {
+        const dayNum = prevMonthDays - i;
+        const date = new Date(year, month - 1, dayNum);
+        cells.push({ date, muted: true });
+    }
+    for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = new Date(year, month, day);
+        cells.push({ date, muted: false });
+    }
+    while (cells.length % 7 !== 0) {
+        const dayNum = cells.length - (startWeekday + daysInMonth) + 1;
+        const date = new Date(year, month + 1, dayNum);
+        cells.push({ date, muted: true });
+    }
+
+    const attr = isFrom ? 'data-activity-filter-date-from' : 'data-activity-filter-date-to';
+    grid.innerHTML = cells.map(({ date, muted }) => {
+        const iso = toIsoLocalDate(date);
+        const isFuture = date > todayMidnight;
+        const cls = [
+            'activity-calendar-day',
+            muted ? 'muted' : '',
+            isFuture ? 'future' : '',
+            iso === todayIso ? 'today' : '',
+            eventDateSet.has(iso) ? 'has-events' : '',
+            iso === currentIso ? 'selected' : ''
+        ].filter(Boolean).join(' ');
+        return `<button class="${cls}" ${attr}="${iso}" type="button" ${isFuture ? 'disabled' : ''}>${date.getDate()}</button>`;
     }).join('');
 }
 
@@ -1671,6 +1843,28 @@ function formatMoney(value) {
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
     });
+}
+
+function getCurrencySymbol(currencyCode) {
+    try {
+        const parts = new Intl.NumberFormat(undefined, {
+            style: 'currency',
+            currency: currencyCode,
+            currencyDisplay: 'narrowSymbol',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).formatToParts(0);
+        const currencyPart = parts.find((part) => part.type === 'currency');
+        return (currencyPart && currencyPart.value) ? currencyPart.value : currencyCode;
+    } catch (_error) {
+        return currencyCode;
+    }
+}
+
+function updateInkPricePrefix() {
+    const symbol = getCurrencySymbol(getDefaultCurrency());
+    if (inkPricePrefix) inkPricePrefix.textContent = symbol;
+    if (penPricePrefix) penPricePrefix.textContent = symbol;
 }
 
 function parsePriceNumber(value) {
@@ -2456,16 +2650,137 @@ function renderRecentActivity() {
     });
 }
 
+function toActivityFilterKey(value, fallback = 'all') {
+    const key = String(value || '').trim().toLowerCase();
+    return key || fallback;
+}
+
+function isActivityFilterActive() {
+    return !!(
+        activityDateFilter
+        || (activityTypeFilter && activityTypeFilter !== 'all')
+        || (activityActionFilter && activityActionFilter !== 'all')
+        || String(activitySearchFilter || '').trim()
+        || activityDateFromFilter
+        || activityDateToFilter
+    );
+}
+
+function humanizeActivityFilterValue(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return 'Unknown';
+    return raw
+        .split(/[_\s-]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+}
+
+function renderActivityFilterSelectOptions(selectEl, values, preferredValue = 'all') {
+    if (!selectEl) return;
+    const current = String(preferredValue || 'all').toLowerCase();
+    const seen = new Set(['all']);
+    const options = [{ value: 'all', label: 'All' }];
+    (values || []).forEach((value) => {
+        const normalized = toActivityFilterKey(value, '');
+        if (!normalized || seen.has(normalized)) return;
+        seen.add(normalized);
+        options.push({ value: normalized, label: humanizeActivityFilterValue(value) });
+    });
+    selectEl.innerHTML = options
+        .map((opt) => `<option value="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</option>`)
+        .join('');
+    const hasCurrent = options.some((opt) => opt.value === current);
+    selectEl.value = hasCurrent ? current : 'all';
+}
+
+function refreshActivityFilterControls() {
+    if (activityFilterTypeSelect) {
+        const typeValues = [...new Set((appData.activity_log || []).map((entry) => toActivityFilterKey(entry.category, '')).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b));
+        renderActivityFilterSelectOptions(activityFilterTypeSelect, typeValues, activityTypeFilter);
+        activityTypeFilter = activityFilterTypeSelect.value || 'all';
+    }
+    if (activityFilterActionSelect) {
+        const actionValues = [...new Set((appData.activity_log || []).map((entry) => toActivityFilterKey(entry.action, '')).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b));
+        renderActivityFilterSelectOptions(activityFilterActionSelect, actionValues, activityActionFilter);
+        activityActionFilter = activityFilterActionSelect.value || 'all';
+    }
+    if (activityFilterSearchInput) activityFilterSearchInput.value = activitySearchFilter;
+    setActivityFilterDateInputValue('from', activityDateFromFilter);
+    setActivityFilterDateInputValue('to', activityDateToFilter);
+    syncActivityCustomSelectUI();
+}
+
+function getFilteredActivityEntries() {
+    let items = [...(appData.activity_log || [])]
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    if (activityDateFilter) {
+        const selected = new Date(`${activityDateFilter}T00:00:00`);
+        if (!Number.isNaN(selected.getTime())) {
+            const startTs = selected.getTime();
+            const endTs = startTs + (24 * 60 * 60 * 1000);
+            items = items.filter((entry) => {
+                const ts = entry.timestamp || 0;
+                return ts >= startTs && ts < endTs;
+            });
+        }
+    }
+
+    const fromDate = parseIsoLocalDate(activityDateFromFilter);
+    const toDate = parseIsoLocalDate(activityDateToFilter);
+    if (fromDate || toDate) {
+        const fromTs = fromDate ? fromDate.getTime() : null;
+        const toTsExclusive = toDate ? (toDate.getTime() + (24 * 60 * 60 * 1000)) : null;
+        const lowerBound = (fromTs != null && toTsExclusive != null) ? Math.min(fromTs, toTsExclusive) : (fromTs != null ? fromTs : null);
+        const upperBound = (fromTs != null && toTsExclusive != null) ? Math.max(fromTs, toTsExclusive) : (toTsExclusive != null ? toTsExclusive : null);
+        items = items.filter((entry) => {
+            const ts = entry.timestamp || 0;
+            if (lowerBound != null && ts < lowerBound) return false;
+            if (upperBound != null && ts >= upperBound) return false;
+            return true;
+        });
+    }
+
+    if (activityTypeFilter && activityTypeFilter !== 'all') {
+        items = items.filter((entry) => toActivityFilterKey(entry.category) === activityTypeFilter);
+    }
+
+    if (activityActionFilter && activityActionFilter !== 'all') {
+        items = items.filter((entry) => toActivityFilterKey(entry.action) === activityActionFilter);
+    }
+
+    const searchNeedle = String(activitySearchFilter || '').trim().toLowerCase();
+    if (searchNeedle) {
+        const terms = searchNeedle.split(/\s+/).filter(Boolean);
+        items = items.filter((entry) => {
+            const msg = String(entry.message || '');
+            const action = String(entry.action || '');
+            const category = String(entry.category || '');
+            const entity = String(entry.entity_id || '');
+            const metadata = entry && entry.metadata ? JSON.stringify(entry.metadata) : '';
+            const haystack = `${msg} ${action} ${category} ${entity} ${metadata}`.toLowerCase();
+            return terms.every((term) => haystack.includes(term));
+        });
+    }
+
+    return items;
+}
+
 function buildActivityLogbookHtml(items) {
     if (!items.length) {
-        const fallbackDate = activityDateFilter
-            ? parseIsoLocalDate(activityDateFilter)
-            : new Date();
-        const label = fallbackDate ? formatActivityDateLabel(fallbackDate.getTime()) : 'Today';
+        const hasFilters = isActivityFilterActive();
+        const fallbackDate = activityDateFilter ? parseIsoLocalDate(activityDateFilter) : new Date();
+        const label = hasFilters ? 'No Matches' : (fallbackDate ? formatActivityDateLabel(fallbackDate.getTime()) : 'Today');
+        const message = hasFilters
+            ? 'No activity entries match the current filters.'
+            : 'No activity has been recorded for this day.';
         return `
             <div class="activity-date-label">${label}</div>
             <div class="activity-logbook-item activity-logbook-empty glass-panel">
-                <div class="activity-logbook-message">No activity has been recorded for this day.</div>
+                <div class="activity-logbook-message">${message}</div>
             </div>
         `;
     }
@@ -2518,6 +2833,81 @@ function renderActivityPagination(totalItems) {
     activityPagination.style.display = totalItems > pageSize ? 'flex' : 'none';
 }
 
+function formatReleasePublishedDate(isoDate) {
+    if (!isoDate) return '';
+    const date = new Date(isoDate);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function renderReleaseStatusUi(status) {
+    if (!isElectron) {
+        if (appVersionText) appVersionText.textContent = 'Version: Showcase mode';
+        if (appUpdateStatusText) appUpdateStatusText.textContent = 'Update checks are available in the desktop app.';
+        return;
+    }
+    const currentVersion = String(status?.currentVersion || '');
+    if (appVersionText) {
+        appVersionText.textContent = currentVersion ? `Version: ${currentVersion}` : 'Version: Unknown';
+    }
+    if (btnOpenReleases && status?.releasesUrl) {
+        btnOpenReleases.href = status.releasesUrl;
+    }
+    if (!appUpdateStatusText) return;
+    if (!status) {
+        appUpdateStatusText.textContent = 'Press "Check for Updates" to query GitHub Releases.';
+        return;
+    }
+    if (!status.success) {
+        appUpdateStatusText.textContent = status.message || 'Could not check for updates right now.';
+        return;
+    }
+
+    const latestVersion = status.latestVersion || status.latestTag || 'unknown';
+    const published = formatReleasePublishedDate(status.publishedAt);
+    if (status.hasUpdate) {
+        appUpdateStatusText.textContent = published
+            ? `New version available: ${latestVersion} (${published}). Download it from Releases.`
+            : `New version available: ${latestVersion}. Download it from Releases.`;
+        return;
+    }
+    appUpdateStatusText.textContent = published
+        ? `You are up to date (latest: ${latestVersion}, released ${published}).`
+        : `You are up to date (latest: ${latestVersion}).`;
+}
+
+async function checkForAppUpdates() {
+    if (!isElectron || !window.electronAPI || typeof window.electronAPI.getReleaseStatus !== 'function') {
+        latestReleaseStatus = {
+            success: false,
+            message: 'Update checks are only available in the desktop app.'
+        };
+        renderReleaseStatusUi(latestReleaseStatus);
+        return;
+    }
+    if (btnCheckUpdates) {
+        btnCheckUpdates.disabled = true;
+        btnCheckUpdates.textContent = 'Checking...';
+    }
+    try {
+        const status = await window.electronAPI.getReleaseStatus();
+        latestReleaseStatus = (status && typeof status === 'object')
+            ? status
+            : { success: false, message: 'Unexpected update-check response.' };
+    } catch (error) {
+        latestReleaseStatus = {
+            success: false,
+            message: error && error.message ? error.message : 'Failed to check updates.'
+        };
+    } finally {
+        renderReleaseStatusUi(latestReleaseStatus);
+        if (btnCheckUpdates) {
+            btnCheckUpdates.disabled = false;
+            btnCheckUpdates.textContent = 'Check for Updates';
+        }
+    }
+}
+
 function renderSettingsView() {
     const prefs = getPreferences();
     const showcasePrefs = getShowcasePreferences();
@@ -2533,6 +2923,7 @@ function renderSettingsView() {
     if (toggleShowcasePensVisible) toggleShowcasePensVisible.checked = !!showcasePrefs.show_pens;
     if (toggleShowcaseInksVisible) toggleShowcaseInksVisible.checked = !!showcasePrefs.show_inks;
     if (toggleShowcaseSwatchesVisible) toggleShowcaseSwatchesVisible.checked = !!showcasePrefs.show_swatches;
+    if (toggleShowcaseActivityFiltersVisible) toggleShowcaseActivityFiltersVisible.checked = !!showcasePrefs.show_activity_filters;
     if (toggleShowcaseInsightsVisible) toggleShowcaseInsightsVisible.checked = !!showcasePrefs.show_insights;
     if (toggleShowcaseChartsVisible) toggleShowcaseChartsVisible.checked = !!showcasePrefs.show_charts;
     if (activityRetentionSelect) activityRetentionSelect.value = String(getActivityRetentionDays());
@@ -2562,6 +2953,11 @@ function renderSettingsView() {
     if (autoBackupFrequencySelect) autoBackupFrequencySelect.value = String(backupPrefs.auto_frequency || 'daily');
     if (backupRetentionCountInput) backupRetentionCountInput.value = String(Number(backupPrefs.retention_count) || 30);
     refreshBackupEffectiveStatus();
+    updateInkPricePrefix();
+    renderReleaseStatusUi(latestReleaseStatus);
+    if (isElectron && !latestReleaseStatus) {
+        void checkForAppUpdates();
+    }
     syncSettingsCustomSelectUI();
 }
 
@@ -2569,23 +2965,16 @@ function renderActivityLogView() {
     if (!activityLogContainer) return;
 
     if (activityRetentionSelect) activityRetentionSelect.value = String(getActivityRetentionDays());
+    refreshActivityFilterControls();
+    if (activityDatePickerToggle) {
+        activityDatePickerToggle.classList.toggle('active', !!activityDateFilter);
+    }
     const hideActivityNav = shouldHideActivityInShowcase();
     if (navActivity) navActivity.style.display = hideActivityNav ? 'none' : '';
     if (navActivityDivider) navActivityDivider.style.display = hideActivityNav ? 'none' : '';
+    if (activityFilterToolbar) activityFilterToolbar.style.display = shouldHideActivityFiltersInShowcase() ? 'none' : '';
 
-    let items = [...(appData.activity_log || [])]
-        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-    if (activityDateFilter) {
-        const selected = new Date(`${activityDateFilter}T00:00:00`);
-        if (!Number.isNaN(selected.getTime())) {
-            const startTs = selected.getTime();
-            const endTs = startTs + (24 * 60 * 60 * 1000);
-            items = items.filter(entry => {
-                const ts = entry.timestamp || 0;
-                return ts >= startTs && ts < endTs;
-            });
-        }
-    }
+    const items = getFilteredActivityEntries();
     const pageSize = Math.max(1, activityPageSize);
     const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
     activityCurrentPage = Math.min(Math.max(1, activityCurrentPage), totalPages);
@@ -2624,6 +3013,7 @@ function applyShowcaseSettingsFromForm() {
     showcase.show_pens = !!(toggleShowcasePensVisible && toggleShowcasePensVisible.checked);
     showcase.show_inks = !!(toggleShowcaseInksVisible && toggleShowcaseInksVisible.checked);
     showcase.show_swatches = !!(toggleShowcaseSwatchesVisible && toggleShowcaseSwatchesVisible.checked);
+    showcase.show_activity_filters = !!(toggleShowcaseActivityFiltersVisible && toggleShowcaseActivityFiltersVisible.checked);
     showcase.show_insights = !!(toggleShowcaseInsightsVisible && toggleShowcaseInsightsVisible.checked);
     showcase.show_charts = !!(toggleShowcaseChartsVisible && toggleShowcaseChartsVisible.checked);
     showcase.title = normalizeShowcaseTitle(showcaseTitleInput ? showcaseTitleInput.value : showcase.title);
@@ -2671,6 +3061,7 @@ function applyShowcaseSettingsFromForm() {
     };
     prefs.showcase = showcase;
     appData.preferences = prefs;
+    updateInkPricePrefix();
     applyShowcaseTitleUi();
     applyInterfacePreferences();
     applyShowcaseSortDefaults();
@@ -3774,7 +4165,7 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
     const createSection = (label, value, extraStyle = '', fieldKey = '') => `
         <div ${fieldKey ? `data-field="${escapeHtml(fieldKey)}"` : ''} style="margin: 0; padding: 0; ${extraStyle}">
             <h4 style="text-transform: uppercase; font-size: 11px; font-family: var(--font-body); letter-spacing: 1.5px; color: #aaa; margin: 0 0 4px 0; padding: 0; font-weight: 700; line-height: 1.2;">${escapeHtml(label)}</h4>
-            <p style="font-size: 15px; color: #555; line-height: 1.6; font-family: var(--font-body) !important; font-weight: 400; margin: 0; padding: 0; text-transform: none !important; letter-spacing: normal !important;">${escapeHtml(value || 'None')}</p>
+            <p style="font-size: 15px; color: var(--color-text-main); line-height: 1.6; font-family: var(--font-body) !important; font-weight: 400; margin: 0; padding: 0; text-transform: none !important; letter-spacing: normal !important;">${escapeHtml(value || 'None')}</p>
         </div>
     `;
 
@@ -3829,7 +4220,7 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
     if (notesArea) {
         if (detailNotes && detailNotes.trim()) {
             notesArea.style.display = 'block';
-            notesArea.innerHTML = createSection(isSwatchCardView ? 'Observations' : 'Notes', detailNotes);
+            notesArea.innerHTML = createSection('Notes', detailNotes);
         } else {
             notesArea.style.display = 'none';
         }
@@ -3933,7 +4324,7 @@ function openPenDetailModal(penId, sourceView = 'pens') {
     const createSection = (label, value) => `
         <div style="margin: 0; padding: 0;">
             <h4 style="text-transform: uppercase; font-size: 11px; font-family: var(--font-body); letter-spacing: 1.5px; color: #aaa; margin: 0 0 4px 0; padding: 0; font-weight: 700; line-height: 1.2;">${escapeHtml(label)}</h4>
-            <p style="font-size: 15px; color: #555; line-height: 1.6; font-family: var(--font-body) !important; font-weight: 400; margin: 0; padding: 0;">${escapeHtml(value || 'None')}</p>
+            <p style="font-size: 15px; color: var(--color-text-main); line-height: 1.6; font-family: var(--font-body) !important; font-weight: 400; margin: 0; padding: 0;">${escapeHtml(value || 'None')}</p>
         </div>
     `;
 
@@ -3965,7 +4356,7 @@ function openPenDetailModal(penId, sourceView = 'pens') {
                 <h4 style="text-transform: uppercase; font-size: 11px; font-family: var(--font-body); letter-spacing: 1.5px; color: #aaa; margin: 0 0 4px 0; padding: 0; font-weight: 700; line-height: 1.2;">Currently Inked With</h4>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div style="width: 12px; height: 12px; border-radius: 50%; background: ${mobileCurrentInkColor}; box-shadow: 0 0 0 2px #fff, 0 1px 3px rgba(0,0,0,0.1);"></div>
-                    <p style="font-size: 15px; color: #555; line-height: 1.6; font-family: var(--font-body) !important; font-weight: 400; margin: 0; padding: 0;">${mobileCurrentInkName}</p>
+                    <p style="font-size: 15px; color: var(--color-text-main); line-height: 1.6; font-family: var(--font-body) !important; font-weight: 400; margin: 0; padding: 0;">${mobileCurrentInkName}</p>
                 </div>
             </div>` : ''}
         `;
@@ -5178,6 +5569,24 @@ if (toggleRecentActivityVisible) {
     });
 }
 
+if (btnCheckUpdates) {
+    btnCheckUpdates.addEventListener('click', () => {
+        void checkForAppUpdates();
+    });
+}
+
+if (btnOpenReleases) {
+    btnOpenReleases.addEventListener('click', async (event) => {
+        if (!isElectron || !window.electronAPI || typeof window.electronAPI.openExternalUrl !== 'function') return;
+        event.preventDefault();
+        const releaseUrl = btnOpenReleases.href || latestReleaseStatus?.releasesUrl || 'https://github.com/aloglu/inkubator/releases';
+        const result = await window.electronAPI.openExternalUrl(releaseUrl);
+        if (!result || !result.success) {
+            alert(result && result.message ? result.message : 'Failed to open release page.');
+        }
+    });
+}
+
 if (toggleShowcaseInsightsVisible) {
     toggleShowcaseInsightsVisible.addEventListener('change', persistShowcaseSettings);
 }
@@ -5196,6 +5605,10 @@ if (toggleShowcaseInksVisible) {
 
 if (toggleShowcaseSwatchesVisible) {
     toggleShowcaseSwatchesVisible.addEventListener('change', persistShowcaseSettings);
+}
+
+if (toggleShowcaseActivityFiltersVisible) {
+    toggleShowcaseActivityFiltersVisible.addEventListener('change', persistShowcaseSettings);
 }
 
 if (toggleShowcaseChartsVisible) {
@@ -5341,6 +5754,198 @@ if (btnClearAllActivity) {
     });
 }
 
+function applyActivityFiltersFromControls() {
+    activityTypeFilter = activityFilterTypeSelect ? String(activityFilterTypeSelect.value || 'all').toLowerCase() : 'all';
+    activityActionFilter = activityFilterActionSelect ? String(activityFilterActionSelect.value || 'all').toLowerCase() : 'all';
+    activitySearchFilter = activityFilterSearchInput ? String(activityFilterSearchInput.value || '') : '';
+    activityDateFromFilter = activityFilterDateFromInput ? String(activityFilterDateFromInput.value || '').trim() : '';
+    activityDateToFilter = activityFilterDateToInput ? String(activityFilterDateToInput.value || '').trim() : '';
+    activityCurrentPage = 1;
+    renderActivityLogView();
+}
+
+function resetActivityFilters() {
+    activityTypeFilter = 'all';
+    activityActionFilter = 'all';
+    activitySearchFilter = '';
+    activityDateFromFilter = '';
+    activityDateToFilter = '';
+    activityDateFilter = '';
+    if (activityFilterTypeSelect) activityFilterTypeSelect.value = 'all';
+    if (activityFilterActionSelect) activityFilterActionSelect.value = 'all';
+    if (activityFilterSearchInput) activityFilterSearchInput.value = '';
+    if (activityFilterDateFromInput) activityFilterDateFromInput.value = '';
+    if (activityFilterDateToInput) activityFilterDateToInput.value = '';
+    activityCurrentPage = 1;
+    renderActivityLogView();
+}
+
+if (activityFilterTypeSelect) {
+    activityFilterTypeSelect.addEventListener('change', applyActivityFiltersFromControls);
+}
+
+if (activityFilterActionSelect) {
+    activityFilterActionSelect.addEventListener('change', applyActivityFiltersFromControls);
+}
+
+if (activityFilterSearchInput) {
+    activityFilterSearchInput.addEventListener('input', applyActivityFiltersFromControls);
+}
+
+if (activityFilterDateFromWrap) {
+    activityFilterDateFromWrap.addEventListener('click', (e) => {
+        if (activityFilterDateFromPopover?.contains(e.target)) return;
+        if (activityFilterDateFromToggle?.contains(e.target)) return;
+        if (activityFilterDateFromPopover && activityFilterDateFromPopover.classList.contains('open')) {
+            closeActivityFilterDateCalendar('from');
+        } else {
+            openActivityFilterDateCalendar('from');
+        }
+    });
+}
+
+if (activityFilterDateToWrap) {
+    activityFilterDateToWrap.addEventListener('click', (e) => {
+        if (activityFilterDateToPopover?.contains(e.target)) return;
+        if (activityFilterDateToToggle?.contains(e.target)) return;
+        if (activityFilterDateToPopover && activityFilterDateToPopover.classList.contains('open')) {
+            closeActivityFilterDateCalendar('to');
+        } else {
+            openActivityFilterDateCalendar('to');
+        }
+    });
+}
+
+if (activityFilterDateFromToggle) {
+    activityFilterDateFromToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (activityFilterDateFromPopover && activityFilterDateFromPopover.classList.contains('open')) {
+            closeActivityFilterDateCalendar('from');
+        } else {
+            openActivityFilterDateCalendar('from');
+        }
+    });
+}
+
+if (activityFilterDateToToggle) {
+    activityFilterDateToToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (activityFilterDateToPopover && activityFilterDateToPopover.classList.contains('open')) {
+            closeActivityFilterDateCalendar('to');
+        } else {
+            openActivityFilterDateCalendar('to');
+        }
+    });
+}
+
+if (activityFilterDateFromPrev) {
+    activityFilterDateFromPrev.addEventListener('click', () => {
+        activityFilterDateFromCalendarViewDate = new Date(
+            activityFilterDateFromCalendarViewDate.getFullYear(),
+            activityFilterDateFromCalendarViewDate.getMonth() - 1,
+            1
+        );
+        renderActivityFilterDateCalendar('from');
+    });
+}
+
+if (activityFilterDateFromNext) {
+    activityFilterDateFromNext.addEventListener('click', () => {
+        if (activityFilterDateFromNext.disabled) return;
+        activityFilterDateFromCalendarViewDate = new Date(
+            activityFilterDateFromCalendarViewDate.getFullYear(),
+            activityFilterDateFromCalendarViewDate.getMonth() + 1,
+            1
+        );
+        renderActivityFilterDateCalendar('from');
+    });
+}
+
+if (activityFilterDateFromGrid) {
+    activityFilterDateFromGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-activity-filter-date-from]');
+        if (!btn) return;
+        const iso = btn.getAttribute('data-activity-filter-date-from');
+        if (!iso) return;
+        setActivityFilterDateInputValue('from', iso);
+        applyActivityFiltersFromControls();
+        closeActivityFilterDateCalendar('from');
+    });
+}
+
+if (activityFilterDateFromClear) {
+    activityFilterDateFromClear.addEventListener('click', () => {
+        setActivityFilterDateInputValue('from', '');
+        applyActivityFiltersFromControls();
+        closeActivityFilterDateCalendar('from');
+    });
+}
+
+if (activityFilterDateFromToday) {
+    activityFilterDateFromToday.addEventListener('click', () => {
+        setActivityFilterDateInputValue('from', toIsoLocalDate(new Date()));
+        applyActivityFiltersFromControls();
+        closeActivityFilterDateCalendar('from');
+    });
+}
+
+if (activityFilterDateToPrev) {
+    activityFilterDateToPrev.addEventListener('click', () => {
+        activityFilterDateToCalendarViewDate = new Date(
+            activityFilterDateToCalendarViewDate.getFullYear(),
+            activityFilterDateToCalendarViewDate.getMonth() - 1,
+            1
+        );
+        renderActivityFilterDateCalendar('to');
+    });
+}
+
+if (activityFilterDateToNext) {
+    activityFilterDateToNext.addEventListener('click', () => {
+        if (activityFilterDateToNext.disabled) return;
+        activityFilterDateToCalendarViewDate = new Date(
+            activityFilterDateToCalendarViewDate.getFullYear(),
+            activityFilterDateToCalendarViewDate.getMonth() + 1,
+            1
+        );
+        renderActivityFilterDateCalendar('to');
+    });
+}
+
+if (activityFilterDateToGrid) {
+    activityFilterDateToGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-activity-filter-date-to]');
+        if (!btn) return;
+        const iso = btn.getAttribute('data-activity-filter-date-to');
+        if (!iso) return;
+        setActivityFilterDateInputValue('to', iso);
+        applyActivityFiltersFromControls();
+        closeActivityFilterDateCalendar('to');
+    });
+}
+
+if (activityFilterDateToClear) {
+    activityFilterDateToClear.addEventListener('click', () => {
+        setActivityFilterDateInputValue('to', '');
+        applyActivityFiltersFromControls();
+        closeActivityFilterDateCalendar('to');
+    });
+}
+
+if (activityFilterDateToToday) {
+    activityFilterDateToToday.addEventListener('click', () => {
+        setActivityFilterDateInputValue('to', toIsoLocalDate(new Date()));
+        applyActivityFiltersFromControls();
+        closeActivityFilterDateCalendar('to');
+    });
+}
+
+if (btnActivityFiltersReset) {
+    btnActivityFiltersReset.addEventListener('click', () => {
+        resetActivityFilters();
+    });
+}
+
 if (activityPageSizeSelect) {
     activityPageSizeSelect.addEventListener('change', () => {
         const selected = Number(activityPageSizeSelect.value);
@@ -5373,6 +5978,7 @@ if (activityDatePickerToggle) {
         if (activityCalendarPopover && activityCalendarPopover.classList.contains('open')) {
             closeActivityCalendar();
         } else {
+            closeActivityFilterDateCalendars();
             openActivityCalendar();
         }
     });
@@ -5435,10 +6041,17 @@ if (swatchDatePickerToggle) {
     });
 }
 
-document.getElementById('swatch-date-input')?.addEventListener('click', () => {
-    if (swatchCalendarPopover && swatchCalendarPopover.classList.contains('open')) return;
-    openSwatchCalendar();
-});
+if (swatchDatePickerWrap) {
+    swatchDatePickerWrap.addEventListener('click', (e) => {
+        if (swatchCalendarPopover?.contains(e.target)) return;
+        if (swatchDatePickerToggle?.contains(e.target)) return;
+        if (swatchCalendarPopover && swatchCalendarPopover.classList.contains('open')) {
+            closeSwatchCalendar();
+        } else {
+            openSwatchCalendar();
+        }
+    });
+}
 
 if (swatchCalendarPrev) {
     swatchCalendarPrev.addEventListener('click', () => {
@@ -5486,9 +6099,19 @@ document.addEventListener('click', (e) => {
             closeActivityCalendar();
         }
     }
-    if (swatchCalendarPopover && swatchDatePickerToggle && swatchCalendarPopover.classList.contains('open')) {
-        if (!swatchCalendarPopover.contains(e.target) && !swatchDatePickerToggle.contains(e.target)) {
+    if (swatchCalendarPopover && swatchDatePickerWrap && swatchCalendarPopover.classList.contains('open')) {
+        if (!swatchCalendarPopover.contains(e.target) && !swatchDatePickerWrap.contains(e.target)) {
             closeSwatchCalendar();
+        }
+    }
+    if (activityFilterDateFromPopover && activityFilterDateFromWrap && activityFilterDateFromPopover.classList.contains('open')) {
+        if (!activityFilterDateFromPopover.contains(e.target) && !activityFilterDateFromWrap.contains(e.target)) {
+            closeActivityFilterDateCalendar('from');
+        }
+    }
+    if (activityFilterDateToPopover && activityFilterDateToWrap && activityFilterDateToPopover.classList.contains('open')) {
+        if (!activityFilterDateToPopover.contains(e.target) && !activityFilterDateToWrap.contains(e.target)) {
+            closeActivityFilterDateCalendar('to');
         }
     }
 });
@@ -6877,6 +7500,7 @@ function extractPenColors(imgElement) {
 // Custom Control Logic
 function setupCustomControls() {
     enhanceSettingsCustomSelects();
+    enhanceActivityCustomSelects();
 
     // 1. Custom Selects
     document.querySelectorAll('.custom-select-trigger').forEach(trigger => {
@@ -7008,10 +7632,16 @@ function setupCustomControls() {
 
     // Global Close
     document.addEventListener('click', (e) => {
-        // Close Custom Selects/Autocompletes
-        if (!e.target.closest('.custom-select-wrapper-outer') && !e.target.closest('.custom-autocomplete-wrapper')) {
-            document.querySelectorAll('.custom-options.show').forEach(el => el.classList.remove('show'));
+        // Close custom selects when clicking outside any custom-select wrapper.
+        // This allows clicks into text/autocomplete fields to dismiss open select menus.
+        if (!e.target.closest('.custom-select-wrapper-outer')) {
+            document.querySelectorAll('.custom-select-wrapper-outer .custom-options.show').forEach(el => el.classList.remove('show'));
             document.querySelectorAll('.custom-select-trigger.open').forEach(el => el.classList.remove('open'));
+        }
+
+        // Close autocomplete suggestion lists only when clicking outside autocomplete wrappers.
+        if (!e.target.closest('.custom-autocomplete-wrapper')) {
+            document.querySelectorAll('.custom-autocomplete-wrapper .custom-options.show').forEach(el => el.classList.remove('show'));
         }
 
         // Close Multiselects (Legacy dropdowns, if any)
@@ -7251,6 +7881,62 @@ function enhanceSettingsCustomSelects() {
     });
 
     syncSettingsCustomSelectUI();
+}
+
+function syncActivityCustomSelectUI() {
+    document.querySelectorAll('#view-activity .activity-custom-select-wrapper').forEach((wrapper) => {
+        const select = wrapper.querySelector('select.activity-select');
+        const triggerLabel = wrapper.querySelector('.custom-select-trigger .current-value');
+        const options = wrapper.querySelector('.custom-options');
+        if (!select || !triggerLabel || !options) return;
+
+        options.innerHTML = Array.from(select.options).map((opt) => {
+            const selectedClass = opt.selected ? ' selected' : '';
+            return `<div class="custom-option${selectedClass}" data-value="${escapeHtml(opt.value)}">${escapeHtml(opt.textContent || '')}</div>`;
+        }).join('');
+        setupCustomSelectOptions(options);
+
+        const selectedOption = select.options[select.selectedIndex] || select.options[0];
+        if (selectedOption) triggerLabel.textContent = selectedOption.textContent;
+    });
+}
+
+function enhanceActivityCustomSelects() {
+    const activityView = document.getElementById('view-activity');
+    if (!activityView) return;
+
+    activityView.querySelectorAll('select.activity-select').forEach((selectEl) => {
+        if (selectEl.dataset.customEnhancedActivity === '1') return;
+        if (!selectEl.id) return;
+        selectEl.dataset.customEnhancedActivity = '1';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'custom-select-wrapper-outer activity-custom-select-wrapper';
+
+        const trigger = document.createElement('div');
+        trigger.className = 'custom-select-trigger';
+        trigger.tabIndex = 0;
+        trigger.innerHTML = '<span class="current-value"></span><i class="ph ph-caret-down"></i>';
+
+        const options = document.createElement('div');
+        options.className = 'custom-options';
+        options.dataset.target = selectEl.id;
+
+        const parent = selectEl.parentElement;
+        if (!parent) return;
+        parent.insertBefore(wrapper, selectEl);
+        wrapper.appendChild(selectEl);
+        wrapper.appendChild(trigger);
+        wrapper.appendChild(options);
+
+        selectEl.classList.add('activity-native-select-hidden');
+        selectEl.tabIndex = -1;
+        selectEl.addEventListener('change', () => {
+            syncActivityCustomSelectUI();
+        });
+    });
+
+    syncActivityCustomSelectUI();
 }
 
 function setSwatchFormMode(mode = 'create') {

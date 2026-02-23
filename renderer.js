@@ -2033,12 +2033,22 @@ function renderGroupedInkSpectrum() {
         .filter(ink => ink && typeof ink.color_base === 'string' && ink.color_base.trim())
         .map((ink) => {
             const color = ink.color_base.trim();
+            const sortName = String(ink.name || '').trim();
+            const sortBrand = String(ink.brand || '').trim();
             return {
                 name: formatInkName(ink),
-                color
+                color,
+                sortName,
+                sortBrand
             };
         })
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        .sort((a, b) => {
+            const byName = a.sortName.localeCompare(b.sortName, undefined, { sensitivity: 'base' });
+            if (byName !== 0) return byName;
+            const byBrand = a.sortBrand.localeCompare(b.sortBrand, undefined, { sensitivity: 'base' });
+            if (byBrand !== 0) return byBrand;
+            return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        });
 
     if (!inks.length) {
         groupedSpectrumList.innerHTML = `<div class="empty-state" style="padding: 8px 0;">No ink colors yet.</div>`;
@@ -2051,7 +2061,9 @@ function renderGroupedInkSpectrum() {
     groupedSpectrumList.innerHTML = `
         <div class="ink-spectrum-grid" style="${gridStyle}" aria-label="Ink spectrum grid">
             ${inks.map((item) => `
-                <span class="ink-spectrum-cell" style="--cell-color:${escapeHtml(item.color)}; background:${escapeHtml(item.color)};" title="${escapeHtml(item.name)}" aria-label="${escapeHtml(item.name)}"></span>
+                <span class="ink-spectrum-cell" style="--cell-color:${escapeHtml(item.color)}; background:${escapeHtml(item.color)};" title="${escapeHtml(item.name)}" aria-label="${escapeHtml(item.name)}">
+                    <span class="ink-spectrum-cell-label">${escapeHtml(item.name)}</span>
+                </span>
             `).join('')}
         </div>
     `;

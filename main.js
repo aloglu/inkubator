@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, globalShortcut } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const fs = require('fs-extra');
@@ -11,24 +11,106 @@ const AUTO_BACKUP_HARD_MAX_FILES = 365;
 const AUTO_BACKUP_TICK_MS = 15 * 60 * 1000;
 const APP_NAME = 'Inkubator';
 const WINDOWS_APP_USER_MODEL_ID = 'com.inkubator.app';
+const GPU_FALLBACK_ARG = '--inkubator-gpu-fallback';
+const GPU_TOGGLE_SHORTCUT = 'CommandOrControl+Shift+F12';
+const WINDOWS_WHITE_FRAME_CHECK_DELAY_MS = 2000;
+const WINDOWS_WHITE_FRAME_THRESHOLD = 0.997;
 let autoBackupIntervalHandle = null;
 const GITHUB_REPO = 'aloglu/inkubator';
 const GITHUB_RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases`;
+const isWindows = process.platform === 'win32';
+const isGpuFallbackRun = process.argv.includes(GPU_FALLBACK_ARG);
+let hasTriggeredWindowsGpuFallback = false;
 
 if (typeof app.setName === 'function') {
   app.setName(APP_NAME);
 }
-if (process.platform === 'win32' && typeof app.setAppUserModelId === 'function') {
+if (isWindows && typeof app.setAppUserModelId === 'function') {
   app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
 }
 if (
-  process.platform === 'win32'
-  && process.env.INKUBATOR_ALLOW_GPU !== '1'
+  (
+    isGpuFallbackRun
+    || process.env.INKUBATOR_DISABLE_GPU === '1'
+    || process.env.INKUBATOR_ALLOW_GPU === '0'
+  )
   && typeof app.disableHardwareAcceleration === 'function'
 ) {
-  // Windows Sandbox/VM environments can render a blank white compositor surface
-  // even when the DOM is interactive; force software rendering by default.
+  // Optional override and one-shot recovery path for compositor issues.
   app.disableHardwareAcceleration();
+}
+
+function triggerWindowsGpuFallback(reason, error) {
+  if (!isWindows) return false;
+  if (isGpuFallbackRun) return false;
+  if (process.env.INKUBATOR_DISABLE_GPU === '1' || process.env.INKUBATOR_ALLOW_GPU === '0') return false;
+  if (hasTriggeredWindowsGpuFallback) return false;
+
+  hasTriggeredWindowsGpuFallback = true;
+  const detail = error && error.message ? ` (${error.message})` : '';
+  console.warn(`Windows GPU fallback triggered: ${reason}${detail}`);
+  const args = process.argv.slice(1).filter((arg) => arg !== GPU_FALLBACK_ARG);
+  args.push(GPU_FALLBACK_ARG);
+  app.relaunch({ args });
+  app.exit(0);
+  return true;
+}
+
+function relaunchWithGpuMode(enableGpu, reason = '') {
+  const detail = reason ? `: ${reason}` : '';
+  console.warn(`Relaunching with GPU ${enableGpu ? 'enabled' : 'disabled'}${detail}`);
+
+  const args = process.argv.slice(1).filter((arg) => arg !== GPU_FALLBACK_ARG);
+  if (!enableGpu) args.push(GPU_FALLBACK_ARG);
+  app.relaunch({ args });
+  app.exit(0);
+  return true;
+}
+
+function registerGpuToggleShortcut() {
+  if (!globalShortcut || typeof globalShortcut.register !== 'function') return;
+
+  const registered = globalShortcut.register(GPU_TOGGLE_SHORTCUT, () => {
+    const nextEnableGpu = isGpuFallbackRun;
+    relaunchWithGpuMode(
+      nextEnableGpu,
+      `emergency shortcut ${GPU_TOGGLE_SHORTCUT}`
+    );
+  });
+
+  if (!registered) {
+    console.warn(`Failed to register emergency GPU toggle shortcut: ${GPU_TOGGLE_SHORTCUT}`);
+  }
+}
+
+function isLikelyWhiteFrame(image) {
+  if (!image || image.isEmpty()) return true;
+  const size = image.getSize();
+  if (!size || size.width < 2 || size.height < 2) return true;
+
+  const bitmap = image.toBitmap();
+  if (!bitmap || bitmap.length < 4) return true;
+
+  // NativeImage bitmap is BGRA. Sample sparsely to keep startup overhead low.
+  const pixelCount = size.width * size.height;
+  const sampleStep = Math.max(1, Math.floor(pixelCount / 30000));
+  let whiteLike = 0;
+  let sampled = 0;
+
+  for (let pixel = 0; pixel < pixelCount; pixel += sampleStep) {
+    const offset = pixel * 4;
+    const b = bitmap[offset];
+    const g = bitmap[offset + 1];
+    const r = bitmap[offset + 2];
+    const a = bitmap[offset + 3];
+    if (a >= 245 && r >= 245 && g >= 245 && b >= 245) {
+      whiteLike += 1;
+    }
+    sampled += 1;
+  }
+
+  if (!sampled) return false;
+  return (whiteLike / sampled) >= WINDOWS_WHITE_FRAME_THRESHOLD;
 }
 if (
   process.platform === 'linux'
@@ -65,6 +147,10 @@ function getBundledWindowIconPath() {
 
 function getDataPath() {
   return path.join(app.getPath('userData'), 'data.json');
+}
+
+function getPreferencesPath() {
+  return path.join(app.getPath('userData'), 'preferences.json');
 }
 
 function getImagesPath() {
@@ -137,10 +223,49 @@ function toNormalizedData(input) {
   return normalizeAppData(input && typeof input === 'object' ? input : {});
 }
 
+function toNormalizedPreferences(input) {
+  return toNormalizedData({ preferences: input }).preferences;
+}
+
+function toCollectionData(input) {
+  const normalized = toNormalizedData(input);
+  const { preferences, ...collection } = normalized;
+  return collection;
+}
+
+function combineCollectionWithPreferences(collectionData, preferences) {
+  const collection = toCollectionData(collectionData);
+  return {
+    ...collection,
+    preferences: toNormalizedPreferences(preferences)
+  };
+}
+
+let currentPreferences = toNormalizedPreferences({});
+
+async function loadPreferencesFromDisk() {
+  const preferencesPath = getPreferencesPath();
+  let raw = {};
+  if (await fs.pathExists(preferencesPath)) {
+    raw = await fs.readJson(preferencesPath).catch(() => ({}));
+  }
+  const normalized = toNormalizedPreferences(raw);
+  currentPreferences = normalized;
+  await fs.writeJson(preferencesPath, normalized, { spaces: 2 });
+  return normalized;
+}
+
+async function savePreferencesToDisk(preferences) {
+  const normalized = toNormalizedPreferences(preferences);
+  currentPreferences = normalized;
+  await fs.writeJson(getPreferencesPath(), normalized, { spaces: 2 });
+  return normalized;
+}
+
 function getPreferences(data) {
   return (data && data.preferences && typeof data.preferences === 'object')
     ? data.preferences
-    : {};
+    : currentPreferences;
 }
 
 function getImportExportSettings(data) {
@@ -182,7 +307,7 @@ function shouldValidateImportData(data) {
 }
 
 function sanitizeDataForExport(data, includeOptionalMetadata = true) {
-  const normalized = toNormalizedData(data);
+  const normalized = toCollectionData(data);
   if (includeOptionalMetadata) return normalized;
 
   const cloned = JSON.parse(JSON.stringify(normalized));
@@ -321,8 +446,9 @@ async function getLatestAutoBackupEntry() {
 }
 
 async function createAutoBackupSnapshot(data, reason = 'save', options = {}) {
-  const normalized = toNormalizedData(data);
-  const backupSettings = getBackupSettings(normalized);
+  const normalizedCollection = toCollectionData(data);
+  const normalizedPreferences = toNormalizedPreferences(getPreferences(data));
+  const backupSettings = getBackupSettings({ preferences: normalizedPreferences });
   const frequencyMs = getBackupFrequencyMs(backupSettings.auto_frequency);
   const force = !!options.force;
   if (!force && !frequencyMs) {
@@ -338,10 +464,10 @@ async function createAutoBackupSnapshot(data, reason = 'save', options = {}) {
 
   const paths = await ensureBackupDirs();
   const backupPath = path.join(paths.auto, `auto-${makeTimestamp()}`);
-  // Backups are always full-fidelity: keep all metadata/settings.
-  const exportData = sanitizeDataForExport(normalized, true);
+  const exportData = sanitizeDataForExport(normalizedCollection, true);
   await fs.ensureDir(backupPath);
   await fs.writeJson(path.join(backupPath, 'data.json'), exportData, { spaces: 2 });
+  await fs.writeJson(path.join(backupPath, 'preferences.json'), normalizedPreferences, { spaces: 2 });
   // Automated backups always include images for complete disaster recovery.
   if (await fs.pathExists(getImagesPath())) {
     await fs.copy(getImagesPath(), path.join(backupPath, 'images'), { overwrite: true });
@@ -352,6 +478,7 @@ async function createAutoBackupSnapshot(data, reason = 'save', options = {}) {
     created_at: new Date().toISOString(),
     reason,
     include_images: true,
+    include_preferences: true,
     include_optional_metadata: true,
     auto_frequency: backupSettings.auto_frequency,
     retention_count: backupSettings.retention_count
@@ -361,8 +488,8 @@ async function createAutoBackupSnapshot(data, reason = 'save', options = {}) {
 }
 
 async function enforceAutoBackupRetention(data) {
-  const normalized = toNormalizedData(data);
-  const backupSettings = getBackupSettings(normalized);
+  const normalizedPreferences = toNormalizedPreferences(getPreferences(data));
+  const backupSettings = getBackupSettings({ preferences: normalizedPreferences });
   await pruneAutoBackups(backupSettings.retention_count);
 }
 
@@ -394,7 +521,7 @@ async function runScheduledAutoBackupTick() {
     const dataPath = getDataPath();
     if (!(await fs.pathExists(dataPath))) return;
     const raw = await fs.readJson(dataPath);
-    await createAutoBackupSnapshot(raw, 'scheduled');
+    await createAutoBackupSnapshot(combineCollectionWithPreferences(raw, currentPreferences), 'scheduled');
   } catch (error) {
     console.error('Scheduled auto-backup tick failed:', error);
   }
@@ -416,14 +543,19 @@ async function createManualBackup(targetFolder) {
   const folder = path.join(targetFolder, `inkubator-backup-${makeTimestamp()}`);
   await fs.ensureDir(folder);
   const dataPath = getDataPath();
+  const preferencesPath = getPreferencesPath();
   const imagesPath = getImagesPath();
   const backupDataPath = path.join(folder, 'data.json');
+  const backupPreferencesPath = path.join(folder, 'preferences.json');
   const backupImagesPath = path.join(folder, 'images');
   const rawData = await fs.readJson(dataPath);
-  const normalized = toNormalizedData(rawData);
-  // Backups are always full-fidelity: keep all metadata/settings.
-  const exportData = sanitizeDataForExport(normalized, true);
+  const rawPreferences = (await fs.pathExists(preferencesPath))
+    ? await fs.readJson(preferencesPath).catch(() => ({}))
+    : currentPreferences;
+  const exportData = sanitizeDataForExport(rawData, true);
+  const exportPreferences = toNormalizedPreferences(rawPreferences);
   await fs.writeJson(backupDataPath, exportData, { spaces: 2 });
+  await fs.writeJson(backupPreferencesPath, exportPreferences, { spaces: 2 });
   if (await fs.pathExists(imagesPath)) {
     await fs.copy(imagesPath, backupImagesPath, { overwrite: true });
   }
@@ -432,6 +564,7 @@ async function createManualBackup(targetFolder) {
     version: 2,
     created_at: new Date().toISOString(),
     includes_images: await fs.pathExists(backupImagesPath),
+    includes_preferences: true,
     include_optional_metadata: true
   }, { spaces: 2 });
   return folder;
@@ -440,14 +573,20 @@ async function createManualBackup(targetFolder) {
 async function importManualBackup(backupFolder, options = {}) {
   await ensureAppStorage();
   const backupDataPath = path.join(backupFolder, 'data.json');
+  const backupPreferencesPath = path.join(backupFolder, 'preferences.json');
   if (!(await fs.pathExists(backupDataPath))) {
     return { success: false, message: 'Selected folder is not a valid backup (missing data.json).' };
   }
+  if (!(await fs.pathExists(backupPreferencesPath))) {
+    return { success: false, message: 'Selected folder is not a valid backup (missing preferences.json).' };
+  }
 
   const incomingRaw = await fs.readJson(backupDataPath);
-  const incomingNormalized = toNormalizedData(incomingRaw);
-  const currentData = await readNormalizedDataIfExists(getDataPath()) || toNormalizedData({});
-  const importSettings = getImportExportSettings(currentData);
+  const incomingPreferencesRaw = await fs.readJson(backupPreferencesPath).catch(() => ({}));
+  const incomingNormalized = toCollectionData(incomingRaw);
+  const incomingPreferences = toNormalizedPreferences(incomingPreferencesRaw);
+  const currentData = await readNormalizedDataIfExists(getDataPath()) || toCollectionData({});
+  const importSettings = getImportExportSettings({ preferences: currentPreferences });
   const conflictBehavior = options.conflict_behavior || importSettings.conflict_behavior || 'overwrite';
   const validateImport = typeof options.auto_validate_import === 'boolean'
     ? options.auto_validate_import
@@ -461,16 +600,13 @@ async function importManualBackup(backupFolder, options = {}) {
   if (conflictBehavior === 'overwrite') {
     merged = incomingNormalized;
   } else {
-    merged = toNormalizedData({
-      ...currentData,
+    merged = toCollectionData({
+      ...toCollectionData(currentData),
       pens: mergeById(currentData.pens, incomingNormalized.pens, conflictBehavior),
       inks: mergeById(currentData.inks, incomingNormalized.inks, conflictBehavior),
       swatches: mergeById(currentData.swatches, incomingNormalized.swatches, conflictBehavior),
       currently_inked: mergeById(currentData.currently_inked, incomingNormalized.currently_inked, conflictBehavior),
-      activity_log: mergeById(currentData.activity_log, incomingNormalized.activity_log, conflictBehavior),
-      preferences: conflictBehavior === 'merge'
-        ? { ...(currentData.preferences || {}), ...(incomingNormalized.preferences || {}) }
-        : (currentData.preferences || {})
+      activity_log: mergeById(currentData.activity_log, incomingNormalized.activity_log, conflictBehavior)
     });
   }
 
@@ -481,6 +617,7 @@ async function importManualBackup(backupFolder, options = {}) {
   }
 
   await fs.writeJson(getDataPath(), merged, { spaces: 2 });
+  await savePreferencesToDisk(incomingPreferences);
 
   const backupImagesPath = path.join(backupFolder, 'images');
   if (await fs.pathExists(backupImagesPath)) {
@@ -494,8 +631,9 @@ async function importManualBackup(backupFolder, options = {}) {
     }
   }
 
-  await createAutoBackupSnapshot(merged, 'post-import-restore', { force: true });
-  return { success: true, data: merged };
+  const combined = combineCollectionWithPreferences(merged, incomingPreferences);
+  await createAutoBackupSnapshot(combined, 'post-import-restore', { force: true });
+  return { success: true, data: combined };
 }
 
 async function exportShowcaseBundle(targetFolder) {
@@ -548,11 +686,11 @@ async function exportShowcaseBundle(targetFolder) {
   let showcaseData;
   if (await fs.pathExists(dataPath)) {
     const raw = await fs.readJson(dataPath);
-    const normalized = toNormalizedData(raw);
-    const exportSettings = getImportExportSettings(normalized);
+    const normalized = toCollectionData(raw);
+    const exportSettings = getImportExportSettings({ preferences: currentPreferences });
     showcaseData = sanitizeDataForExport(normalized, exportSettings.include_optional_metadata);
   } else {
-    showcaseData = normalizeAppData({ pens: [], inks: [], currently_inked: [] });
+    showcaseData = toCollectionData({ pens: [], inks: [], currently_inked: [] });
   }
 
   await fs.writeJson(path.join(showcaseRoot, 'data.json'), showcaseData, { spaces: 2 });
@@ -600,7 +738,7 @@ async function exportShowcaseBundle(targetFolder) {
 }
 
 async function migratePenImageNames(data) {
-  const normalized = normalizeAppData(data);
+  const normalized = toCollectionData(data);
   const pens = Array.isArray(normalized.pens) ? normalized.pens : [];
   const imagesRoot = getImagesPath();
   let changed = false;
@@ -659,7 +797,7 @@ async function readNormalizedDataIfExists(filePath) {
   if (!(await fs.pathExists(filePath))) return null;
   try {
     const raw = await fs.readJson(filePath);
-    return normalizeAppData(raw);
+    return toCollectionData(raw);
   } catch (error) {
     return null;
   }
@@ -678,12 +816,58 @@ function createWindow() {
 
   Menu.setApplicationMenu(null);
   mainWindow.setMenuBarVisibility(false);
+
+  let startupWatchdog = null;
+  if (isWindows && !isGpuFallbackRun) {
+    startupWatchdog = setTimeout(() => {
+      triggerWindowsGpuFallback('window failed to become ready in time');
+    }, 15000);
+  }
+
+  mainWindow.once('ready-to-show', () => {
+    if (startupWatchdog) {
+      clearTimeout(startupWatchdog);
+      startupWatchdog = null;
+    }
+  });
+
+  mainWindow.on('unresponsive', () => {
+    triggerWindowsGpuFallback('window became unresponsive');
+  });
+
+  mainWindow.webContents.once('did-fail-load', (_event, errorCode, errorDescription, _validatedURL, isMainFrame) => {
+    if (isMainFrame) {
+      triggerWindowsGpuFallback(`main frame failed to load (${errorCode}: ${errorDescription || 'unknown'})`);
+    }
+  });
+
+  mainWindow.webContents.once('render-process-gone', (_event, details) => {
+    triggerWindowsGpuFallback(`renderer process exited (${details.reason || 'unknown'})`);
+  });
+
+  if (isWindows && !isGpuFallbackRun) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      setTimeout(async () => {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        try {
+          const screenshot = await mainWindow.capturePage();
+          if (isLikelyWhiteFrame(screenshot)) {
+            triggerWindowsGpuFallback('captured a likely white compositor frame after load');
+          }
+        } catch (error) {
+          triggerWindowsGpuFallback('white-frame probe failed', error);
+        }
+      }, WINDOWS_WHITE_FRAME_CHECK_DELAY_MS);
+    });
+  }
+
   mainWindow.loadFile('index.html');
   // mainWindow.webContents.openDevTools(); // Uncomment for debugging
 }
 
 async function ensureAppStorage() {
   const dataPath = getDataPath();
+  const preferencesPath = getPreferencesPath();
   const imagesPath = getImagesPath();
   const bundledDataPath = getBundledDataPath();
   const bundledImagesPath = getBundledImagesPath();
@@ -695,7 +879,7 @@ async function ensureAppStorage() {
     if (bundledData) {
       await fs.writeJson(dataPath, bundledData, { spaces: 2 });
     } else {
-      const initialData = normalizeAppData({ pens: [], inks: [], currently_inked: [] });
+      const initialData = toCollectionData({ pens: [], inks: [], currently_inked: [] });
       await fs.writeJson(dataPath, initialData, { spaces: 2 });
     }
   } else if (!app.isPackaged && bundledData && bundledCount > 0) {
@@ -705,6 +889,11 @@ async function ensureAppStorage() {
       await fs.writeJson(dataPath, bundledData, { spaces: 2 });
     }
   }
+
+  if (!(await fs.pathExists(preferencesPath))) {
+    await fs.writeJson(preferencesPath, currentPreferences, { spaces: 2 });
+  }
+  await loadPreferencesFromDisk();
 
   if (!(await fs.pathExists(imagesPath))) {
     if (await fs.pathExists(bundledImagesPath)) {
@@ -742,6 +931,7 @@ app.whenReady().then(async () => {
   runScheduledAutoBackupTick().catch((error) => {
     console.error("Initial scheduled auto-backup failed:", error);
   });
+  registerGpuToggleShortcut();
   createWindow();
 
   app.on('activate', () => {
@@ -751,6 +941,11 @@ app.whenReady().then(async () => {
   });
 });
 
+app.on('child-process-gone', (_event, details) => {
+  if (!details || details.type !== 'GPU') return;
+  triggerWindowsGpuFallback(`GPU process exited (${details.reason || 'unknown'})`);
+});
+
 app.on('window-all-closed', () => {
   if (autoBackupIntervalHandle) {
     clearInterval(autoBackupIntervalHandle);
@@ -758,6 +953,12 @@ app.on('window-all-closed', () => {
   }
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('will-quit', () => {
+  if (globalShortcut && typeof globalShortcut.unregisterAll === 'function') {
+    globalShortcut.unregisterAll();
   }
 });
 
@@ -1265,18 +1466,19 @@ ipcMain.handle('load-data', async () => {
   try {
     await ensureAppStorage();
     const dataPath = getDataPath();
+    const preferences = await loadPreferencesFromDisk();
     if (!(await fs.pathExists(dataPath))) {
       // Create empty if missing
-      const initialData = normalizeAppData({ pens: [], inks: [], currently_inked: [] });
-      await fs.writeJson(dataPath, initialData);
-      return initialData;
+      const initialData = toCollectionData({ pens: [], inks: [], currently_inked: [] });
+      await fs.writeJson(dataPath, initialData, { spaces: 2 });
+      return combineCollectionWithPreferences(initialData, preferences);
     }
     const raw = await fs.readJson(dataPath);
     const migrated = await migratePenImageNames(raw);
     if (migrated.changed) {
-      await fs.writeJson(dataPath, migrated.data, { spaces: 2 });
+      await fs.writeJson(dataPath, toCollectionData(migrated.data), { spaces: 2 });
     }
-    return migrated.data;
+    return combineCollectionWithPreferences(migrated.data, preferences);
   } catch (err) {
     console.error("Error reading data:", err);
     return null;
@@ -1288,10 +1490,12 @@ ipcMain.handle('save-data', async (event, newData) => {
   try {
     await ensureAppStorage();
     const dataPath = getDataPath();
-    const normalized = normalizeAppData(newData);
-    await fs.writeJson(dataPath, normalized, { spaces: 2 });
-    await enforceAutoBackupRetention(normalized);
-    await createAutoBackupSnapshot(normalized, 'save-data');
+    const normalizedData = toCollectionData(newData);
+    const normalizedPreferences = await savePreferencesToDisk(getPreferences(newData));
+    const combined = combineCollectionWithPreferences(normalizedData, normalizedPreferences);
+    await fs.writeJson(dataPath, normalizedData, { spaces: 2 });
+    await enforceAutoBackupRetention(combined);
+    await createAutoBackupSnapshot(combined, 'save-data');
     return { success: true };
   } catch (err) {
     console.error("Error saving data:", err);

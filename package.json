@@ -124,8 +124,8 @@
             "icon": "assets/icons/inkubator-icon.png"
         },
         "flatpak": {
-            "runtimeVersion": "23.08",
-            "baseVersion": "23.08"
+            "runtimeVersion": "25.08",
+            "baseVersion": "25.08"
         }
     }
 }

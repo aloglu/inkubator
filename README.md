@@ -55,6 +55,7 @@ Pre-compiled binaries for supported operating systems are available via the GitH
 3. **CLI Commands**:
    * `npm start`: Initialize the Electron management interface.
    * `npm run showcase`: Launch a local development server for the static showcase.
+   * `npm run build:linux:flatpak`: Build a Linux Flatpak package artifact (run on Linux with Flatpak tooling available).
 
 ## License
-This project is licensed under the [MIT License](https://github.com/aloglu/inkubator/blob/main/LICENSE).
+Released under the [MIT License](https://github.com/aloglu/inkubator/blob/main/LICENSE).

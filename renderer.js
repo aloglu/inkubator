@@ -2222,6 +2222,9 @@ function computeCollectionInsights() {
     const staleInkedPens = inkedDays.filter(days => days > 30).length;
     const swatchedInkIds = new Set(swatches.map((s) => s.ink_id).filter(Boolean));
     const swatchCoverage = inks.length ? Math.round((swatchedInkIds.size / inks.length) * 100) : 0;
+    const missingSwatchInks = inks
+        .filter((ink) => ink && !swatchedInkIds.has(ink.id))
+        .map((ink) => formatInkName(ink));
     const inkActions30 = (appData.activity_log || []).filter(entry =>
         ['inked', 'reinked'].includes(entry.action) && (entry.timestamp || 0) >= last30Cutoff
     ).length;
@@ -2230,6 +2233,17 @@ function computeCollectionInsights() {
     ).length;
     const actions7 = (appData.activity_log || []).filter(entry => (entry.timestamp || 0) >= last7Cutoff).length;
     const actions30 = recentActivity.length;
+    const activePensDetailed = active
+        .map((item) => findPenById(item.pen_id))
+        .filter(Boolean);
+    const staleInkedPensDetailed = active
+        .filter((item) => {
+            const ts = Number(item && item.date_inked) || Date.now();
+            const days = (Date.now() - ts) / (24 * 60 * 60 * 1000);
+            return days > 30;
+        })
+        .map((item) => findPenById(item.pen_id))
+        .filter(Boolean);
 
     const penBrandCounts = countBy(pens, 'brand');
     const inkBrandCounts = countBy(inks, 'brand');
@@ -2240,7 +2254,27 @@ function computeCollectionInsights() {
             everInked.add(entry.entity_id);
         }
     });
-    const underusedPens = pens.filter(pen => !everInked.has(pen.id)).length;
+    const underusedPensDetailed = pens.filter(pen => !everInked.has(pen.id));
+    const underusedPens = underusedPensDetailed.length;
+
+    const buildPenActionSummary = (cutoff) => {
+        const counts = Object.create(null);
+        (appData.activity_log || []).forEach((entry) => {
+            if (!entry || !['inked', 'reinked'].includes(entry.action)) return;
+            if ((entry.timestamp || 0) < cutoff) return;
+            if (!entry.entity_id) return;
+            counts[entry.entity_id] = (counts[entry.entity_id] || 0) + 1;
+        });
+        return Object.keys(counts)
+            .map((penId) => {
+                const pen = findPenById(penId);
+                const name = pen ? formatPenName(pen) : `Unknown pen (${penId})`;
+                return { name, count: counts[penId] };
+            })
+            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    };
+    const reinkSummary30 = buildPenActionSummary(last30Cutoff);
+    const reinkSummary90 = buildPenActionSummary(last90Cutoff);
 
     const pricedPens = pens
         .map(pen => ({ brand: (pen.brand || '').trim(), price: parsePriceNumber(pen.price) }))
@@ -2259,6 +2293,13 @@ function computeCollectionInsights() {
         .filter(item => Number.isFinite(item.total) && item.total > 0);
     const totalPenSpend = pricedPens.reduce((sum, item) => sum + item.price, 0);
     const totalInkSpend = pricedInks.reduce((sum, item) => sum + item.total, 0);
+    const totalInkVolume = inks.reduce((sum, ink) => {
+        const volumeCl = parseAmountNumber(ink && ink.cl, 0);
+        const amount = parseAmountNumber(ink && ink.amount, 1);
+        if (!Number.isFinite(volumeCl) || volumeCl <= 0) return sum;
+        if (!Number.isFinite(amount) || amount <= 0) return sum;
+        return sum + (volumeCl * amount);
+    }, 0);
     const totalSpend = totalPenSpend + totalInkSpend;
     const averagePenPrice = pricedPens.length ? (totalPenSpend / pricedPens.length) : 0;
     const totalInkUnits = pricedInks.reduce((sum, item) => sum + item.amount, 0);
@@ -2277,44 +2318,76 @@ function computeCollectionInsights() {
     const topInkSpendBrand = topMoneyLabel(inkSpendByBrand);
 
     const penCompletenessFields = [
-        { key: 'brand', mode: 'text' },
-        { key: 'model', mode: 'text' },
-        { key: 'nib', mode: 'text' },
-        { key: 'nib_material', mode: 'text' },
-        { key: 'material', mode: 'text' },
-        { key: 'filling_system', mode: 'text' },
-        { key: 'color', mode: 'text' },
-        { key: 'price', mode: 'number' }
+        { key: 'brand', mode: 'text', label: 'Pen Brand' },
+        { key: 'model', mode: 'text', label: 'Pen Model' },
+        { key: 'nib', mode: 'text', label: 'Pen Nib Size' },
+        { key: 'nib_material', mode: 'text', label: 'Pen Nib Material' },
+        { key: 'material', mode: 'text', label: 'Pen Body Material' },
+        { key: 'filling_system', mode: 'text', label: 'Pen Filling System' },
+        { key: 'color', mode: 'text', label: 'Pen Color' },
+        { key: 'price', mode: 'number', label: 'Pen Price' }
     ];
     const inkCompletenessFields = [
-        { key: 'brand', mode: 'text' },
-        { key: 'name', mode: 'text' },
-        { key: 'line', mode: 'text' },
-        { key: 'type', mode: 'text' },
-        { key: 'cl', mode: 'number' },
-        { key: 'amount', mode: 'number' },
-        { key: 'price', mode: 'number' },
-        { key: 'color_base', mode: 'text' },
-        { key: 'flow', mode: 'text' },
-        { key: 'lubrication', mode: 'text' },
-        { key: 'permanence', mode: 'text' }
+        { key: 'brand', mode: 'text', label: 'Ink Brand' },
+        { key: 'name', mode: 'text', label: 'Ink Name' },
+        { key: 'line', mode: 'text', label: 'Ink Line' },
+        { key: 'type', mode: 'text', label: 'Ink Type' },
+        { key: 'cl', mode: 'number', label: 'Ink Volume (cl)' },
+        { key: 'amount', mode: 'number', label: 'Ink Amount' },
+        { key: 'price', mode: 'number', label: 'Ink Price' },
+        { key: 'color_base', mode: 'text', label: 'Ink Base Color' },
+        { key: 'flow', mode: 'text', label: 'Ink Flow' },
+        { key: 'lubrication', mode: 'text', label: 'Ink Lubrication' },
+        { key: 'permanence', mode: 'text', label: 'Ink Permanence' }
     ];
     let expectedFields = 0;
     let filledFields = 0;
+    const missingFieldCounts = Object.create(null);
+    const missingFieldDetails = Object.create(null);
     pens.forEach((pen) => {
         penCompletenessFields.forEach((field) => {
             expectedFields += 1;
-            if (isCompletenessFieldFilled(pen && pen[field.key], field.mode)) filledFields += 1;
+            if (isCompletenessFieldFilled(pen && pen[field.key], field.mode)) {
+                filledFields += 1;
+            } else {
+                missingFieldCounts[field.label] = (missingFieldCounts[field.label] || 0) + 1;
+                if (!Array.isArray(missingFieldDetails[field.label])) missingFieldDetails[field.label] = [];
+                missingFieldDetails[field.label].push(formatPenName(pen));
+            }
         });
     });
     inks.forEach((ink) => {
         inkCompletenessFields.forEach((field) => {
             expectedFields += 1;
-            if (isCompletenessFieldFilled(ink && ink[field.key], field.mode)) filledFields += 1;
+            if (isCompletenessFieldFilled(ink && ink[field.key], field.mode)) {
+                filledFields += 1;
+            } else {
+                missingFieldCounts[field.label] = (missingFieldCounts[field.label] || 0) + 1;
+                if (!Array.isArray(missingFieldDetails[field.label])) missingFieldDetails[field.label] = [];
+                missingFieldDetails[field.label].push(formatInkName(ink));
+            }
         });
     });
     const completeness = expectedFields ? Math.round((filledFields / expectedFields) * 100) : 100;
     const missingFieldCount = Math.max(0, expectedFields - filledFields);
+
+    const listForTooltip = (items, options = {}) => {
+        const {
+            noneText = 'None',
+            max = 10
+        } = options;
+        if (!Array.isArray(items) || items.length === 0) return noneText;
+        if (items.length <= max) return items.join(', ');
+        const shown = items.slice(0, max);
+        return `${shown.join(', ')} (+${items.length - max} more)`;
+    };
+    const missingFieldSummary = Object.keys(missingFieldCounts)
+        .map((label) => ({ label, count: missingFieldCounts[label] }))
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+        .map((item) => {
+            const names = Array.isArray(missingFieldDetails[item.label]) ? missingFieldDetails[item.label] : [];
+            return `${item.label} (${item.count}): ${listForTooltip(names, { noneText: 'None', max: 8 })}`;
+        });
 
     const latestPenActivity = Math.max(
         latestTimestampFromCollection(pens),
@@ -2335,18 +2408,48 @@ function computeCollectionInsights() {
 
     return [
         { label: 'Inks per Pen Ratio', value: `${inksPerPen.toFixed(2)} (${inks.length}:${pens.length || 0})` },
-        { label: 'Underused Pens', value: `${underusedPens}` },
-        { label: 'Inked Right Now', value: `${active.length} pens (${activeRatio}%)` },
+        {
+            label: 'Underused Pens',
+            value: `${underusedPens}`,
+            valueTooltip: `Pens never inked: ${listForTooltip(underusedPensDetailed.map((pen) => formatPenName(pen)))}`
+        },
+        {
+            label: 'Inked Right Now',
+            value: `${active.length} pens (${activeRatio}%)`,
+            valueTooltip: `Currently inked pens: ${listForTooltip(activePensDetailed.map((pen) => formatPenName(pen)))}`
+        },
         { label: 'Activity Last 30 Days', value: `${recentActivity.length} entries` },
         { label: 'New Entries Last 30 Days', value: `${createdRecent}` },
         { label: 'Average Inked Duration', value: formatDays(avgInkedDays) },
         { label: 'Median Inked Duration', value: formatDays(medianInkedDays) },
-        { label: 'Re-inks (30d / 90d)', value: `${inkActions30} / ${inkActions90}` },
-        { label: 'Swatch Coverage', value: `${swatchCoverage}% (${swatchedInkIds.size}/${inks.length || 0})` },
-        { label: 'Stale Inked Pens (>30d)', value: `${staleInkedPens}` },
-        { label: 'Activity Velocity (7d / 30d)', value: `${actions7} / ${actions30}` },
+        {
+            label: 'Re-inks (30d / 90d)',
+            value: `${inkActions30} / ${inkActions90}`,
+            labelTooltip: 'Total inking and re-inking activity recorded over the last 30 and 90 days.',
+            valueTooltip: `30d: ${listForTooltip(reinkSummary30.map((item) => `${item.name} (${item.count})`))}\n90d: ${listForTooltip(reinkSummary90.map((item) => `${item.name} (${item.count})`))}`
+        },
+        {
+            label: 'Swatch Coverage',
+            value: `${swatchCoverage}% (${swatchedInkIds.size}/${inks.length || 0})`,
+            valueTooltip: `Inks missing swatches: ${listForTooltip(missingSwatchInks)}`
+        },
+        {
+            label: 'Stale Inked Pens (>30d)',
+            value: `${staleInkedPens}`,
+            valueTooltip: `Pens inked for over 30 days: ${listForTooltip(staleInkedPensDetailed.map((pen) => formatPenName(pen)))}`
+        },
+        {
+            label: 'Activity Velocity (7d / 30d)',
+            value: `${actions7} / ${actions30}`,
+            labelTooltip: 'How many activity entries were recorded over the last 7 and 30 days.'
+        },
         { label: 'Top Pen Brand', value: topLabel(penBrandCounts) },
         { label: 'Top Ink Brand', value: topLabel(inkBrandCounts) },
+        {
+            label: 'Total Ink Volume',
+            value: `${Number.isInteger(totalInkVolume) ? totalInkVolume : totalInkVolume.toFixed(2)} cl`,
+            valueTooltip: `${(totalInkVolume / 100).toFixed(2)} L`
+        },
         { label: 'Tracked Spend', value: formatMoney(totalSpend) },
         { label: 'Total Pen Spend', value: formatMoney(totalPenSpend) },
         { label: 'Total Ink Spend', value: formatMoney(totalInkSpend) },
@@ -2354,7 +2457,14 @@ function computeCollectionInsights() {
         { label: 'Average Ink Price', value: formatMoney(averageInkPrice) },
         { label: 'Top Pen Spend Brand', value: topPenSpendBrand },
         { label: 'Top Ink Spend Brand', value: topInkSpendBrand },
-        { label: 'Completeness Score', value: `${completeness}% (${missingFieldCount} fields missing)` },
+        {
+            label: 'Completeness Score',
+            value: `${completeness}% (${missingFieldCount} fields missing)`,
+            labelTooltip: 'How complete your pen and ink records are based on key fields.',
+            valueTooltip: missingFieldSummary.length > 0
+                ? `Missing fields:\n${missingFieldSummary.join('\n')}`
+                : 'Missing fields: None'
+        },
         { label: 'Last Updated - Pens', value: formatUpdatedAt(latestPenActivity) },
         { label: 'Last Updated - Inks', value: formatUpdatedAt(latestInkActivity) },
         { label: 'Last Updated - Swatches', value: formatUpdatedAt(latestSwatchActivity) },
@@ -2383,10 +2493,14 @@ function renderCollectionInsights() {
         ]);
         rows = rows.filter(row => !priceRelatedLabels.has(row.label));
     }
+    const toInsightTooltipAttr = (value) => {
+        const text = String(value || '').trim();
+        return text ? ` data-insight-tooltip="${escapeHtml(text).replace(/\n/g, '&#10;')}" tabindex="0"` : '';
+    };
     collectionInsightsList.innerHTML = `<div class="insight-list">${rows.map(row => `
         <div class="insight-item">
-            <span class="insight-label">${escapeHtml(row.label)}</span>
-            <span class="insight-value">${escapeHtml(row.value)}</span>
+            <span class="insight-label"${toInsightTooltipAttr(row.labelTooltip)}>${escapeHtml(row.label)}</span>
+            <span class="insight-value"${toInsightTooltipAttr(row.valueTooltip)}>${escapeHtml(row.value)}</span>
         </div>
     `).join('')}</div>`;
 }
@@ -3944,6 +4058,8 @@ let settingsTooltipDelayTimer = null;
 let pendingSettingsTooltipTarget = null;
 let pendingSettingsTooltipPoint = { x: null, y: null };
 let lastSettingsPointerPoint = { x: null, y: null };
+let insightsTooltipEl = null;
+let activeInsightsTooltipTarget = null;
 let appNoticeEl = null;
 let appNoticeTimer = null;
 let suppressSettingsPersist = false;
@@ -4039,6 +4155,57 @@ function hideSettingsTooltip() {
     settingsTooltipEl.style.transform = 'translate3d(-9999px, -9999px, 0)';
 }
 
+function ensureInsightsTooltipEl() {
+    if (insightsTooltipEl) return insightsTooltipEl;
+    const el = document.createElement('div');
+    el.className = 'insight-tooltip-floating';
+    el.setAttribute('role', 'tooltip');
+    el.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(el);
+    insightsTooltipEl = el;
+    return el;
+}
+
+function positionInsightsTooltip(clientX, clientY) {
+    if (!insightsTooltipEl) return;
+    const offsetX = 14;
+    const offsetY = 18;
+    const margin = 10;
+    const rect = insightsTooltipEl.getBoundingClientRect();
+    let x = Number(clientX) + offsetX;
+    let y = Number(clientY) + offsetY;
+    const maxX = window.innerWidth - rect.width - margin;
+    const maxY = window.innerHeight - rect.height - margin;
+    x = Math.min(Math.max(margin, x), Math.max(margin, maxX));
+    y = Math.min(Math.max(margin, y), Math.max(margin, maxY));
+    insightsTooltipEl.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+}
+
+function showInsightsTooltip(target, clientX = null, clientY = null) {
+    if (!target) return;
+    const text = String(target.getAttribute('data-insight-tooltip') || '').trim();
+    if (!text) return;
+    const el = ensureInsightsTooltipEl();
+    activeInsightsTooltipTarget = target;
+    el.textContent = text;
+    el.classList.add('is-visible');
+    el.setAttribute('aria-hidden', 'false');
+    if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
+        positionInsightsTooltip(clientX, clientY);
+        return;
+    }
+    const rect = target.getBoundingClientRect();
+    positionInsightsTooltip(rect.left + (rect.width / 2), rect.top + (rect.height / 2));
+}
+
+function hideInsightsTooltip() {
+    activeInsightsTooltipTarget = null;
+    if (!insightsTooltipEl) return;
+    insightsTooltipEl.classList.remove('is-visible');
+    insightsTooltipEl.setAttribute('aria-hidden', 'true');
+    insightsTooltipEl.style.transform = 'translate3d(-9999px, -9999px, 0)';
+}
+
 function recoverSettingsInteractivity() {
     if (!viewSettings) return;
     viewSettings.style.pointerEvents = 'auto';
@@ -4097,6 +4264,63 @@ function showAppNotice(message, type = 'info') {
     }, 2600);
 }
 
+async function copyTextToClipboard(text) {
+    const value = String(text || '');
+    if (!value) return false;
+    try {
+        if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(value);
+            return true;
+        }
+    } catch (_error) {
+        // Fall through to legacy copy path.
+    }
+
+    try {
+        const tmp = document.createElement('textarea');
+        tmp.value = value;
+        tmp.setAttribute('readonly', 'true');
+        tmp.style.position = 'fixed';
+        tmp.style.opacity = '0';
+        tmp.style.pointerEvents = 'none';
+        document.body.appendChild(tmp);
+        tmp.select();
+        tmp.setSelectionRange(0, tmp.value.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(tmp);
+        return !!ok;
+    } catch (_error) {
+        return false;
+    }
+}
+
+function createCopyableColorChip(hex) {
+    const normalizedHex = String(hex || '').trim();
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.style.width = '32px';
+    chip.style.height = '32px';
+    chip.style.borderRadius = '50%';
+    chip.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+    chip.style.border = '2px solid #fff';
+    chip.style.backgroundColor = normalizedHex || '#cccccc';
+    chip.style.cursor = 'pointer';
+    chip.style.padding = '0';
+    chip.title = normalizedHex ? `Copy ${normalizedHex}` : 'Color';
+    chip.setAttribute('aria-label', normalizedHex ? `Copy color ${normalizedHex}` : 'Color');
+    chip.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!normalizedHex) return;
+        const copied = await copyTextToClipboard(normalizedHex);
+        showAppNotice(
+            copied ? `Copied ${normalizedHex}` : `Failed to copy ${normalizedHex}`,
+            copied ? 'success' : 'error'
+        );
+    });
+    return chip;
+}
+
 function updateInkDetailMetadataLayout() {
     const metadataArea = document.getElementById('swatch-detail-metadata');
     if (!metadataArea || currentSwatchDetailSourceView !== 'inks') return;
@@ -4134,6 +4358,7 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
     // 1. Hide modal immediately to prevent "ghost" content from previous ink
     modalSwatchDetail.style.display = 'none';
     if (contentArea) contentArea.scrollTop = 0;
+    if (contentArea) contentArea.classList.remove('portrait-metadata-centered');
 
     // 2. Default Portrait Reset (Before layout decision)
     if (layout) layout.style.flexDirection = 'row';
@@ -4163,13 +4388,7 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
         detailColorsContainer.innerHTML = '';
         const colorsToShow = ink.hex_colors || [ink.color_base || '#ccc', ink.color_accent || ink.color_base || '#999'];
         colorsToShow.forEach(hex => {
-            const chip = document.createElement('div');
-            chip.style.width = '32px';
-            chip.style.height = '32px';
-            chip.style.borderRadius = '50%';
-            chip.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-            chip.style.border = '2px solid #fff';
-            chip.style.backgroundColor = hex;
+            const chip = createCopyableColorChip(hex);
             detailColorsContainer.appendChild(chip);
         });
     }
@@ -4245,6 +4464,7 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
         img.onload = () => {
             const ratio = img.naturalWidth / img.naturalHeight;
             if (ratio > 1.25) {
+                if (contentArea) contentArea.classList.remove('portrait-metadata-centered');
                 if (layout) layout.style.flexDirection = 'column';
                 if (container) container.style.width = '700px';
                 if (imageContainer) {
@@ -4252,6 +4472,8 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
                     imageContainer.style.height = '350px';
                     imageContainer.style.minHeight = 'auto';
                 }
+            } else {
+                if (contentArea) contentArea.classList.add('portrait-metadata-centered');
             }
             modalSwatchDetail.style.display = 'flex';
             requestAnimationFrame(updateInkDetailMetadataLayout);
@@ -4261,6 +4483,7 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
 
         img.onerror = () => {
             // If image fails, hide image area but still show modal
+            if (contentArea) contentArea.classList.remove('portrait-metadata-centered');
             if (imageContainer) imageContainer.style.display = 'none';
             if (container) container.style.width = '550px';
             modalSwatchDetail.style.display = 'flex';
@@ -4271,6 +4494,7 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
 
         img.src = imagePath;
     } else {
+        if (contentArea) contentArea.classList.remove('portrait-metadata-centered');
         if (img) img.src = '';
         if (imageContainer) imageContainer.style.display = 'none';
         if (container) container.style.width = '550px';
@@ -4294,6 +4518,7 @@ function openPenDetailModal(penId, sourceView = 'pens') {
     const notesArea = document.getElementById('pen-detail-notes-area');
     const penImg = document.getElementById('pen-detail-img');
     const placeholderIcon = document.getElementById('pen-detail-placeholder-icon');
+    const penDetailInkColor = document.getElementById('pen-detail-ink-color');
     const layout = document.getElementById('pen-detail-layout');
     const container = document.getElementById('pen-detail-modal-container');
     const visualContainer = document.getElementById('pen-detail-visual-container');
@@ -4322,13 +4547,7 @@ function openPenDetailModal(penId, sourceView = 'pens') {
         detailColorsContainer.innerHTML = '';
         const colorsToShow = pen.hex_colors || (pen.hex_color ? [pen.hex_color] : []);
         colorsToShow.forEach(hex => {
-            const chip = document.createElement('div');
-            chip.style.width = '32px';
-            chip.style.height = '32px';
-            chip.style.borderRadius = '50%';
-            chip.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-            chip.style.border = '2px solid #fff';
-            chip.style.backgroundColor = hex;
+            const chip = createCopyableColorChip(hex);
             detailColorsContainer.appendChild(chip);
         });
     }
@@ -4377,16 +4596,71 @@ function openPenDetailModal(penId, sourceView = 'pens') {
     // Check Currently Inked
     if (isMobileDetail) {
         if (inkArea) inkArea.style.display = 'none';
+        if (penDetailInkColor) {
+            penDetailInkColor.onclick = null;
+            penDetailInkColor.onkeydown = null;
+            penDetailInkColor.style.cursor = '';
+            penDetailInkColor.removeAttribute('title');
+            penDetailInkColor.removeAttribute('tabindex');
+            penDetailInkColor.removeAttribute('role');
+            penDetailInkColor.removeAttribute('aria-label');
+        }
     } else if (ci) {
         if (linkedInk && inkArea) {
             inkArea.style.display = 'block';
             document.getElementById('pen-detail-ink-name').textContent = linkedInk.name;
             document.getElementById('pen-detail-ink-color').style.backgroundColor = linkedInk.color_base || '#ccc';
+            if (penDetailInkColor) {
+                const inkHex = String(linkedInk.color_base || '').trim();
+                penDetailInkColor.style.cursor = inkHex ? 'pointer' : '';
+                penDetailInkColor.title = inkHex ? `Copy ${inkHex}` : '';
+                penDetailInkColor.setAttribute('role', 'button');
+                penDetailInkColor.setAttribute('tabindex', '0');
+                penDetailInkColor.setAttribute('aria-label', inkHex ? `Copy color ${inkHex}` : 'Color');
+                penDetailInkColor.onclick = async (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (!inkHex) return;
+                    const copied = await copyTextToClipboard(inkHex);
+                    showAppNotice(
+                        copied ? `Copied ${inkHex}` : `Failed to copy ${inkHex}`,
+                        copied ? 'success' : 'error'
+                    );
+                };
+                penDetailInkColor.onkeydown = async (event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    if (!inkHex) return;
+                    const copied = await copyTextToClipboard(inkHex);
+                    showAppNotice(
+                        copied ? `Copied ${inkHex}` : `Failed to copy ${inkHex}`,
+                        copied ? 'success' : 'error'
+                    );
+                };
+            }
         } else if (inkArea) {
             inkArea.style.display = 'none';
+            if (penDetailInkColor) {
+                penDetailInkColor.onclick = null;
+                penDetailInkColor.onkeydown = null;
+                penDetailInkColor.style.cursor = '';
+                penDetailInkColor.removeAttribute('title');
+                penDetailInkColor.removeAttribute('tabindex');
+                penDetailInkColor.removeAttribute('role');
+                penDetailInkColor.removeAttribute('aria-label');
+            }
         }
     } else {
         if (inkArea) inkArea.style.display = 'none';
+        if (penDetailInkColor) {
+            penDetailInkColor.onclick = null;
+            penDetailInkColor.onkeydown = null;
+            penDetailInkColor.style.cursor = '';
+            penDetailInkColor.removeAttribute('title');
+            penDetailInkColor.removeAttribute('tabindex');
+            penDetailInkColor.removeAttribute('role');
+            penDetailInkColor.removeAttribute('aria-label');
+        }
     }
 
     if (notesArea) {
@@ -5184,14 +5458,14 @@ if (btnExportBackup) {
         try {
             result = await window.electronAPI.exportBackup();
         } catch (error) {
-            alert(`Backup export failed: ${error && error.message ? error.message : error}`);
+            showAppNotice(`Backup export failed: ${error && error.message ? error.message : error}`, 'error');
             return;
         }
         if (result && result.success) {
             refreshBackupStatus();
-            alert(`Backup exported successfully:\n${result.path}`);
+            showAppNotice(`Backup exported: ${result.path}`, 'success');
         } else if (!(result && result.canceled)) {
-            alert(`Backup export failed: ${result && result.message ? result.message : 'Unknown error.'}`);
+            showAppNotice(`Backup export failed: ${result && result.message ? result.message : 'Unknown error.'}`, 'error');
         }
     });
 }
@@ -6126,6 +6400,44 @@ document.addEventListener('click', (e) => {
             closeActivityFilterDateCalendar('to');
         }
     }
+    const tooltipTarget = e.target && e.target.closest
+        ? e.target.closest('[data-insight-tooltip]')
+        : null;
+    if (!tooltipTarget) hideInsightsTooltip();
+});
+
+document.addEventListener('mouseover', (e) => {
+    const target = e.target && e.target.closest ? e.target.closest('[data-insight-tooltip]') : null;
+    if (!target) return;
+    showInsightsTooltip(target, e.clientX, e.clientY);
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (!activeInsightsTooltipTarget) return;
+    positionInsightsTooltip(e.clientX, e.clientY);
+});
+
+document.addEventListener('mouseout', (e) => {
+    const target = e.target && e.target.closest ? e.target.closest('[data-insight-tooltip]') : null;
+    if (!target) return;
+    const next = e.relatedTarget && e.relatedTarget.closest ? e.relatedTarget.closest('[data-insight-tooltip]') : null;
+    if (next === target) return;
+    hideInsightsTooltip();
+});
+
+document.addEventListener('focusin', (e) => {
+    const target = e.target && e.target.closest ? e.target.closest('[data-insight-tooltip]') : null;
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    showInsightsTooltip(target, rect.left + (rect.width / 2), rect.top + (rect.height / 2));
+});
+
+document.addEventListener('focusout', (e) => {
+    const target = e.target && e.target.closest ? e.target.closest('[data-insight-tooltip]') : null;
+    if (!target) return;
+    const next = e.relatedTarget && e.relatedTarget.closest ? e.relatedTarget.closest('[data-insight-tooltip]') : null;
+    if (next) return;
+    hideInsightsTooltip();
 });
 
 if (activityLogContainer) {

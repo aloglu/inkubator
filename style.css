@@ -2132,6 +2132,33 @@ body.theme-dark #view-settings .activity-select option {
     opacity: 1;
 }
 
+.insight-tooltip-floating {
+    position: fixed;
+    top: 0;
+    left: 0;
+    transform: translate3d(-9999px, -9999px, 0);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 6000;
+    max-width: min(420px, calc(100vw - 20px));
+    padding: 8px 11px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #16161d;
+    color: rgba(252, 252, 253, 0.96);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: left;
+    white-space: pre-line;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24);
+    transition: opacity 90ms ease;
+}
+
+.insight-tooltip-floating.is-visible {
+    opacity: 1;
+}
+
 .app-notice-floating {
     position: fixed;
     right: 18px;
@@ -3311,7 +3338,9 @@ body.theme-dark .ink-price-input-wrap .ink-price-prefix {
 }
 
 .swatch-preview-card {
+    height: 300px;
     min-height: 300px;
+    max-height: 300px;
     border: 1px dashed #ccc;
     border-radius: 10px;
     background: #fafafa;
@@ -3346,6 +3375,16 @@ body.theme-dark .ink-price-input-wrap .ink-price-prefix {
     height: 100%;
     object-fit: contain;
     background: #fff;
+}
+
+/* Portrait detail cards: keep header anchored, center metadata block only */
+#swatch-detail-content.portrait-metadata-centered > div:first-child {
+    margin-bottom: 0 !important;
+}
+
+#swatch-detail-content.portrait-metadata-centered #swatch-detail-metadata {
+    margin-top: auto !important;
+    margin-bottom: auto !important;
 }
 
 .swatch-notes-textarea {
@@ -5017,7 +5056,9 @@ body {
     }
 
     .swatch-preview-card {
+        height: 220px;
         min-height: 220px;
+        max-height: 220px;
     }
 
     #swatch-detail-name,

@@ -688,9 +688,13 @@ async function exportShowcaseBundle(targetFolder) {
     const raw = await fs.readJson(dataPath);
     const normalized = toCollectionData(raw);
     const exportSettings = getImportExportSettings({ preferences: currentPreferences });
-    showcaseData = sanitizeDataForExport(normalized, exportSettings.include_optional_metadata);
+    const sanitizedCollection = sanitizeDataForExport(normalized, exportSettings.include_optional_metadata);
+    showcaseData = combineCollectionWithPreferences(sanitizedCollection, currentPreferences);
   } else {
-    showcaseData = toCollectionData({ pens: [], inks: [], currently_inked: [] });
+    showcaseData = combineCollectionWithPreferences(
+      toCollectionData({ pens: [], inks: [], currently_inked: [] }),
+      currentPreferences
+    );
   }
 
   await fs.writeJson(path.join(showcaseRoot, 'data.json'), showcaseData, { spaces: 2 });

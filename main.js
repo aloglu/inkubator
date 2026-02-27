@@ -3,6 +3,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const fs = require('fs-extra');
 const { normalizeAppData } = require('./lib/data-schema');
+const { runSavePostCommitSteps, replaceImagesWithStaging } = require('./lib/critical-persistence');
 const packageInfo = require('./package.json');
 
 let mainWindow;
@@ -18,6 +19,7 @@ const WINDOWS_WHITE_FRAME_THRESHOLD = 0.997;
 let autoBackupIntervalHandle = null;
 const GITHUB_REPO = 'aloglu/inkubator';
 const GITHUB_RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases`;
+const REMOTE_FETCH_TIMEOUT_MS = 15000;
 const isWindows = process.platform === 'win32';
 const isGpuFallbackRun = process.argv.includes(GPU_FALLBACK_ARG);
 let hasTriggeredWindowsGpuFallback = false;
@@ -410,6 +412,22 @@ function mergeById(existingArr = [], incomingArr = [], behavior = 'overwrite') {
   return out;
 }
 
+function dedupeCurrentlyInkedByPen(entries = []) {
+  const list = Array.isArray(entries) ? entries : [];
+  const lastIndexByPenId = new Map();
+
+  list.forEach((entry, index) => {
+    const penId = (entry && typeof entry.pen_id === 'string') ? entry.pen_id : '';
+    if (penId) lastIndexByPenId.set(penId, index);
+  });
+
+  return list.filter((entry, index) => {
+    const penId = (entry && typeof entry.pen_id === 'string') ? entry.pen_id : '';
+    if (!penId) return true;
+    return lastIndexByPenId.get(penId) === index;
+  });
+}
+
 async function ensureBackupDirs() {
   const paths = getBackupPaths();
   await fs.ensureDir(paths.auto);
@@ -600,15 +618,23 @@ async function importManualBackup(backupFolder, options = {}) {
   if (conflictBehavior === 'overwrite') {
     merged = incomingNormalized;
   } else {
+    const mergedCurrentlyInked = dedupeCurrentlyInkedByPen(
+      mergeById(currentData.currently_inked, incomingNormalized.currently_inked, conflictBehavior)
+    );
     merged = toCollectionData({
       ...toCollectionData(currentData),
       pens: mergeById(currentData.pens, incomingNormalized.pens, conflictBehavior),
       inks: mergeById(currentData.inks, incomingNormalized.inks, conflictBehavior),
       swatches: mergeById(currentData.swatches, incomingNormalized.swatches, conflictBehavior),
-      currently_inked: mergeById(currentData.currently_inked, incomingNormalized.currently_inked, conflictBehavior),
+      currently_inked: mergedCurrentlyInked,
       activity_log: mergeById(currentData.activity_log, incomingNormalized.activity_log, conflictBehavior)
     });
   }
+
+  merged = toCollectionData({
+    ...merged,
+    currently_inked: dedupeCurrentlyInkedByPen(merged.currently_inked)
+  });
 
   // Safety snapshot before restore.
   if (await fs.pathExists(getDataPath())) {
@@ -616,24 +642,42 @@ async function importManualBackup(backupFolder, options = {}) {
     await createAutoBackupSnapshot(existing, 'pre-import-restore', { force: true });
   }
 
+  let committedData = false;
   await fs.writeJson(getDataPath(), merged, { spaces: 2 });
-  await savePreferencesToDisk(incomingPreferences);
+  committedData = true;
 
-  const backupImagesPath = path.join(backupFolder, 'images');
-  if (await fs.pathExists(backupImagesPath)) {
-    if (conflictBehavior === 'overwrite') {
-      await fs.remove(getImagesPath());
-      await fs.copy(backupImagesPath, getImagesPath(), { overwrite: true });
-    } else if (conflictBehavior === 'skip') {
-      await fs.copy(backupImagesPath, getImagesPath(), { overwrite: false, errorOnExist: false });
-    } else {
-      await fs.copy(backupImagesPath, getImagesPath(), { overwrite: true });
+  try {
+    await savePreferencesToDisk(incomingPreferences);
+
+    const backupImagesPath = path.join(backupFolder, 'images');
+    if (await fs.pathExists(backupImagesPath)) {
+      if (conflictBehavior === 'overwrite') {
+        await replaceImagesWithStaging({
+          fs,
+          backupImagesPath,
+          imagesPath: getImagesPath(),
+          tempRoot: app.getPath('userData')
+        });
+      } else if (conflictBehavior === 'skip') {
+        await fs.copy(backupImagesPath, getImagesPath(), { overwrite: false, errorOnExist: false });
+      } else {
+        await fs.copy(backupImagesPath, getImagesPath(), { overwrite: true });
+      }
     }
-  }
 
-  const combined = combineCollectionWithPreferences(merged, incomingPreferences);
-  await createAutoBackupSnapshot(combined, 'post-import-restore', { force: true });
-  return { success: true, data: combined };
+    const combined = combineCollectionWithPreferences(merged, incomingPreferences);
+    await createAutoBackupSnapshot(combined, 'post-import-restore', { force: true });
+    return { success: true, data: combined };
+  } catch (postCommitError) {
+    if (!committedData) throw postCommitError;
+    const combined = combineCollectionWithPreferences(merged, currentPreferences);
+    return {
+      success: true,
+      data: combined,
+      warning: true,
+      message: `Import applied, but a post-import step failed: ${postCommitError.message}`
+    };
+  }
 }
 
 async function exportShowcaseBundle(targetFolder) {
@@ -793,8 +837,9 @@ async function migratePenImageNames(data) {
 function getCollectionEntityCount(data = {}) {
   const pens = Array.isArray(data.pens) ? data.pens.length : 0;
   const inks = Array.isArray(data.inks) ? data.inks.length : 0;
+  const swatches = Array.isArray(data.swatches) ? data.swatches.length : 0;
   const currentlyInked = Array.isArray(data.currently_inked) ? data.currently_inked.length : 0;
-  return pens + inks + currentlyInked;
+  return pens + inks + swatches + currentlyInked;
 }
 
 async function readNormalizedDataIfExists(filePath) {
@@ -1101,6 +1146,24 @@ function normalizeRelativeImagePath(inputPath = '') {
 function isPathInside(parent, candidate) {
   const rel = path.relative(parent, candidate);
   return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = REMOTE_FETCH_TIMEOUT_MS) {
+  const timeout = Number(timeoutMs);
+  const safeTimeout = Number.isFinite(timeout) && timeout > 0 ? timeout : REMOTE_FETCH_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), safeTimeout);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error && error.name === 'AbortError') {
+      const timeoutSeconds = Math.round(safeTimeout / 1000);
+      throw new Error(`Request timed out after ${timeoutSeconds} seconds.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ----------------------------------------------------------------
@@ -1495,12 +1558,19 @@ ipcMain.handle('save-data', async (event, newData) => {
     await ensureAppStorage();
     const dataPath = getDataPath();
     const normalizedData = toCollectionData(newData);
-    const normalizedPreferences = await savePreferencesToDisk(getPreferences(newData));
-    const combined = combineCollectionWithPreferences(normalizedData, normalizedPreferences);
+    const requestedPreferences = toNormalizedPreferences(getPreferences(newData));
+    const combined = combineCollectionWithPreferences(normalizedData, requestedPreferences);
+    let committed = false;
     await fs.writeJson(dataPath, normalizedData, { spaces: 2 });
-    await enforceAutoBackupRetention(combined);
-    await createAutoBackupSnapshot(combined, 'save-data');
-    return { success: true };
+    committed = true;
+    return await runSavePostCommitSteps({
+      committed,
+      requestedPreferences,
+      combined,
+      savePreferencesToDisk,
+      enforceAutoBackupRetention,
+      createAutoBackupSnapshot
+    });
   } catch (err) {
     console.error("Error saving data:", err);
     return { success: false, error: err.message };
@@ -1652,7 +1722,7 @@ ipcMain.handle('release:status', async () => {
   const currentVersion = app.getVersion();
   const currentTag = `v${currentVersion}`;
   try {
-    const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+    const response = await fetchWithTimeout(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
       headers: {
         Accept: 'application/vnd.github+json',
         'User-Agent': `${packageInfo.name || 'inkubator'}/${currentVersion}`
@@ -1824,7 +1894,10 @@ ipcMain.handle('open-external-url', async (event, rawUrl) => {
 ipcMain.handle('fetch-inkswatch', async (event, query) => {
   try {
     const searchUrl = `https://inkswatch.com/getSearchResults.php?query=${encodeURIComponent(query)}`;
-    const response = await fetch(searchUrl);
+    const response = await fetchWithTimeout(searchUrl);
+    if (!response.ok) {
+      throw new Error(`InkSwatch search request failed (${response.status} ${response.statusText || 'HTTP error'})`);
+    }
     const html = await response.text();
 
     // Extract all results: <p class="searchModalLinks"><a href="ink.html?inkId=...">Name</a></p>
@@ -1859,7 +1932,10 @@ ipcMain.handle('fetch-inkswatch', async (event, query) => {
 
     // Fetch Detail
     const detailUrl = `https://inkswatch.com/getInkChoiceSwatches.php?inkId=${inkId}`;
-    const detailResponse = await fetch(detailUrl);
+    const detailResponse = await fetchWithTimeout(detailUrl);
+    if (!detailResponse.ok) {
+      throw new Error(`InkSwatch detail request failed (${detailResponse.status} ${detailResponse.statusText || 'HTTP error'})`);
+    }
     const detailHtml = await detailResponse.text();
 
     // Extract Image URL
@@ -1885,7 +1961,11 @@ ipcMain.handle('fetch-inkswatch', async (event, query) => {
 ipcMain.handle('save-image-url', async (event, url, type, metadata) => {
   try {
     const sharp = getSharpOrThrow();
-    const response = await fetch(url);
+    const parsed = new URL(String(url || ''));
+    if (type === 'swatch' && parsed.protocol !== 'https:') {
+      return { success: false, message: 'Only https URLs are allowed for swatch images.' };
+    }
+    const response = await fetchWithTimeout(parsed.toString());
     if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
 
     const buffer = await response.arrayBuffer();

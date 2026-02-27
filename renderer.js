@@ -830,6 +830,15 @@ function resolveImageSource(imagePath) {
     return `images/${normalized}`;
 }
 
+function toFileUrl(localPath) {
+    if (!localPath || typeof localPath !== 'string') return '';
+    if (localPath.startsWith('file://')) return localPath;
+    const normalized = localPath.replace(/\\/g, '/');
+    const url = new URL('file:///');
+    url.pathname = normalized.startsWith('/') ? normalized : `/${normalized}`;
+    return url.href;
+}
+
 function isManagedImagePathForDeletion(imagePath) {
     if (typeof imagePath !== 'string' || !imagePath) return false;
     if (imagePath.includes('default_')) return false;
@@ -1381,6 +1390,9 @@ async function persistDataAndRefresh(options = {}) {
 
     const result = await window.electronAPI.saveData(appData);
     if (result && result.success) {
+        if (result.warning) {
+            showAppNotice(result.message || 'Saved with warnings.', 'warning');
+        }
         if (typeof onSuccess === 'function') {
             await onSuccess();
         }
@@ -3435,7 +3447,7 @@ if (inkImageArea) {
                 }
                 inkImagePreview.onload = null;
             };
-            inkImagePreview.src = `file://${filePath}`;
+            inkImagePreview.src = toFileUrl(filePath);
             inkImagePreview.style.display = 'block';
             inkImageArea.querySelector('i').style.display = 'none';
             inkImageArea.querySelector('p').style.display = 'none';
@@ -4255,9 +4267,10 @@ function showAppNotice(message, type = 'info') {
         appNoticeTimer = null;
     }
     el.textContent = text;
-    el.classList.remove('is-success', 'is-error');
+    el.classList.remove('is-success', 'is-error', 'is-warning');
     if (type === 'success') el.classList.add('is-success');
     if (type === 'error') el.classList.add('is-error');
+    if (type === 'warning') el.classList.add('is-warning');
     el.classList.add('is-visible');
     appNoticeTimer = setTimeout(() => {
         el.classList.remove('is-visible');
@@ -4805,7 +4818,7 @@ async function saveNewInk() {
     } else {
         const paperCheckboxes = document.querySelectorAll('#paper-compatibility-popover input[type="checkbox"]');
         const newInk = {
-            id: `ink_${Date.now()}`,
+            id: makeClientId('ink'),
             name: name,
             brand: brand,
             line: document.getElementById('ink-line-input')?.value || '',
@@ -4981,7 +4994,7 @@ async function saveNewPen() {
         }
     } else {
         // Create Mode
-        targetPenId = `pen_${Date.now()}`;
+        targetPenId = makeClientId('pen');
         const newPen = {
             id: targetPenId,
             brand: brand,
@@ -5015,7 +5028,7 @@ async function saveNewPen() {
             } else {
                 // Add New
                 appData.currently_inked.push({
-                    id: `ci_${Date.now()}`,
+                    id: makeClientId('ci'),
                     pen_id: targetPenId,
                     ink_id: selectedInkId,
                     date_inked: Date.now()
@@ -5387,7 +5400,7 @@ if (uploadPenPhotoArea) {
             }
 
             // Set src (using file:// protocol as per established pattern)
-            uploadPenPreview.src = `file://${filePath}`;
+            uploadPenPreview.src = toFileUrl(filePath);
             uploadPenPreview.style.display = 'block';
         }
         if (penPhotoIcon) penPhotoIcon.style.display = 'none';
@@ -5524,7 +5537,11 @@ if (btnImportBackup) {
             renderActivityLogView();
             closeAllModals();
             refreshBackupStatus();
-            alert('Backup imported successfully.');
+            if (result.warning) {
+                alert(result.message || 'Backup imported with warnings. Please review your images and backups.');
+            } else {
+                alert('Backup imported successfully.');
+            }
         } else if (!(result && result.canceled)) {
             alert(`Backup import failed: ${result && result.message ? result.message : 'Unknown error.'}`);
         }
@@ -6963,7 +6980,7 @@ function renderSwatches() {
 
     swatches = swatches.filter(({ swatch, ink }) => {
         if (activeSwatchesFilters.brand.length > 0 && !activeSwatchesFilters.brand.includes(ink.brand)) return false;
-        if (activeSwatchesFilters.type.length > 0 && !activeSwatchesFilters.type.includes(ink.type)) return false;
+        if (activeSwatchesFilters.type.length > 0 && !activeSwatchesFilters.type.includes(normalizeInkType(ink.type))) return false;
         if (activeSwatchesFilters.flow.length > 0 && !activeSwatchesFilters.flow.includes(ink.flow)) return false;
         if (activeSwatchesFilters.lubrication.length > 0 && !activeSwatchesFilters.lubrication.includes(ink.lubrication)) return false;
         if (activeSwatchesFilters.dryTime.length > 0 && !activeSwatchesFilters.dryTime.includes(ink.dry_time)) return false;
@@ -7161,7 +7178,7 @@ function getFilteredSortedSwatchesForDetails() {
 
     swatches = swatches.filter(({ swatch, ink }) => {
         if (activeSwatchesFilters.brand.length > 0 && !activeSwatchesFilters.brand.includes(ink.brand)) return false;
-        if (activeSwatchesFilters.type.length > 0 && !activeSwatchesFilters.type.includes(ink.type)) return false;
+        if (activeSwatchesFilters.type.length > 0 && !activeSwatchesFilters.type.includes(normalizeInkType(ink.type))) return false;
         if (activeSwatchesFilters.flow.length > 0 && !activeSwatchesFilters.flow.includes(ink.flow)) return false;
         if (activeSwatchesFilters.lubrication.length > 0 && !activeSwatchesFilters.lubrication.includes(ink.lubrication)) return false;
         if (activeSwatchesFilters.dryTime.length > 0 && !activeSwatchesFilters.dryTime.includes(ink.dry_time)) return false;
@@ -7277,12 +7294,6 @@ document.querySelectorAll('.sort-option-pens').forEach(btn => {
         renderPens();
     });
 });
-
-// Header buttons still active for their respective views
-if (document.getElementById('btn-add-pen-header')) document.getElementById('btn-add-pen-header').onclick = () => openPenModal();
-if (document.getElementById('btn-add-ink-header')) document.getElementById('btn-add-ink-header').onclick = () => openInkModal();
-
-
 
 // Event Listeners for Filters/Sort (Swatches)
 document.getElementById('btn-sort-swatches')?.addEventListener('click', (e) => {
@@ -8447,7 +8458,7 @@ async function setSwatchPreviewFromUrl(url, showErrors = true) {
 
 async function setSwatchPreviewFromUpload(path) {
     if (!path) return false;
-    const fileUrl = `file://${path}`;
+    const fileUrl = toFileUrl(path);
     const ok = await setSwatchPreviewFromUrl(fileUrl);
     if (ok) {
         currentSwatchImageCandidate = { type: 'upload', value: path };
@@ -8455,6 +8466,15 @@ async function setSwatchPreviewFromUpload(path) {
         updateSwatchControlsState();
     }
     return ok;
+}
+
+function isHttpsUrl(value) {
+    try {
+        const parsed = new URL(String(value || ''));
+        return parsed.protocol === 'https:';
+    } catch (_) {
+        return false;
+    }
 }
 
 // Overwrite populateInkSelect to add click logic securely
@@ -8568,9 +8588,9 @@ document.getElementById('btn-load-manual-swatch')?.addEventListener('click', asy
     }
     try {
         const parsed = new URL(url);
-        if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid protocol');
+        if (parsed.protocol !== 'https:') throw new Error('Invalid protocol');
     } catch (_) {
-        setSwatchValidation('Enter a valid http/https URL.');
+        setSwatchValidation('Enter a valid https URL.');
         return;
     }
     setSwatchValidation('');
@@ -8633,6 +8653,10 @@ document.getElementById('btn-save-swatch-unified')?.addEventListener('click', as
             if (currentSwatchImageCandidate.type === 'upload') {
                 newFilename = await window.electronAPI.saveImage(currentSwatchImageCandidate.value, 'swatch', editMetadata);
             } else if (currentSwatchImageCandidate.type === 'url') {
+                if (!isHttpsUrl(currentSwatchImageCandidate.value)) {
+                    setSwatchValidation('Only https URLs are allowed for swatch images.');
+                    return;
+                }
                 const result = await window.electronAPI.saveImageUrl(currentSwatchImageCandidate.value, 'swatch', editMetadata);
                 if (result && result.success) newFilename = result.filename;
             }
@@ -8682,6 +8706,10 @@ document.getElementById('btn-save-swatch-unified')?.addEventListener('click', as
     if (currentSwatchImageCandidate.type === 'upload') {
         savedFilename = await window.electronAPI.saveImage(currentSwatchImageCandidate.value, 'swatch', imageMetadata);
     } else if (currentSwatchImageCandidate.type === 'url') {
+        if (!isHttpsUrl(currentSwatchImageCandidate.value)) {
+            setSwatchValidation('Only https URLs are allowed for swatch images.');
+            return;
+        }
         const result = await window.electronAPI.saveImageUrl(currentSwatchImageCandidate.value, 'swatch', imageMetadata);
         if (result && result.success) savedFilename = result.filename;
     }

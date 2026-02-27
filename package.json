@@ -1,6 +1,6 @@
 {
     "name": "inkubator",
-    "version": "1.6.5",
+    "version": "1.7.0",
     "description": "Local-first desktop application for the management and cataloging of fountain pen and ink collections.",
     "main": "main.js",
     "scripts": {

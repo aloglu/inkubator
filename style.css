@@ -2196,6 +2196,12 @@ body.theme-dark #view-settings .activity-select option {
     color: #6b1f1f;
 }
 
+.app-notice-floating.is-warning {
+    border-color: rgba(181, 128, 28, 0.42);
+    background: rgba(255, 245, 224, 0.96);
+    color: #5d4304;
+}
+
 body.theme-dark .app-notice-floating {
     border-color: rgba(160, 178, 198, 0.32);
     background: rgba(20, 28, 38, 0.96);
@@ -2213,6 +2219,12 @@ body.theme-dark .app-notice-floating.is-error {
     border-color: rgba(221, 104, 104, 0.5);
     background: rgba(59, 23, 23, 0.96);
     color: #ffe2e2;
+}
+
+body.theme-dark .app-notice-floating.is-warning {
+    border-color: rgba(222, 182, 88, 0.5);
+    background: rgba(54, 42, 14, 0.96);
+    color: #ffefc9;
 }
 
 @media (max-width: 1366px) {
@@ -2917,6 +2929,16 @@ body.theme-dark .activity-calendar-footer .btn-glass:hover {
 
 .modal-wide {
     width: 900px;
+}
+
+/* Keep add/edit forms usable on short viewports without changing modal widths. */
+#modal-ink .modal,
+#modal-pen .modal,
+#modal-add-swatch .modal {
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 /* Pen Modal Two-Column Layout */

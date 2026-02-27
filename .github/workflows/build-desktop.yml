@@ -211,6 +211,9 @@ jobs:
           for file in release-assets/**/Inkubator-*-linux-x86_64.rpm; do
             mv "$file" "${file/-linux-x86_64.rpm/-linux-x64.rpm}"
           done
+          for file in release-assets/**/Inkubator-*-linux-x86_64.flatpak; do
+            mv "$file" "${file/-linux-x86_64.flatpak/-linux-x64.flatpak}"
+          done
 
       - name: Remove generic Windows installer artifact
         shell: bash

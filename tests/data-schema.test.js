@@ -228,3 +228,23 @@ test('normalizeAppData drops swatches that are not linked to existing inks or mi
     assert.equal(data.swatches[0].id, 's_valid');
     assert.equal(data.swatches[0].ink_id, 'i1');
 });
+
+test('normalizeAppData filters invalid currently_inked references while preserving blank placeholders', () => {
+    const data = normalizeAppData({
+        pens: [{ id: 'p1', brand: 'Pilot', model: '823' }],
+        inks: [{ id: 'i1', name: 'Kon-peki', brand: 'Pilot' }],
+        currently_inked: [
+            { id: 'ci_ok', pen_id: 'p1', ink_id: 'i1' },
+            { id: 'ci_missing_pen', pen_id: 'p_missing', ink_id: 'i1' },
+            { id: 'ci_missing_ink', pen_id: 'p1', ink_id: 'i_missing' },
+            { id: 'ci_half_blank', pen_id: 'p1', ink_id: '' },
+            { id: 'ci_placeholder', pen_id: '', ink_id: '' }
+        ]
+    });
+
+    assert.equal(data.currently_inked.length, 2);
+    assert.deepEqual(
+        data.currently_inked.map((entry) => entry.id),
+        ['ci_ok', 'ci_placeholder']
+    );
+});

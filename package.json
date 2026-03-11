@@ -1,6 +1,6 @@
 {
     "name": "inkubator",
-    "version": "1.7.0",
+    "version": "1.7.5",
     "description": "Local-first desktop application for the management and cataloging of fountain pen and ink collections.",
     "main": "main.js",
     "scripts": {
@@ -38,6 +38,7 @@
     },
     "dependencies": {
         "fs-extra": "^11.3.3",
+        "heic-convert": "^2.1.0",
         "onnxruntime-node": "^1.24.1",
         "sharp": "^0.34.5"
     },
@@ -51,7 +52,10 @@
         "asarUnpack": [
             "node_modules/sharp/**/*",
             "node_modules/@img/**/*",
-            "node_modules/onnxruntime-node/**/*"
+            "node_modules/onnxruntime-node/**/*",
+            "node_modules/heic-convert/**/*",
+            "node_modules/heic-decode/**/*",
+            "node_modules/libheif-js/**/*"
         ],
         "files": [
             "index.html",

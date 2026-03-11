@@ -23,6 +23,10 @@ const navInks = document.getElementById('nav-inks');
 const navSwatches = document.getElementById('nav-swatches');
 const modalSwatchDetail = document.getElementById('modal-swatch-detail');
 const modalPenDetail = document.getElementById('modal-pen-detail');
+const detailImageLightbox = document.getElementById('detail-image-lightbox');
+const detailImageLightboxStage = document.getElementById('detail-image-lightbox-stage');
+const detailImageLightboxWrap = document.getElementById('detail-image-lightbox-wrap');
+const detailImageLightboxImg = document.getElementById('detail-image-lightbox-img');
 const btnEditSwatchDetail = document.getElementById('btn-edit-swatch-detail');
 const btnEditPenDetail = document.getElementById('btn-edit-pen-detail');
 const backupActions = document.getElementById('backup-actions');
@@ -75,6 +79,7 @@ const toggleExportIncludeMetadata = document.getElementById('toggle-export-inclu
 const importConflictBehaviorSelect = document.getElementById('import-conflict-behavior-select');
 const autoBackupFrequencySelect = document.getElementById('auto-backup-frequency-select');
 const backupRetentionCountInput = document.getElementById('backup-retention-count-input');
+const toggleBackupKeepReplacedImages = document.getElementById('toggle-backup-keep-replaced-images');
 const backupSettingsEffective = document.getElementById('backup-settings-effective');
 const inkPricePrefix = document.getElementById('ink-price-prefix');
 const penPricePrefix = document.getElementById('pen-price-prefix');
@@ -157,6 +162,27 @@ let activityCalendarViewDate = new Date();
 let activityFilterDateFromCalendarViewDate = new Date();
 let activityFilterDateToCalendarViewDate = new Date();
 let swatchCalendarViewDate = new Date();
+const detailImageLightboxState = {
+    open: false,
+    scale: 1,
+    baseWidth: 0,
+    baseHeight: 0,
+    source: '',
+    alt: '',
+    touchStartX: 0,
+    touchStartY: 0,
+    touchStartTs: 0,
+    touchMoved: false,
+    startScrollLeft: 0,
+    startScrollTop: 0,
+    pinchStartDistance: 0,
+    pinchStartScale: 1,
+    pinchOriginRatioX: 0.5,
+    pinchOriginRatioY: 0.5,
+    pinchActive: false,
+    suppressClick: false,
+    reopenBlockedUntil: 0
+};
 let appData = {
     pens: [],
     inks: [],
@@ -198,7 +224,8 @@ let appData = {
         backup: {
             auto_frequency: 'daily',
             retention_count: 30,
-            include_images: true
+            include_images: true,
+            keep_replaced_images: false
         },
         showcase: {
             title: 'Inkubator',
@@ -513,7 +540,10 @@ function ensureAppDataDefaults(data) {
             retention_count: Number.isFinite(parsedBackupRetention) && parsedBackupRetention >= 1
                 ? Math.min(365, Math.round(parsedBackupRetention))
                 : 30,
-            include_images: typeof incomingBackup.include_images === 'boolean' ? incomingBackup.include_images : true
+            include_images: typeof incomingBackup.include_images === 'boolean' ? incomingBackup.include_images : true,
+            keep_replaced_images: typeof incomingBackup.keep_replaced_images === 'boolean'
+                ? incomingBackup.keep_replaced_images
+                : false
         },
         showcase: {
             title: normalizeShowcaseTitle(incomingShowcase.title),
@@ -582,9 +612,12 @@ function refreshBackupEffectiveStatus() {
     const backupPrefs = getBackupPreferences();
     const frequencyRaw = autoBackupFrequencySelect ? autoBackupFrequencySelect.value : backupPrefs.auto_frequency;
     const retentionRaw = backupRetentionCountInput ? backupRetentionCountInput.value : backupPrefs.retention_count;
+    const keepReplacedImages = toggleBackupKeepReplacedImages
+        ? !!toggleBackupKeepReplacedImages.checked
+        : !!backupPrefs.keep_replaced_images;
     const frequencyLabel = formatAutoBackupFrequencyLabel(frequencyRaw);
     const retention = Math.max(1, Number(retentionRaw) || 30);
-    backupSettingsEffective.textContent = `Effective: ${frequencyLabel} auto-backups, keep last ${retention}. Images and full settings/data are always included in both automated and manual backups.`;
+    backupSettingsEffective.textContent = `Effective: ${frequencyLabel} auto-backups, keep last ${retention}. Current referenced images are always backed up. Replaced photos ${keepReplacedImages ? 'are kept in backups.' : 'are discarded when replaced.'}`;
 }
 
 function getDefaultDateFormat() {
@@ -839,6 +872,164 @@ function toFileUrl(localPath) {
     return url.href;
 }
 
+async function getLocalImagePreviewSource(localPath) {
+    if (!localPath || typeof localPath !== 'string') return '';
+    if (!isElectron || !window.electronAPI || typeof window.electronAPI.getImagePreviewUrl !== 'function') {
+        return toFileUrl(localPath);
+    }
+    try {
+        return await window.electronAPI.getImagePreviewUrl(localPath);
+    } catch (error) {
+        console.warn('Image preview generation failed, using direct file URL.', error);
+        return toFileUrl(localPath);
+    }
+}
+
+function canUseDetailImageLightbox() {
+    if (isElectron || typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(max-width: 1024px)').matches;
+}
+
+function blockDetailImageLightboxReopen(durationMs = 420) {
+    detailImageLightboxState.reopenBlockedUntil = Date.now() + Math.max(0, durationMs);
+}
+
+function isDetailImageLightboxReopenBlocked() {
+    return Date.now() < Number(detailImageLightboxState.reopenBlockedUntil || 0);
+}
+
+function isDetailImageLightboxOpen() {
+    return !!(detailImageLightboxState.open && detailImageLightbox && getComputedStyle(detailImageLightbox).display !== 'none');
+}
+
+function getDetailImageLightboxScaledSize(scale = detailImageLightboxState.scale) {
+    const stageWidth = detailImageLightboxStage ? (detailImageLightboxStage.clientWidth || window.innerWidth || 0) : (window.innerWidth || 0);
+    const stageHeight = detailImageLightboxStage ? (detailImageLightboxStage.clientHeight || window.innerHeight || 0) : (window.innerHeight || 0);
+    const imageWidth = Math.max(1, Math.round(detailImageLightboxState.baseWidth * scale));
+    const imageHeight = Math.max(1, Math.round(detailImageLightboxState.baseHeight * scale));
+    return {
+        imageWidth,
+        imageHeight,
+        wrapWidth: Math.max(stageWidth, imageWidth),
+        wrapHeight: Math.max(stageHeight, imageHeight)
+    };
+}
+
+function applyDetailImageLightboxZoom() {
+    if (!detailImageLightboxWrap || !detailImageLightboxImg) return;
+    const { imageWidth, imageHeight, wrapWidth, wrapHeight } = getDetailImageLightboxScaledSize();
+    detailImageLightboxWrap.style.width = `${wrapWidth}px`;
+    detailImageLightboxWrap.style.height = `${wrapHeight}px`;
+    detailImageLightboxImg.style.width = `${imageWidth}px`;
+    detailImageLightboxImg.style.height = `${imageHeight}px`;
+}
+
+function fitDetailImageLightboxToViewport() {
+    if (!detailImageLightboxImg || !detailImageLightboxStage) return;
+    const naturalWidth = detailImageLightboxImg.naturalWidth || 0;
+    const naturalHeight = detailImageLightboxImg.naturalHeight || 0;
+    if (!naturalWidth || !naturalHeight) return;
+
+    const stageWidth = detailImageLightboxStage.clientWidth || window.innerWidth || naturalWidth;
+    const stageHeight = detailImageLightboxStage.clientHeight || window.innerHeight || naturalHeight;
+    const padding = 48;
+    const maxWidth = Math.max(120, stageWidth - padding);
+    const maxHeight = Math.max(120, stageHeight - padding);
+    const fitScale = Math.min(maxWidth / naturalWidth, maxHeight / naturalHeight, 1);
+
+    detailImageLightboxState.baseWidth = Math.max(1, Math.round(naturalWidth * fitScale));
+    detailImageLightboxState.baseHeight = Math.max(1, Math.round(naturalHeight * fitScale));
+    detailImageLightboxState.scale = 1;
+    applyDetailImageLightboxZoom();
+    if (detailImageLightboxStage) {
+        detailImageLightboxStage.scrollLeft = 0;
+        detailImageLightboxStage.scrollTop = 0;
+    }
+}
+
+function closeDetailImageLightbox() {
+    if (!detailImageLightbox) return;
+    blockDetailImageLightboxReopen();
+    detailImageLightboxState.open = false;
+    detailImageLightboxState.scale = 1;
+    detailImageLightboxState.baseWidth = 0;
+    detailImageLightboxState.baseHeight = 0;
+    detailImageLightboxState.source = '';
+    detailImageLightboxState.alt = '';
+    detailImageLightboxState.touchMoved = false;
+    detailImageLightboxState.pinchActive = false;
+    detailImageLightboxState.suppressClick = false;
+    detailImageLightbox.style.display = 'none';
+    detailImageLightbox.setAttribute('aria-hidden', 'true');
+    if (detailImageLightboxImg) {
+        detailImageLightboxImg.onload = null;
+        detailImageLightboxImg.onerror = null;
+        detailImageLightboxImg.removeAttribute('src');
+        detailImageLightboxImg.alt = '';
+        detailImageLightboxImg.style.width = '';
+        detailImageLightboxImg.style.height = '';
+    }
+    if (detailImageLightboxWrap) {
+        detailImageLightboxWrap.style.width = '';
+        detailImageLightboxWrap.style.height = '';
+    }
+    if (detailImageLightboxStage) {
+        detailImageLightboxStage.scrollLeft = 0;
+        detailImageLightboxStage.scrollTop = 0;
+    }
+}
+
+function openDetailImageLightbox(source, alt = 'Image preview') {
+    if (!source || !detailImageLightbox || !detailImageLightboxImg || !detailImageLightboxStage) return;
+    detailImageLightboxState.open = true;
+    detailImageLightboxState.source = source;
+    detailImageLightboxState.alt = alt;
+    detailImageLightboxState.scale = 1;
+    detailImageLightboxState.pinchActive = false;
+    detailImageLightboxState.touchMoved = false;
+    detailImageLightboxState.suppressClick = false;
+    detailImageLightbox.style.display = 'flex';
+    detailImageLightbox.setAttribute('aria-hidden', 'false');
+    detailImageLightboxImg.alt = alt;
+    detailImageLightboxImg.onload = () => {
+        fitDetailImageLightboxToViewport();
+        detailImageLightboxImg.onload = null;
+    };
+    detailImageLightboxImg.onerror = () => {
+        closeDetailImageLightbox();
+    };
+    detailImageLightboxImg.src = source;
+}
+
+function configureDetailImageLightboxTrigger(imageEl, source, alt) {
+    if (!imageEl) return;
+    const enabled = !!source && canUseDetailImageLightbox();
+    imageEl.dataset.lightboxSrc = enabled ? source : '';
+    imageEl.dataset.lightboxAlt = enabled ? String(alt || 'Image preview') : '';
+    imageEl.classList.toggle('detail-image-fullscreen-trigger', enabled);
+    if (enabled) {
+        imageEl.setAttribute('role', 'button');
+        imageEl.setAttribute('tabindex', '0');
+        imageEl.setAttribute('aria-label', `Open ${String(alt || 'image').trim() || 'image'} full screen`);
+    } else {
+        imageEl.removeAttribute('role');
+        imageEl.removeAttribute('tabindex');
+        imageEl.removeAttribute('aria-label');
+    }
+}
+
+function handleDetailImageLightboxTrigger(event) {
+    const imageEl = event && event.currentTarget ? event.currentTarget : null;
+    if (!imageEl) return;
+    const source = String(imageEl.dataset.lightboxSrc || '').trim();
+    if (!source || !canUseDetailImageLightbox() || isDetailImageLightboxReopenBlocked()) return;
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    openDetailImageLightbox(source, imageEl.dataset.lightboxAlt || 'Image preview');
+}
+
 function isManagedImagePathForDeletion(imagePath) {
     if (typeof imagePath !== 'string' || !imagePath) return false;
     if (imagePath.includes('default_')) return false;
@@ -851,6 +1042,18 @@ function isManagedImagePathForDeletion(imagePath) {
         return false;
     }
     return true;
+}
+
+async function disposeReplacedManagedImage(imagePath) {
+    if (!isManagedImagePathForDeletion(imagePath)) return;
+    if (!isElectron || !window.electronAPI) return;
+    if (typeof window.electronAPI.disposeReplacedImage === 'function') {
+        await window.electronAPI.disposeReplacedImage(imagePath);
+        return;
+    }
+    if (typeof window.electronAPI.deleteImage === 'function') {
+        await window.electronAPI.deleteImage(imagePath);
+    }
 }
 
 function getActivityRetentionDays() {
@@ -881,10 +1084,422 @@ function formatPenName(pen) {
     return name || 'Unnamed pen';
 }
 
+function normalizePenIdentityKey(penLike) {
+    if (!penLike || typeof penLike !== 'object') return '';
+    const brand = String(penLike.brand || penLike.pen_brand || '').trim().toLowerCase();
+    const model = String(penLike.model || penLike.pen_model || '').trim().toLowerCase();
+    if (!brand && !model) return '';
+    return `${brand}::${model}`;
+}
+
+function getPenDuplicateNameCounts() {
+    const counts = new Map();
+    (appData.pens || []).forEach((pen) => {
+        const key = normalizePenIdentityKey(pen);
+        if (!key) return;
+        counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+}
+
+function normalizePenColorLabel(value) {
+    return String(value || '')
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(', ');
+}
+
+function getPenColorLabel(penLike) {
+    if (!penLike || typeof penLike !== 'object') return '';
+    return normalizePenColorLabel(penLike.color || penLike.pen_color || '');
+}
+
+function isValidHexColor(value) {
+    return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(value || '').trim());
+}
+
+function getPenColorHex(penLike) {
+    if (!penLike || typeof penLike !== 'object') return '';
+    const palette = Array.isArray(penLike.hex_colors) ? penLike.hex_colors : [];
+    const first = String(palette[0] || penLike.hex_color || '').trim();
+    if (isValidHexColor(first)) return first;
+
+    const metaPalette = Array.isArray(penLike.pen_hex_colors) ? penLike.pen_hex_colors : [];
+    const metaFirst = String(metaPalette[0] || penLike.pen_color_hex || '').trim();
+    if (isValidHexColor(metaFirst)) return metaFirst;
+    return '';
+}
+
+function buildPenActivityMetadata(pen, extraMetadata = {}) {
+    const metadata = (extraMetadata && typeof extraMetadata === 'object')
+        ? { ...extraMetadata }
+        : {};
+    if (!pen || typeof pen !== 'object') return metadata;
+
+    const displayName = formatPenName(pen);
+    const brand = String(pen.brand || '').trim();
+    const model = String(pen.model || '').trim();
+    const nameKey = normalizePenIdentityKey(pen);
+    const colorLabel = getPenColorLabel(pen);
+    const colorHex = getPenColorHex(pen);
+    const duplicateCounts = getPenDuplicateNameCounts();
+    const nib = String(pen.nib || '').trim();
+    const nibMaterial = String(pen.nib_material || '').trim();
+    const fillingSystem = String(pen.filling_system || '').trim();
+
+    if (displayName && displayName !== 'Unnamed pen') metadata.pen_display_name = displayName;
+    if (brand) metadata.pen_brand = brand;
+    if (model) metadata.pen_model = model;
+    if (nameKey) {
+        metadata.pen_name_key = nameKey;
+        metadata.pen_duplicate_count_at_log = Math.max(1, duplicateCounts.get(nameKey) || 1);
+    }
+    if (colorLabel) metadata.pen_color = colorLabel;
+    if (colorHex) metadata.pen_color_hex = colorHex;
+    if (nib) metadata.pen_nib = nib;
+    if (nibMaterial) metadata.pen_nib_material = nibMaterial;
+    if (fillingSystem) metadata.pen_filling_system = fillingSystem;
+    return metadata;
+}
+
+function buildInkActivityMetadata(ink, extraMetadata = {}) {
+    const metadata = (extraMetadata && typeof extraMetadata === 'object')
+        ? { ...extraMetadata }
+        : {};
+    if (!ink || typeof ink !== 'object') return metadata;
+
+    const displayName = formatInkName(ink);
+    const type = String(ink.type || '').trim();
+    const amount = String(ink.amount || '').trim();
+    const colorCount = Array.isArray(ink.hex_colors)
+        ? ink.hex_colors.map((value) => String(value || '').trim()).filter(Boolean).length
+        : 0;
+
+    if (displayName && displayName !== 'Unnamed ink') metadata.ink_display_name = displayName;
+    if (type) metadata.ink_type = type;
+    if (amount) metadata.ink_amount = amount;
+    if (colorCount > 0) metadata.ink_color_count = colorCount;
+    return metadata;
+}
+
+function buildSwatchActivityMetadata(swatch, linkedInk = null, extraMetadata = {}) {
+    const metadata = (extraMetadata && typeof extraMetadata === 'object')
+        ? { ...extraMetadata }
+        : {};
+    const inkDisplayName = linkedInk ? formatInkName(linkedInk) : '';
+
+    if (inkDisplayName && inkDisplayName !== 'Unnamed ink') {
+        metadata.swatch_ink_display_name = inkDisplayName;
+    }
+    if (!swatch || typeof swatch !== 'object') return metadata;
+
+    const paper = String(swatch.swatch_paper || '').trim();
+    const nib = String(swatch.swatch_nib || '').trim();
+    const lighting = String(swatch.swatch_lighting || '').trim();
+
+    if (paper) metadata.swatch_paper = paper;
+    if (nib) metadata.swatch_nib = nib;
+    if (lighting) metadata.swatch_lighting = lighting;
+    return metadata;
+}
+
+function getActivityPenSource(entry) {
+    if (!entry || String(entry.category || '').toLowerCase() !== 'pen') return null;
+    const metadata = (entry.metadata && typeof entry.metadata === 'object') ? entry.metadata : {};
+    const currentPen = entry.entity_id ? findPenById(entry.entity_id) : null;
+    if (metadata.pen_display_name || metadata.pen_name_key || metadata.pen_brand || metadata.pen_model) {
+        return metadata;
+    }
+    return currentPen || metadata;
+}
+
+function getActivityPenDifferentiator(entry, penDuplicateCounts = null) {
+    if (!entry || String(entry.category || '').toLowerCase() !== 'pen') return null;
+
+    const metadata = (entry.metadata && typeof entry.metadata === 'object') ? entry.metadata : {};
+    const source = getActivityPenSource(entry);
+    const currentPen = entry.entity_id ? findPenById(entry.entity_id) : null;
+    const identityKey = String(
+        metadata.pen_name_key
+        || (currentPen ? normalizePenIdentityKey(currentPen) : '')
+        || normalizePenIdentityKey(source)
+    );
+    if (!identityKey) return null;
+
+    const counts = penDuplicateCounts || getPenDuplicateNameCounts();
+    const currentCount = counts.get(identityKey) || 0;
+    const historicalCount = Number(metadata.pen_duplicate_count_at_log) || 0;
+    if (Math.max(currentCount, historicalCount) <= 1) return null;
+
+    const colorLabel = getPenColorLabel(source);
+    if (!colorLabel) return null;
+
+    const brand = String(source.brand || source.pen_brand || '').trim();
+    const model = String(source.model || source.pen_model || '').trim();
+    return {
+        colorLabel,
+        colorHex: getPenColorHex(source),
+        searchText: [brand, model, colorLabel].filter(Boolean).join(' ')
+    };
+}
+
+function getActivityPenDisplayName(entry) {
+    const source = getActivityPenSource(entry);
+    if (!source) return '';
+    if (source.pen_display_name) return String(source.pen_display_name).trim();
+    return formatPenName({
+        brand: source.brand || source.pen_brand || '',
+        model: source.model || source.pen_model || ''
+    });
+}
+
+function stripActivityMetadataSuffix(message) {
+    return String(message || '')
+        .replace(/\s*\[meta:[^\]]*\]\s*$/i, '')
+        .trim();
+}
+
+function stripActivityTerminalPeriod(message) {
+    return String(message || '').trim().replace(/\.$/, '').trim();
+}
+
+function splitActivityMessageSummaryAndDetail(message) {
+    const normalized = stripActivityTerminalPeriod(stripActivityMetadataSuffix(message));
+    if (!normalized) {
+        return { summary: '', detail: '' };
+    }
+
+    const match = normalized.match(/^(.*?)(?:\s+\(([^()]*)\))$/);
+    if (!match) {
+        return { summary: normalized, detail: '' };
+    }
+
+    return {
+        summary: String(match[1] || '').trim(),
+        detail: String(match[2] || '').trim()
+    };
+}
+
 function formatInkName(ink) {
     if (!ink) return 'Unknown ink';
     const name = [ink.brand || '', ink.name || ''].join(' ').trim();
     return name || 'Unnamed ink';
+}
+
+function getActivityInkSource(entry) {
+    if (!entry) return null;
+    const metadata = (entry.metadata && typeof entry.metadata === 'object') ? entry.metadata : {};
+    const currentInk = entry.entity_id ? findInkById(entry.entity_id) : null;
+    if (metadata.ink_display_name || metadata.ink_type || metadata.ink_amount || metadata.ink_color_count) return metadata;
+    if (currentInk) return currentInk;
+    return null;
+}
+
+function getActivityInkDisplayName(entry) {
+    const source = getActivityInkSource(entry);
+    if (!source) return '';
+    if (source.ink_display_name) return String(source.ink_display_name).trim();
+    return formatInkName(source);
+}
+
+function getActivitySwatchLinkedInkDisplayName(entry) {
+    if (!entry || String(entry.category || '').toLowerCase() !== 'swatch') return '';
+    const metadata = (entry.metadata && typeof entry.metadata === 'object') ? entry.metadata : {};
+    if (metadata.swatch_ink_display_name) return String(metadata.swatch_ink_display_name).trim();
+
+    const swatch = entry.entity_id ? getSwatchById(entry.entity_id) : null;
+    if (swatch) {
+        const linkedInk = getInkById(swatch.ink_id);
+        if (linkedInk) return formatInkName(linkedInk);
+    }
+
+    const ink = entry.entity_id ? findInkById(entry.entity_id) : null;
+    return ink ? formatInkName(ink) : '';
+}
+
+function getActivityPenInkNames(entry) {
+    const metadata = (entry && entry.metadata && typeof entry.metadata === 'object') ? entry.metadata : {};
+    const previousInkName = String(metadata.previous_ink_name || '').trim();
+    const newInkName = String(metadata.new_ink_name || '').trim();
+    const previousInk = metadata.previous_ink_id ? findInkById(metadata.previous_ink_id) : null;
+    const newInk = metadata.new_ink_id ? findInkById(metadata.new_ink_id) : null;
+
+    let currentInkName = '';
+    if (entry && entry.entity_id) {
+        const currentLink = (appData.currently_inked || []).find((item) => item.pen_id === entry.entity_id);
+        if (currentLink) {
+            const ink = findInkById(currentLink.ink_id);
+            if (ink) currentInkName = formatInkName(ink);
+        }
+    }
+
+    return {
+        previousInkName: previousInkName || (previousInk ? formatInkName(previousInk) : ''),
+        newInkName: newInkName || (newInk ? formatInkName(newInk) : currentInkName)
+    };
+}
+
+function formatMinimalActivityMessage(entry) {
+    const category = String(entry?.category || 'system').toLowerCase() || 'system';
+    const action = String(entry?.action || 'updated').toLowerCase() || 'updated';
+    return `${category}: ${action}`;
+}
+
+function isStoredMinimalActivityMessage(message, entry) {
+    return String(message || '').trim().toLowerCase() === formatMinimalActivityMessage(entry);
+}
+
+function buildActivityFallbackMessage(entry) {
+    if (!entry || typeof entry !== 'object') return 'Activity recorded';
+
+    const category = String(entry.category || '').toLowerCase();
+    const action = String(entry.action || '').toLowerCase();
+    const penName = getActivityPenDisplayName(entry);
+    const inkName = getActivityInkDisplayName(entry);
+    const swatchInkName = getActivitySwatchLinkedInkDisplayName(entry);
+    const { previousInkName, newInkName } = getActivityPenInkNames(entry);
+
+    if (category === 'pen') {
+        if (action === 'created' && penName) return `Added pen: ${penName}`;
+        if (action === 'updated' && penName) return `Updated pen: ${penName}`;
+        if (action === 'deleted' && penName) return `Deleted pen: ${penName}`;
+        if (action === 'inked' && penName) return newInkName ? `Inked ${penName} with ${newInkName}` : `Inked ${penName}`;
+        if (action === 'cleaned' && penName) return `Emptied ${penName}`;
+        if (action === 'reinked' && penName) return newInkName ? `Changed ink in ${penName} to ${newInkName}` : `Changed ink in ${penName}`;
+    }
+
+    if (category === 'ink') {
+        if (action === 'created' && inkName) return `Added ink: ${inkName}`;
+        if (action === 'updated' && inkName) return `Updated ink: ${inkName}`;
+        if (action === 'deleted' && inkName) return `Deleted ink: ${inkName}`;
+    }
+
+    if (category === 'swatch') {
+        if (action === 'created' && swatchInkName) return `Added swatch for ${swatchInkName}`;
+        if (action === 'updated' && swatchInkName) return `Updated swatch for ${swatchInkName}`;
+        if (action === 'deleted' && swatchInkName) return `Deleted swatch for ${swatchInkName}`;
+    }
+
+    return stripActivityTerminalPeriod(stripActivityMetadataSuffix(entry.message || 'Activity recorded')) || 'Activity recorded';
+}
+
+function resolveActivityNormalMessage(entry) {
+    const stored = stripActivityTerminalPeriod(stripActivityMetadataSuffix(entry?.message || ''));
+    if (!stored) return buildActivityFallbackMessage(entry);
+    if (isStoredMinimalActivityMessage(stored, entry)) {
+        return buildActivityFallbackMessage(entry);
+    }
+    return stored;
+}
+
+function pushUniqueActivityDetail(details, value) {
+    const normalized = String(value || '').trim();
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (details.some((item) => item.toLowerCase() === key)) return;
+    details.push(normalized);
+}
+
+function buildDetailedActivityText(entry, penDiff, messageParts) {
+    const details = [];
+    const category = String(entry?.category || '').toLowerCase();
+    const action = String(entry?.action || '').toLowerCase();
+    const parsedDetail = String(messageParts?.detail || '').trim();
+    const metadata = (entry && entry.metadata && typeof entry.metadata === 'object') ? entry.metadata : {};
+
+    if (parsedDetail && action === 'updated') {
+        pushUniqueActivityDetail(details, `Changed: ${parsedDetail}`);
+    }
+
+    if (category === 'pen') {
+        const source = getActivityPenSource(entry) || metadata;
+        const colorLabel = penDiff?.colorLabel || getPenColorLabel(source);
+        const nib = String(source.nib || source.pen_nib || metadata.pen_nib || '').trim();
+        const nibMaterial = String(source.nib_material || source.pen_nib_material || metadata.pen_nib_material || '').trim();
+        const fillingSystem = String(source.filling_system || source.pen_filling_system || metadata.pen_filling_system || '').trim();
+        const { previousInkName, newInkName } = getActivityPenInkNames(entry);
+
+        if (action === 'inked' && newInkName) {
+            pushUniqueActivityDetail(details, `Ink: ${newInkName}`);
+        } else if (action === 'reinked') {
+            if (previousInkName) pushUniqueActivityDetail(details, `Previous ink: ${previousInkName}`);
+            if (newInkName) pushUniqueActivityDetail(details, `New ink: ${newInkName}`);
+        } else if (action === 'cleaned' && previousInkName) {
+            pushUniqueActivityDetail(details, `Removed ink: ${previousInkName}`);
+        }
+
+        if (colorLabel) pushUniqueActivityDetail(details, `Color: ${colorLabel}`);
+        if (nib) {
+            pushUniqueActivityDetail(details, nibMaterial ? `Nib: ${nib} (${nibMaterial})` : `Nib: ${nib}`);
+        }
+        if (fillingSystem) pushUniqueActivityDetail(details, `Fill: ${fillingSystem}`);
+    } else if (category === 'ink') {
+        const source = getActivityInkSource(entry) || metadata;
+        const type = String(source.type || source.ink_type || metadata.ink_type || '').trim();
+        const amount = String(source.amount || source.ink_amount || metadata.ink_amount || '').trim();
+        const colorCount = Array.isArray(source.hex_colors)
+            ? source.hex_colors.map((value) => String(value || '').trim()).filter(Boolean).length
+            : Number(source.ink_color_count || metadata.ink_color_count || 0);
+
+        if (type) pushUniqueActivityDetail(details, `Type: ${type}`);
+        if (amount) pushUniqueActivityDetail(details, `Amount: ${amount}`);
+        if (colorCount > 0) pushUniqueActivityDetail(details, `Colors: ${colorCount}`);
+    } else if (category === 'swatch') {
+        const swatch = entry?.entity_id ? getSwatchById(entry.entity_id) : null;
+        const paper = String((swatch && swatch.swatch_paper) || metadata.swatch_paper || '').trim();
+        const nib = String((swatch && swatch.swatch_nib) || metadata.swatch_nib || '').trim();
+        const lighting = String((swatch && swatch.swatch_lighting) || metadata.swatch_lighting || '').trim();
+        const count = Number(metadata.swatch_count || 0);
+
+        if (count > 0) pushUniqueActivityDetail(details, `Count: ${count}`);
+        if (paper) pushUniqueActivityDetail(details, `Paper: ${paper}`);
+        if (nib) pushUniqueActivityDetail(details, `Nib: ${nib}`);
+        if (lighting) pushUniqueActivityDetail(details, `Lighting: ${lighting}`);
+    }
+
+    if (parsedDetail && details.length === 0) {
+        pushUniqueActivityDetail(details, parsedDetail);
+    }
+
+    return details.join(' • ');
+}
+
+function injectActivityPenDot(message, entry, penDiff) {
+    const safeMessage = escapeHtml(message);
+    if (!penDiff) return safeMessage;
+
+    const penName = getActivityPenDisplayName(entry);
+    const safePenName = escapeHtml(penName);
+    if (!safePenName || !safeMessage.includes(safePenName)) return safeMessage;
+
+    const dotStyle = penDiff.colorHex
+        ? ` style="--activity-pen-diff-color: ${penDiff.colorHex};"`
+        : '';
+    const dotLabel = escapeHtml(penDiff.colorLabel || 'Pen color');
+    const penDot = `<span class="activity-pen-inline-dot"${dotStyle} role="img" aria-label="${dotLabel}" title="${dotLabel}"></span>`;
+    return safeMessage.replace(safePenName, `${safePenName}${penDot}`);
+}
+
+function renderActivityMessage(entry, penDiff) {
+    const verbosity = getActivityLogVerbosity();
+
+    if (verbosity === 'minimal') {
+        return injectActivityPenDot(formatMinimalActivityMessage(entry), entry, penDiff);
+    }
+
+    const normalMessage = resolveActivityNormalMessage(entry);
+    if (verbosity !== 'detailed') {
+        return injectActivityPenDot(normalMessage, entry, penDiff);
+    }
+
+    const messageParts = splitActivityMessageSummaryAndDetail(normalMessage);
+    const primaryMessage = messageParts.summary || normalMessage || 'Activity recorded';
+    const detailText = buildDetailedActivityText(entry, penDiff, messageParts);
+    const primaryHtml = injectActivityPenDot(primaryMessage, entry, penDiff);
+    if (!detailText) return primaryHtml;
+
+    return `<span class="activity-logbook-message-primary">${primaryHtml}</span><span class="activity-logbook-message-detail">${escapeHtml(detailText)}</span>`;
 }
 
 function cloneEntityForDiff(entity, arrayKeys = []) {
@@ -1269,21 +1884,12 @@ function getRecentActivityIcon(entry) {
 
 function logActivity(action, category, message, options = {}) {
     if (!shouldLogActivityEvent(action, category)) return;
-    const verbosity = getActivityLogVerbosity();
-    let formattedMessage = message || 'Activity recorded';
-    if (verbosity === 'minimal') {
-        const capCategory = String(category || 'system');
-        const capAction = String(action || 'updated');
-        formattedMessage = `${capCategory}: ${capAction}`;
-    } else if (verbosity === 'detailed' && options.metadata && typeof options.metadata === 'object' && Object.keys(options.metadata).length > 0) {
-        formattedMessage = `${formattedMessage} [meta:${Object.keys(options.metadata).join(', ')}]`;
-    }
     const entry = {
         id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         timestamp: typeof options.timestamp === 'number' ? options.timestamp : Date.now(),
         action: action || 'updated',
         category: category || 'system',
-        message: formattedMessage,
+        message: message || 'Activity recorded',
         entity_id: options.entityId || '',
         metadata: options.metadata && typeof options.metadata === 'object' ? options.metadata : {}
     };
@@ -2772,7 +3378,7 @@ function renderRecentActivity() {
 
     items.forEach((entry) => {
         const iconSpec = getRecentActivityIcon(entry);
-        const safeMessage = escapeHtml(entry.message || 'Activity recorded');
+        const safeMessage = escapeHtml(resolveActivityNormalMessage(entry) || 'Activity recorded');
         const div = document.createElement('div');
         div.className = 'list-item';
         div.innerHTML = `
@@ -2893,13 +3499,15 @@ function getFilteredActivityEntries() {
     const searchNeedle = String(activitySearchFilter || '').trim().toLowerCase();
     if (searchNeedle) {
         const terms = searchNeedle.split(/\s+/).filter(Boolean);
+        const penDuplicateCounts = getPenDuplicateNameCounts();
         items = items.filter((entry) => {
             const msg = String(entry.message || '');
             const action = String(entry.action || '');
             const category = String(entry.category || '');
             const entity = String(entry.entity_id || '');
             const metadata = entry && entry.metadata ? JSON.stringify(entry.metadata) : '';
-            const haystack = `${msg} ${action} ${category} ${entity} ${metadata}`.toLowerCase();
+            const penDiff = getActivityPenDifferentiator(entry, penDuplicateCounts);
+            const haystack = `${msg} ${action} ${category} ${entity} ${metadata} ${penDiff ? penDiff.searchText : ''}`.toLowerCase();
             return terms.every((term) => haystack.includes(term));
         });
     }
@@ -2925,12 +3533,14 @@ function buildActivityLogbookHtml(items) {
 
     let html = '';
     let lastDate = '';
+    const penDuplicateCounts = getPenDuplicateNameCounts();
     items.forEach((entry) => {
         const dateLabel = formatActivityDateLabel(entry.timestamp);
         const safeId = escapeHtml(entry.id || '');
-        const safeMessage = escapeHtml(entry.message || 'Activity recorded');
         const safeCategory = escapeHtml(entry.category || 'system');
         const safeAction = escapeHtml(entry.action || 'updated');
+        const penDiff = getActivityPenDifferentiator(entry, penDuplicateCounts);
+        const messageHtml = renderActivityMessage(entry, penDiff);
         const deleteControl = isElectron
             ? `<button class="activity-delete-btn" data-delete-activity-id="${safeId}" title="Delete entry">
                     <i class="ph ph-trash"></i>
@@ -2944,7 +3554,7 @@ function buildActivityLogbookHtml(items) {
             <div class="activity-logbook-item glass-panel" data-activity-id="${safeId}">
                 <div class="activity-logbook-time">${formatActivityTimestamp(entry.timestamp)}</div>
                 <div>
-                    <div class="activity-logbook-message">${safeMessage}</div>
+                    <div class="activity-logbook-message">${messageHtml}</div>
                     <div class="activity-logbook-meta">${safeCategory} • ${safeAction}</div>
                 </div>
                 ${deleteControl}
@@ -3003,10 +3613,17 @@ function renderReleaseStatusUi(status) {
 
     const latestVersion = status.latestVersion || status.latestTag || 'unknown';
     const published = formatReleasePublishedDate(status.publishedAt);
-    if (status.hasUpdate) {
+    const versionState = String(status.versionState || '').trim() || (status.hasUpdate ? 'update_available' : 'up_to_date');
+    if (versionState === 'update_available') {
         appUpdateStatusText.textContent = published
             ? `New version available: ${latestVersion} (${published}). Download it from Releases.`
             : `New version available: ${latestVersion}. Download it from Releases.`;
+        return;
+    }
+    if (versionState === 'ahead_of_latest') {
+        appUpdateStatusText.textContent = published
+            ? `This build (${currentVersion || 'unknown'}) is newer than the latest published release (${latestVersion}, released ${published}).`
+            : `This build (${currentVersion || 'unknown'}) is newer than the latest published release (${latestVersion}).`;
         return;
     }
     appUpdateStatusText.textContent = published
@@ -3090,6 +3707,7 @@ function renderSettingsView() {
     if (importConflictBehaviorSelect) importConflictBehaviorSelect.value = String(importExportPrefs.conflict_behavior || 'overwrite');
     if (autoBackupFrequencySelect) autoBackupFrequencySelect.value = String(backupPrefs.auto_frequency || 'daily');
     if (backupRetentionCountInput) backupRetentionCountInput.value = String(Number(backupPrefs.retention_count) || 30);
+    if (toggleBackupKeepReplacedImages) toggleBackupKeepReplacedImages.checked = !!backupPrefs.keep_replaced_images;
     refreshBackupEffectiveStatus();
     updateInkPricePrefix();
     renderReleaseStatusUi(latestReleaseStatus);
@@ -3195,7 +3813,8 @@ function applyShowcaseSettingsFromForm() {
     prefs.backup = {
         auto_frequency: autoBackupFrequencySelect ? String(autoBackupFrequencySelect.value || 'daily').toLowerCase() : 'daily',
         retention_count: backupRetentionCountInput ? Math.max(1, Math.min(365, Number(backupRetentionCountInput.value) || 30)) : 30,
-        include_images: true
+        include_images: true,
+        keep_replaced_images: !!(toggleBackupKeepReplacedImages && toggleBackupKeepReplacedImages.checked)
     };
     prefs.showcase = showcase;
     appData.preferences = prefs;
@@ -3437,6 +4056,7 @@ if (inkImageArea) {
         }
         if (filePath) {
             currentSelectedImagePath = filePath;
+            const previewSrc = await getLocalImagePreviewSource(filePath);
             inkImagePreview.onload = () => {
                 const colors = extractInkColors(inkImagePreview);
                 if (colors) {
@@ -3447,7 +4067,7 @@ if (inkImageArea) {
                 }
                 inkImagePreview.onload = null;
             };
-            inkImagePreview.src = toFileUrl(filePath);
+            inkImagePreview.src = previewSrc;
             inkImagePreview.style.display = 'block';
             inkImageArea.querySelector('i').style.display = 'none';
             inkImageArea.querySelector('p').style.display = 'none';
@@ -3455,8 +4075,8 @@ if (inkImageArea) {
     });
 }
 
-function openInkModal(inkId = null) {
-    closeAllModals(); // Ensure no other modals are conflicting
+async function openInkModal(inkId = null) {
+    if (!(await requestCloseAllModals())) return;
     resetOverlayState();
 
     activateModal(modalInk);
@@ -3581,6 +4201,7 @@ function openInkModal(inkId = null) {
         if (btnDeleteInk) btnDeleteInk.style.display = 'none';
         modalInk.querySelector('h2').textContent = 'Add New Ink';
     }
+    captureModalDraftSnapshot('ink');
 }
 
 // Multiselect Logic
@@ -3837,8 +4458,8 @@ function getInkColors() {
 
 // --- End Pen Color System ---
 
-function openPenModal(penId = null) {
-    closeAllModals(); // Ensure no other modals are conflicting
+async function openPenModal(penId = null) {
+    if (!(await requestCloseAllModals())) return;
     resetOverlayState();
     activateModal(modalPen);
     document.getElementById('pen-validation-msg').style.display = 'none';
@@ -3981,9 +4602,15 @@ function openPenModal(penId = null) {
         if (btnDeletePen) btnDeletePen.style.display = 'none';
         modalPen.querySelector('h2').textContent = 'Add New Pen';
     }
+    captureModalDraftSnapshot('pen');
 }
 
 let modalLifecycle = null;
+const modalDraftSnapshots = {
+    ink: '',
+    pen: '',
+    swatch: ''
+};
 
 function getModalLifecycle() {
     if (modalLifecycle) return modalLifecycle;
@@ -4000,17 +4627,172 @@ function getModalLifecycle() {
     return modalLifecycle;
 }
 
+function clearAllModalDraftSnapshots() {
+    modalDraftSnapshots.ink = '';
+    modalDraftSnapshots.pen = '';
+    modalDraftSnapshots.swatch = '';
+}
+
+function normalizeDraftArray(values) {
+    if (!Array.isArray(values)) return [];
+    return values
+        .map((value) => String(value || '').trim())
+        .filter(Boolean);
+}
+
+function getCheckedModalValues(selector) {
+    return Array.from(document.querySelectorAll(selector))
+        .filter((input) => input && input.checked)
+        .map((input) => String(input.value || ''));
+}
+
+function getInkModalExistingImagePath() {
+    const inkId = typeof currentEditingId === 'string' ? currentEditingId : '';
+    const ink = inkId ? findInkById(inkId) : null;
+    return ink && ink.image ? ink.image : '';
+}
+
+function getInkModalDraftState() {
+    return JSON.stringify({
+        name: inkNameInput ? inkNameInput.value : '',
+        brand: inkBrandInput ? inkBrandInput.value : '',
+        line: document.getElementById('ink-line-input')?.value || '',
+        type: normalizeInkType(document.getElementById('ink-type-input')?.value) || 'Bottle',
+        cl: document.getElementById('ink-cl-input')?.value || '',
+        amount: document.getElementById('ink-amount-input')?.value || '1',
+        price: document.getElementById('ink-price-input')?.value || '',
+        shading: document.getElementById('ink-shading')?.value || 'None',
+        sheen: document.getElementById('ink-sheen')?.value || 'None',
+        shimmer: document.getElementById('ink-shimmer')?.value || 'None',
+        flow: document.getElementById('ink-flow')?.value || 'Average',
+        lubrication: document.getElementById('ink-lubrication')?.value || 'None',
+        dryTime: document.getElementById('ink-dry-time')?.value || '',
+        permanence: document.getElementById('ink-permanence')?.value || 'None',
+        baseType: getCheckedModalValues('#base-type-popover input[type="checkbox"]'),
+        paperCompatibility: getCheckedModalValues('#paper-compatibility-popover input[type="checkbox"]'),
+        notes: document.getElementById('ink-notes')?.value || '',
+        colors: normalizeDraftArray(getInkColors()),
+        image: currentSelectedImagePath || getInkModalExistingImagePath()
+    });
+}
+
+function getPenModalExistingImagePath() {
+    const penId = typeof currentEditingId === 'string' ? currentEditingId : '';
+    const pen = penId ? findPenById(penId) : null;
+    return pen && pen.image && pen.image !== 'default_pen.png' ? pen.image : '';
+}
+
+function getPenModalEffectiveImagePath() {
+    if (currentPenImagePath) return currentPenImagePath;
+    if (penImageRemoved) return '';
+    return getPenModalExistingImagePath();
+}
+
+function getPenModalDraftState() {
+    const effectiveImagePath = getPenModalEffectiveImagePath();
+    return JSON.stringify({
+        brand: penBrandInput ? penBrandInput.value : '',
+        model: penModelInput ? penModelInput.value : '',
+        nib: penNibInput ? penNibInput.value : '',
+        nibMaterial: penNibMaterialInput ? penNibMaterialInput.value : '',
+        material: penMaterialInput ? normalizeCsvValues(penMaterialInput.value).join(', ') : '',
+        fillingSystem: penFillingSystemInput ? normalizeCsvValues(penFillingSystemInput.value).join(', ') : '',
+        color: penColorInput ? normalizeCsvValues(penColorInput.value).join(', ') : '',
+        price: penPriceInput ? penPriceInput.value : '',
+        notes: penNotesInput ? penNotesInput.value : '',
+        inkId: penInkSelect ? String(penInkSelect.value || '') : '',
+        colors: normalizeDraftArray(getPenColors()),
+        image: effectiveImagePath,
+        imageRotation: effectiveImagePath ? currentPenRotation : 0
+    });
+}
+
+function getSwatchModalExistingImagePath() {
+    const swatch = currentEditingSwatchId ? getSwatchById(currentEditingSwatchId) : null;
+    return swatch && swatch.image ? swatch.image : '';
+}
+
+function getSwatchModalEffectiveImagePath() {
+    if (currentSwatchImageCandidate && typeof currentSwatchImageCandidate === 'object') {
+        const type = String(currentSwatchImageCandidate.type || 'image');
+        const value = String(currentSwatchImageCandidate.value || '');
+        return `${type}:${value}`;
+    }
+    return getSwatchModalExistingImagePath();
+}
+
+function getSwatchModalDraftState() {
+    return JSON.stringify({
+        inkId: document.getElementById('fetch-swatch-ink-input')?.value || '',
+        matchedName: document.getElementById('fetch-swatch-name-auto')?.value || '',
+        manualUrl: document.getElementById('fetch-swatch-url-manual')?.value || '',
+        paper: document.getElementById('swatch-paper-input')?.value || '',
+        nib: document.getElementById('swatch-nib-input')?.value || '',
+        date: document.getElementById('swatch-date-input')?.value || '',
+        lighting: document.getElementById('swatch-lighting-input')?.value || 'Unknown',
+        notes: document.getElementById('swatch-notes-input')?.value || '',
+        image: getSwatchModalEffectiveImagePath()
+    });
+}
+
+function getVisibleFormModalKey() {
+    const addSwatchModal = document.getElementById('modal-add-swatch');
+    if (isModalVisible(modalInk)) return 'ink';
+    if (isModalVisible(modalPen)) return 'pen';
+    if (isModalVisible(addSwatchModal)) return 'swatch';
+    return '';
+}
+
+function captureModalDraftSnapshot(key) {
+    if (key === 'ink') {
+        modalDraftSnapshots.ink = getInkModalDraftState();
+    } else if (key === 'pen') {
+        modalDraftSnapshots.pen = getPenModalDraftState();
+    } else if (key === 'swatch') {
+        modalDraftSnapshots.swatch = getSwatchModalDraftState();
+    }
+}
+
+function hasUnsavedFormChanges(key) {
+    if (!key || !modalDraftSnapshots[key]) return false;
+    if (key === 'ink') return modalDraftSnapshots.ink !== getInkModalDraftState();
+    if (key === 'pen') return modalDraftSnapshots.pen !== getPenModalDraftState();
+    if (key === 'swatch') return modalDraftSnapshots.swatch !== getSwatchModalDraftState();
+    return false;
+}
+
+async function requestCloseAllModals() {
+    const openFormKey = getVisibleFormModalKey();
+    if (openFormKey && hasUnsavedFormChanges(openFormKey)) {
+        const confirmed = await confirmAction({
+            title: 'Discard Changes?',
+            message: 'Close this panel and discard unsaved changes?',
+            detail: 'Any unsaved edits in this panel will be lost.',
+            buttons: ['Keep Editing', 'Discard Changes'],
+            defaultId: 0,
+            cancelId: 0,
+            confirmedIndex: 1
+        });
+        if (!confirmed) return false;
+    }
+    closeAllModals();
+    return true;
+}
+
 function closeAllModals() {
     const addSwatchModal = document.getElementById('modal-add-swatch');
     const lifecycle = getModalLifecycle();
     if (!lifecycle) return;
+    closeDetailImageLightbox();
     closeSwatchCalendar();
     lifecycle.closeAllModals([modalInk, modalPen, modalSwatchDetail, modalPenDetail, addSwatchModal]);
     currentSwatchDetailInkId = null;
     currentSwatchDetailSwatchId = null;
     currentPenDetailPenId = null;
+    currentEditingId = null;
     currentEditingSwatchId = null;
     setSwatchFormMode('create');
+    clearAllModalDraftSnapshots();
 }
 
 async function confirmAction(messageOrOptions, title = 'Confirm') {
@@ -4473,6 +5255,11 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
     // 4. Handle Image and Layout Decision
     if (swatch && swatch.image && img) {
         const imagePath = resolveImageSource(swatch.image);
+        configureDetailImageLightboxTrigger(
+            img,
+            imagePath,
+            sourceView === 'inks' ? `${formatInkName(ink)} ink image` : `${formatInkName(ink)} swatch image`
+        );
 
         img.onload = () => {
             const ratio = img.naturalWidth / img.naturalHeight;
@@ -4507,6 +5294,7 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
 
         img.src = imagePath;
     } else {
+        if (img) configureDetailImageLightboxTrigger(img, '', '');
         if (contentArea) contentArea.classList.remove('portrait-metadata-centered');
         if (img) img.src = '';
         if (imageContainer) imageContainer.style.display = 'none';
@@ -4688,6 +5476,7 @@ function openPenDetailModal(penId, sourceView = 'pens') {
     // Handle Image and Layout (Normalized to Vertical)
     if (pen.image && pen.image !== "default_pen.png" && penImg) {
         const imagePath = resolveImageSource(pen.image);
+        configureDetailImageLightboxTrigger(penImg, imagePath, `${formatPenName(pen)} image`);
 
         penImg.onload = () => {
             // Force Portrait (Side-by-side) for pens, as they are normalized vertical
@@ -4736,6 +5525,7 @@ function openPenDetailModal(penId, sourceView = 'pens') {
         };
         penImg.src = imagePath;
     } else {
+        if (penImg) configureDetailImageLightboxTrigger(penImg, '', '');
         if (penImg) {
             penImg.style.display = 'none';
             penImg.style.transform = 'rotate(0deg)';
@@ -4842,7 +5632,10 @@ async function saveNewInk() {
             image: imageFilename
         };
         appData.inks.push(newInk);
-        logActivity('created', 'ink', `Added ink: ${formatInkName(newInk)}.`, { entityId: newInk.id });
+        logActivity('created', 'ink', `Added ink: ${formatInkName(newInk)}.`, {
+            entityId: newInk.id,
+            metadata: buildInkActivityMetadata(newInk)
+        });
     }
 
     if (wasEdit && existingInk) {
@@ -4872,7 +5665,10 @@ async function saveNewInk() {
         const message = details
             ? `Updated ink: ${formatInkName(updatedInk)} (${details}).`
             : `Updated ink: ${formatInkName(updatedInk)}.`;
-        logActivity('updated', 'ink', message, { entityId: existingInk.id });
+        logActivity('updated', 'ink', message, {
+            entityId: existingInk.id,
+            metadata: buildInkActivityMetadata(updatedInk)
+        });
     }
 
     const nextImagePath = currentEditingId
@@ -4894,7 +5690,7 @@ async function saveNewInk() {
         },
         onSuccess: async () => {
             if (shouldDeletePreviousImage) {
-                await window.electronAPI.deleteImage(previousImagePath);
+                await disposeReplacedManagedImage(previousImagePath);
             }
             currentSelectedImagePath = null;
             closeAllModals();
@@ -5043,8 +5839,12 @@ async function saveNewPen() {
     }
 
     const targetPen = findPenById(targetPenId);
+    const penActivityMetadata = targetPen ? buildPenActivityMetadata(targetPen) : {};
     if (!wasEdit && targetPen) {
-        logActivity('created', 'pen', `Added pen: ${formatPenName(targetPen)}.`, { entityId: targetPenId });
+        logActivity('created', 'pen', `Added pen: ${formatPenName(targetPen)}.`, {
+            entityId: targetPenId,
+            metadata: penActivityMetadata
+        });
     } else if (wasEdit && targetPen) {
         const changedLabels = getChangedFieldLabels(existingPenSnapshot, targetPen, [
             { key: 'brand', label: 'Brand' },
@@ -5064,7 +5864,10 @@ async function saveNewPen() {
         const message = details
             ? `Updated pen: ${formatPenName(targetPen)} (${details}).`
             : `Updated pen: ${formatPenName(targetPen)}.`;
-        logActivity('updated', 'pen', message, { entityId: targetPenId });
+        logActivity('updated', 'pen', message, {
+            entityId: targetPenId,
+            metadata: penActivityMetadata
+        });
     }
 
     const currentLink = (appData.currently_inked || []).find(ci => ci.pen_id === targetPenId);
@@ -5073,16 +5876,30 @@ async function saveNewPen() {
         const previousInk = findInkById(previousInkId);
         const currentInk = findInkById(currentInkId);
         if (!previousInkId && currentInkId && currentInk) {
-            logActivity('inked', 'pen', `Inked ${formatPenName(targetPen)} with ${formatInkName(currentInk)}.`, { entityId: targetPenId });
+            logActivity('inked', 'pen', `Inked ${formatPenName(targetPen)} with ${formatInkName(currentInk)}.`, {
+                entityId: targetPenId,
+                metadata: buildPenActivityMetadata(targetPen, {
+                    new_ink_id: currentInkId,
+                    new_ink_name: formatInkName(currentInk)
+                })
+            });
         } else if (previousInkId && !currentInkId) {
-            logActivity('cleaned', 'pen', `Emptied ${formatPenName(targetPen)} (${formatInkName(previousInk)} removed).`, { entityId: targetPenId });
+            logActivity('cleaned', 'pen', `Emptied ${formatPenName(targetPen)} (${formatInkName(previousInk)} removed).`, {
+                entityId: targetPenId,
+                metadata: buildPenActivityMetadata(targetPen, {
+                    previous_ink_id: previousInkId,
+                    previous_ink_name: formatInkName(previousInk)
+                })
+            });
         } else if (previousInkId && currentInkId && currentInk) {
             logActivity('reinked', 'pen', `Changed ink in ${formatPenName(targetPen)} to ${formatInkName(currentInk)}.`, {
                 entityId: targetPenId,
-                metadata: {
+                metadata: buildPenActivityMetadata(targetPen, {
                     previous_ink_id: previousInkId,
-                    new_ink_id: currentInkId
-                }
+                    previous_ink_name: formatInkName(previousInk),
+                    new_ink_id: currentInkId,
+                    new_ink_name: formatInkName(currentInk)
+                })
             });
         }
     }
@@ -5101,7 +5918,7 @@ async function saveNewPen() {
         },
         onSuccess: async () => {
             if (shouldDeletePreviousImage) {
-                await window.electronAPI.deleteImage(previousImagePath);
+                await disposeReplacedManagedImage(previousImagePath);
             }
             currentPenImagePath = null;
             closeAllModals();
@@ -5124,14 +5941,23 @@ async function deleteInk() {
 
     const inkToDelete = appData.inks.find(i => i.id === currentEditingId);
     if (!inkToDelete) return;
+    const inkImagePath = inkToDelete.image || null;
     const linkedSwatches = getSwatchesForInk(currentEditingId);
     const linkedSwatchImages = linkedSwatches.map((s) => s.image).filter(Boolean);
     appData.currently_inked = appData.currently_inked.filter(ci => ci.ink_id !== currentEditingId);
     appData.swatches = getAllSwatches().filter((swatch) => swatch.ink_id !== currentEditingId);
     appData.inks = appData.inks.filter(i => i.id !== currentEditingId);
-    logActivity('deleted', 'ink', `Deleted ink: ${formatInkName(inkToDelete)}.`, { entityId: currentEditingId });
+    logActivity('deleted', 'ink', `Deleted ink: ${formatInkName(inkToDelete)}.`, {
+        entityId: currentEditingId,
+        metadata: buildInkActivityMetadata(inkToDelete)
+    });
     if (linkedSwatches.length > 0) {
-        logActivity('deleted', 'swatch', `Deleted ${linkedSwatches.length} swatch${linkedSwatches.length === 1 ? '' : 'es'} linked to ${formatInkName(inkToDelete)}.`, { entityId: currentEditingId });
+        logActivity('deleted', 'swatch', `Deleted ${linkedSwatches.length} swatch${linkedSwatches.length === 1 ? '' : 'es'} linked to ${formatInkName(inkToDelete)}.`, {
+            entityId: currentEditingId,
+            metadata: buildSwatchActivityMetadata(null, inkToDelete, {
+                swatch_count: linkedSwatches.length
+            })
+        });
     }
 
     await persistDataAndRefresh({
@@ -5144,6 +5970,9 @@ async function deleteInk() {
         },
         onSuccess: async () => {
             currentSelectedImagePath = null;
+            if (inkImagePath) {
+                await window.electronAPI.deleteImage(inkImagePath);
+            }
             for (const imagePath of linkedSwatchImages) {
                 await window.electronAPI.deleteImage(imagePath);
             }
@@ -5169,13 +5998,17 @@ async function deletePen() {
     // Get image path before deleting
     const penToDelete = appData.pens.find(p => p.id === currentEditingId);
     const penImagePath = penToDelete ? penToDelete.image : null;
+    const penActivityMetadata = penToDelete ? buildPenActivityMetadata(penToDelete) : {};
 
     // Remove from pens
     appData.pens = appData.pens.filter(p => p.id !== currentEditingId);
     // Remove from currently inked
     appData.currently_inked = appData.currently_inked.filter(ci => ci.pen_id !== currentEditingId);
     if (penToDelete) {
-        logActivity('deleted', 'pen', `Deleted pen: ${formatPenName(penToDelete)}.`, { entityId: currentEditingId });
+        logActivity('deleted', 'pen', `Deleted pen: ${formatPenName(penToDelete)}.`, {
+            entityId: currentEditingId,
+            metadata: penActivityMetadata
+        });
     }
 
     await persistDataAndRefresh({
@@ -5219,7 +6052,10 @@ async function deleteCurrentSwatch() {
 
     const swatchImagePath = swatch.image;
     appData.swatches = getAllSwatches().filter((item) => item.id !== swatchId);
-    logActivity('deleted', 'swatch', `Deleted swatch for ${formatInkName(swatchInk)}.`, { entityId: swatchId });
+    logActivity('deleted', 'swatch', `Deleted swatch for ${formatInkName(swatchInk)}.`, {
+        entityId: swatchId,
+        metadata: buildSwatchActivityMetadata(swatch, swatchInk)
+    });
 
     await persistDataAndRefresh({
         refresh: {
@@ -5250,7 +6086,7 @@ const menuAddInk = null;   // Removed
 const menuAddSwatch = null;// Removed
 
 // Event Listeners Consolidated
-window.addEventListener('click', (e) => {
+window.addEventListener('click', async (e) => {
     // 1. Dropdown outside click
     if (dropdownMenu && btnAddMenu && !btnAddMenu.contains(e.target) && dropdownMenu.classList.contains('show')) {
         dropdownMenu.classList.remove('show');
@@ -5259,27 +6095,36 @@ window.addEventListener('click', (e) => {
     // 2. Modal outside click (close on overlay click)
     if (e.target === modalInk || e.target === modalPen || e.target === modalSwatchDetail || e.target === modalPenDetail ||
         e.target === document.getElementById('modal-add-swatch')) {
-        closeAllModals();
-    }
-
-    // 3. Global Close Button Handler
-    if (e.target.closest('.close-modal')) {
-        closeAllModals();
+        await requestCloseAllModals();
     }
 });
 
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', async (e) => {
     const targetTag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
     const typingInField = targetTag === 'INPUT' || targetTag === 'TEXTAREA' || targetTag === 'SELECT';
     const detailOpen = isModalVisible(modalSwatchDetail) || isModalVisible(modalPenDetail);
-    if (!detailOpen) return;
+    const formModalOpen = !!getVisibleFormModalKey();
 
     if (e.key === 'Escape') {
-        e.preventDefault();
-        closeDetailModals();
+        if (isDetailImageLightboxOpen()) {
+            e.preventDefault();
+            closeDetailImageLightbox();
+            return;
+        }
+        if (detailOpen) {
+            e.preventDefault();
+            closeDetailModals();
+            return;
+        }
+        if (formModalOpen) {
+            e.preventDefault();
+            await requestCloseAllModals();
+        }
         return;
     }
 
+    if (isDetailImageLightboxOpen()) return;
+    if (!detailOpen) return;
     if (typingInField) return;
     if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -5291,8 +6136,14 @@ document.addEventListener('keydown', (e) => {
 });
 
 function closeDetailModals() {
-    if (isModalVisible(modalSwatchDetail)) modalSwatchDetail.style.display = 'none';
-    if (isModalVisible(modalPenDetail)) modalPenDetail.style.display = 'none';
+    closeDetailImageLightbox();
+    const lifecycle = getModalLifecycle();
+    if (lifecycle) {
+        lifecycle.closeAllModals([modalSwatchDetail, modalPenDetail]);
+    } else {
+        if (isModalVisible(modalSwatchDetail)) modalSwatchDetail.style.display = 'none';
+        if (isModalVisible(modalPenDetail)) modalPenDetail.style.display = 'none';
+    }
     currentSwatchDetailInkId = null;
     currentSwatchDetailSwatchId = null;
     currentPenDetailPenId = null;
@@ -5310,7 +6161,7 @@ function setupDetailModalGestures() {
         let tracking = false;
 
         target.addEventListener('touchstart', (e) => {
-            if (!isModalVisible(overlay) || !e.touches || e.touches.length !== 1) return;
+            if (isDetailImageLightboxOpen() || !isModalVisible(overlay) || !e.touches || e.touches.length !== 1) return;
             const t = e.touches[0];
             startX = t.clientX;
             startY = t.clientY;
@@ -5319,7 +6170,7 @@ function setupDetailModalGestures() {
         }, { passive: true });
 
         target.addEventListener('touchend', (e) => {
-            if (!tracking || !isModalVisible(overlay) || !e.changedTouches || e.changedTouches.length === 0) return;
+            if (!tracking || isDetailImageLightboxOpen() || !isModalVisible(overlay) || !e.changedTouches || e.changedTouches.length === 0) return;
             tracking = false;
 
             const t = e.changedTouches[0];
@@ -5348,6 +6199,139 @@ function setupDetailModalGestures() {
 
 setupDetailModalGestures();
 
+function setupDetailImageLightbox() {
+    const bindTrigger = (element) => {
+        if (!element || element.dataset.lightboxBound === '1') return;
+        element.addEventListener('click', handleDetailImageLightboxTrigger);
+        element.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            handleDetailImageLightboxTrigger(event);
+        });
+        element.dataset.lightboxBound = '1';
+    };
+
+    bindTrigger(document.getElementById('swatch-detail-img'));
+    bindTrigger(document.getElementById('pen-detail-img'));
+
+    if (!detailImageLightbox || !detailImageLightboxStage) return;
+    if (detailImageLightbox.dataset.bound === '1') return;
+    detailImageLightbox.dataset.bound = '1';
+
+    detailImageLightbox.addEventListener('click', () => {
+        if (!isDetailImageLightboxOpen()) return;
+        if (detailImageLightboxState.suppressClick) {
+            detailImageLightboxState.suppressClick = false;
+            return;
+        }
+        closeDetailImageLightbox();
+    });
+
+    detailImageLightboxStage.addEventListener('touchstart', (event) => {
+        if (!isDetailImageLightboxOpen()) return;
+        if (event.touches.length >= 2) {
+            const a = event.touches[0];
+            const b = event.touches[1];
+            const beforeSize = getDetailImageLightboxScaledSize();
+            detailImageLightboxState.pinchActive = true;
+            detailImageLightboxState.pinchStartDistance = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+            detailImageLightboxState.pinchStartScale = detailImageLightboxState.scale;
+            const centerX = (a.clientX + b.clientX) / 2;
+            const centerY = (a.clientY + b.clientY) / 2;
+            detailImageLightboxState.pinchOriginRatioX = beforeSize.wrapWidth
+                ? (detailImageLightboxStage.scrollLeft + centerX) / beforeSize.wrapWidth
+                : 0.5;
+            detailImageLightboxState.pinchOriginRatioY = beforeSize.wrapHeight
+                ? (detailImageLightboxStage.scrollTop + centerY) / beforeSize.wrapHeight
+                : 0.5;
+            detailImageLightboxState.touchMoved = true;
+            detailImageLightboxState.suppressClick = true;
+            return;
+        }
+
+        const touch = event.touches[0];
+        if (!touch) return;
+        detailImageLightboxState.touchStartX = touch.clientX;
+        detailImageLightboxState.touchStartY = touch.clientY;
+        detailImageLightboxState.touchStartTs = Date.now();
+        detailImageLightboxState.startScrollLeft = detailImageLightboxStage.scrollLeft;
+        detailImageLightboxState.startScrollTop = detailImageLightboxStage.scrollTop;
+        detailImageLightboxState.touchMoved = false;
+    }, { passive: true });
+
+    detailImageLightboxStage.addEventListener('touchmove', (event) => {
+        if (!isDetailImageLightboxOpen()) return;
+        if (event.touches.length >= 2 && detailImageLightboxState.pinchActive) {
+            const a = event.touches[0];
+            const b = event.touches[1];
+            const distance = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+            if (!distance || !detailImageLightboxState.pinchStartDistance) return;
+
+            event.preventDefault();
+            const centerX = (a.clientX + b.clientX) / 2;
+            const centerY = (a.clientY + b.clientY) / 2;
+            const nextScale = Math.min(4, Math.max(1, detailImageLightboxState.pinchStartScale * (distance / detailImageLightboxState.pinchStartDistance)));
+            detailImageLightboxState.scale = nextScale;
+            applyDetailImageLightboxZoom();
+
+            const afterSize = getDetailImageLightboxScaledSize();
+            detailImageLightboxStage.scrollLeft = Math.max(
+                0,
+                Math.min(afterSize.wrapWidth - detailImageLightboxStage.clientWidth, (detailImageLightboxState.pinchOriginRatioX * afterSize.wrapWidth) - centerX)
+            );
+            detailImageLightboxStage.scrollTop = Math.max(
+                0,
+                Math.min(afterSize.wrapHeight - detailImageLightboxStage.clientHeight, (detailImageLightboxState.pinchOriginRatioY * afterSize.wrapHeight) - centerY)
+            );
+            detailImageLightboxState.touchMoved = true;
+            detailImageLightboxState.suppressClick = true;
+            return;
+        }
+
+        const touch = event.touches[0];
+        if (!touch) return;
+        if (Math.abs(touch.clientX - detailImageLightboxState.touchStartX) > 8 || Math.abs(touch.clientY - detailImageLightboxState.touchStartY) > 8) {
+            detailImageLightboxState.touchMoved = true;
+            detailImageLightboxState.suppressClick = true;
+        }
+    }, { passive: false });
+
+    detailImageLightboxStage.addEventListener('touchend', (event) => {
+        if (!isDetailImageLightboxOpen()) return;
+        if (event.touches.length >= 2) return;
+        if (detailImageLightboxState.pinchActive) {
+            if (event.touches.length < 2) {
+                detailImageLightboxState.pinchActive = false;
+                detailImageLightboxState.suppressClick = true;
+                if (detailImageLightboxState.scale <= 1.01) {
+                    fitDetailImageLightboxToViewport();
+                }
+            }
+            return;
+        }
+
+        const touch = event.changedTouches && event.changedTouches[0];
+        if (!touch) return;
+        const dx = touch.clientX - detailImageLightboxState.touchStartX;
+        const dy = touch.clientY - detailImageLightboxState.touchStartY;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
+        const elapsed = Date.now() - detailImageLightboxState.touchStartTs;
+        const scrollMoved = Math.abs(detailImageLightboxStage.scrollLeft - detailImageLightboxState.startScrollLeft) > 4
+            || Math.abs(detailImageLightboxStage.scrollTop - detailImageLightboxState.startScrollTop) > 4;
+
+        if (!detailImageLightboxState.touchMoved && !scrollMoved) {
+            closeDetailImageLightbox();
+            return;
+        }
+
+        if (detailImageLightboxState.scale <= 1.01 && elapsed < 900 && ((absY > 70 && absY > absX * 1.15) || (absX > 80 && absX > absY * 1.15))) {
+            closeDetailImageLightbox();
+        }
+    }, { passive: true });
+}
+
+setupDetailImageLightbox();
+
 
 
 if (uploadPenPhotoArea) {
@@ -5362,6 +6346,7 @@ if (uploadPenPhotoArea) {
         }
         if (filePath) {
             currentPenImagePath = filePath;
+            const previewSrc = await getLocalImagePreviewSource(filePath);
             if (uploadPenPreview) {
                 // Setup onload BEFORE setting src to avoid race condition
                 uploadPenPreview.onload = async () => {
@@ -5399,8 +6384,8 @@ if (uploadPenPhotoArea) {
                 if (penPhotoControls) penPhotoControls.style.display = 'flex';
             }
 
-            // Set src (using file:// protocol as per established pattern)
-            uploadPenPreview.src = toFileUrl(filePath);
+            // Set src after HEIC-aware preview resolution.
+            uploadPenPreview.src = previewSrc;
             uploadPenPreview.style.display = 'block';
         }
         if (penPhotoIcon) penPhotoIcon.style.display = 'none';
@@ -5732,7 +6717,11 @@ penInputs.forEach(input => {
 
 // Close Buttons (Delegation)
 document.querySelectorAll('.close-modal, .cancel-modal').forEach(btn => {
-    btn.addEventListener('click', closeAllModals);
+    btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        await requestCloseAllModals();
+    });
 });
 
 if (viewSettings) {
@@ -5985,6 +6974,7 @@ if (backupRetentionCountInput) {
     backupRetentionCountInput.addEventListener('change', persistShowcaseSettings);
     backupRetentionCountInput.addEventListener('blur', persistShowcaseSettings);
 }
+if (toggleBackupKeepReplacedImages) toggleBackupKeepReplacedImages.addEventListener('change', persistShowcaseSettings);
 
 if (showcaseTitleInput) {
     showcaseTitleInput.addEventListener('input', () => {
@@ -7054,8 +8044,12 @@ function isModalVisible(modalEl) {
 }
 
 window.addEventListener('resize', () => {
-    if (!isModalVisible(modalSwatchDetail)) return;
-    requestAnimationFrame(updateInkDetailMetadataLayout);
+    if (isDetailImageLightboxOpen()) {
+        requestAnimationFrame(fitDetailImageLightboxToViewport);
+    }
+    if (isModalVisible(modalSwatchDetail)) {
+        requestAnimationFrame(updateInkDetailMetadataLayout);
+    }
 });
 
 function getFilteredSortedPensForDetails() {
@@ -8151,12 +9145,13 @@ if (menuAddSwatch) {
     });
 }
 
-function openAddSwatchModal() {
-    closeAllModals(); // Close ink/pen modals if open
+async function openAddSwatchModal() {
+    if (!(await requestCloseAllModals())) return;
     if (modalAddSwatch) {
         activateModal(modalAddSwatch);
         populateInkSelect('fetch-swatch-ink-wrapper', 'fetch-swatch-ink-options', 'fetch-swatch-ink-input');
         resetSwatchForm('create');
+        captureModalDraftSnapshot('swatch');
     }
 }
 
@@ -8392,7 +9387,7 @@ async function openEditSwatchModal(swatchId) {
     const ink = getInkById(swatch.ink_id);
     if (!ink) return;
 
-    closeAllModals();
+    if (!(await requestCloseAllModals())) return;
     if (!modalAddSwatch) return;
 
     activateModal(modalAddSwatch);
@@ -8414,6 +9409,7 @@ async function openEditSwatchModal(swatchId) {
     currentSwatchImageCandidate = null;
     setSwatchPreviewState('image', { src: resolveImageSource(swatch.image) });
     updateSwatchControlsState();
+    captureModalDraftSnapshot('swatch');
 }
 
 function getSwatchMetadataPayload() {
@@ -8458,8 +9454,8 @@ async function setSwatchPreviewFromUrl(url, showErrors = true) {
 
 async function setSwatchPreviewFromUpload(path) {
     if (!path) return false;
-    const fileUrl = toFileUrl(path);
-    const ok = await setSwatchPreviewFromUrl(fileUrl);
+    const previewUrl = await getLocalImagePreviewSource(path);
+    const ok = await setSwatchPreviewFromUrl(previewUrl);
     if (ok) {
         currentSwatchImageCandidate = { type: 'upload', value: path };
         currentUploadPath = path;
@@ -8678,7 +9674,10 @@ document.getElementById('btn-save-swatch-unified')?.addEventListener('click', as
 
         const targetInk = getInkById(swatch.ink_id);
         if (targetInk) {
-            logActivity('updated', 'swatch', `Updated swatch for ${formatInkName(targetInk)}.`, { entityId: swatch.id });
+            logActivity('updated', 'swatch', `Updated swatch for ${formatInkName(targetInk)}.`, {
+                entityId: swatch.id,
+                metadata: buildSwatchActivityMetadata(swatch, targetInk)
+            });
         }
 
         await persistDataAndRefresh({
@@ -8691,7 +9690,7 @@ document.getElementById('btn-save-swatch-unified')?.addEventListener('click', as
             },
             onSuccess: async () => {
                 if (oldFilenameToDelete) {
-                    await window.electronAPI.deleteImage(oldFilenameToDelete);
+                    await disposeReplacedManagedImage(oldFilenameToDelete);
                 }
                 closeAllModals();
                 switchView('swatches');
@@ -8745,7 +9744,10 @@ if (btnDeleteSwatchUnified) {
 
         const swatchImagePath = swatch.image || '';
         appData.swatches = getAllSwatches().filter((item) => item.id !== swatchId);
-        logActivity('deleted', 'swatch', `Deleted swatch for ${inkName}.`, { entityId: swatchId });
+        logActivity('deleted', 'swatch', `Deleted swatch for ${inkName}.`, {
+            entityId: swatchId,
+            metadata: buildSwatchActivityMetadata(swatch, ink)
+        });
 
         await persistDataAndRefresh({
             refresh: {
@@ -8779,7 +9781,7 @@ async function updateInkWithImage(inkId, filename, swatchMetadata = null) {
 
     const payload = swatchMetadata || {};
     appData.swatches = Array.isArray(appData.swatches) ? appData.swatches : [];
-    appData.swatches.push({
+    const newSwatch = {
         id: makeClientId('swatch'),
         ink_id: inkId,
         image: filename,
@@ -8789,8 +9791,12 @@ async function updateInkWithImage(inkId, filename, swatchMetadata = null) {
         swatch_lighting: payload.swatch_lighting || 'Unknown',
         swatch_notes: payload.swatch_notes || '',
         created_at: Date.now()
+    };
+    appData.swatches.push(newSwatch);
+    logActivity('created', 'swatch', `Added swatch for ${formatInkName(ink)}.`, {
+        entityId: newSwatch.id,
+        metadata: buildSwatchActivityMetadata(newSwatch, ink)
     });
-    logActivity('created', 'swatch', `Added swatch for ${formatInkName(ink)}.`, { entityId: inkId });
     await persistDataAndRefresh({
         refresh: {
             dashboard: true,

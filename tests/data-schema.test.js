@@ -45,7 +45,8 @@ test('normalizeAppData returns empty canonical shape for invalid input', () => {
             backup: {
                 auto_frequency: 'daily',
                 retention_count: 30,
-                include_images: true
+                include_images: true,
+                keep_replaced_images: false
             },
             showcase: {
                 title: 'Inkubator',
@@ -78,6 +79,9 @@ test('normalizeAppData fills defaults while preserving existing values', () => {
             show_activity_log: false,
             show_recent_activity: false,
             activity_retention_days: 180,
+            backup: {
+                keep_replaced_images: true
+            },
             showcase: {
                 color_mode: 'dark',
                 default_sort: {
@@ -114,6 +118,7 @@ test('normalizeAppData fills defaults while preserving existing values', () => {
     assert.equal(typeof data.activity_log[0].timestamp, 'number');
     assert.equal(data.preferences.show_activity_log, false);
     assert.equal(data.preferences.activity_retention_days, 180);
+    assert.equal(data.preferences.backup.keep_replaced_images, true);
     assert.equal(data.preferences.showcase.color_mode, 'dark');
     assert.equal(data.preferences.showcase.default_sort.pens, 'brand-asc');
     assert.equal(data.preferences.showcase.default_sort.inks, 'name-desc');

@@ -214,6 +214,19 @@ body.theme-dark .modal-overlay {
     background: rgba(0, 0, 0, 0.65);
 }
 
+html.modal-scroll-locked,
+body.modal-scroll-locked {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+body.modal-scroll-locked {
+    position: fixed;
+    left: 0;
+    right: 0;
+    width: 100%;
+}
+
 body.theme-dark .inked-card,
 body.theme-dark .recent-list,
 body.theme-dark .maintenance {
@@ -2692,9 +2705,32 @@ body.theme-dark .activity-calendar-footer .btn-glass:hover {
     margin-bottom: 4px;
 }
 
+.activity-logbook-message-primary,
+.activity-logbook-message-detail {
+    display: block;
+}
+
+.activity-logbook-message-detail {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
 .activity-logbook-meta {
     font-size: 12px;
     color: var(--color-text-muted);
+}
+
+.activity-pen-inline-dot {
+    --activity-pen-diff-color: #8a98a8;
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    margin-left: 6px;
+    vertical-align: 1px;
+    background: var(--activity-pen-diff-color);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
 }
 
 .activity-delete-btn {
@@ -2915,6 +2951,49 @@ body.theme-dark .activity-calendar-footer .btn-glass:hover {
     justify-content: center;
     align-items: center;
     z-index: 3000;
+    overscroll-behavior: contain;
+}
+
+.detail-image-fullscreen-trigger {
+    cursor: zoom-in;
+}
+
+.detail-image-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 6800;
+    background: rgba(7, 10, 15, 0.96);
+    align-items: center;
+    justify-content: center;
+}
+
+.detail-image-lightbox-stage {
+    width: 100vw;
+    height: 100dvh;
+    overflow: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.detail-image-lightbox-wrap {
+    min-width: 100%;
+    min-height: 100%;
+    padding: 24px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#detail-image-lightbox-img {
+    display: block;
+    max-width: none;
+    max-height: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
 }
 
 .modal {
@@ -3897,6 +3976,28 @@ input[type="number"] {
 .modal .btn-icon:active {
     outline: none !important;
     box-shadow: none !important;
+}
+
+#swatch-detail-colors > button,
+#pen-detail-colors > button,
+#pen-detail-ink-color {
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+}
+
+#swatch-detail-colors > button:is(:focus, :focus-visible, :active),
+#pen-detail-colors > button:is(:focus, :focus-visible, :active) {
+    outline: none !important;
+    border-color: #fff !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+#pen-detail-ink-color:is(:focus, :focus-visible, :active) {
+    outline: none !important;
+    border-color: #fff !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
 }
 
 /* Dropdown Menu Wrapper */
@@ -5060,6 +5161,10 @@ body {
     #pen-detail-metadata {
         grid-template-columns: 1fr !important;
         gap: 14px !important;
+    }
+
+    .detail-image-lightbox-wrap {
+        padding: 14px;
     }
 }
 

@@ -1,6 +1,41 @@
 (function () {
     function createModalLifecycle(options = {}) {
         const focusWindow = typeof options.focusWindow === 'function' ? options.focusWindow : null;
+        let scrollLockTop = null;
+
+        function hasVisibleModalOverlay() {
+            return Array.from(document.querySelectorAll('.modal-overlay'))
+                .some((modalEl) => modalEl && getComputedStyle(modalEl).display !== 'none');
+        }
+
+        function lockPageScroll() {
+            if (scrollLockTop !== null) return;
+            const scrollY = window.scrollY || window.pageYOffset || 0;
+            scrollLockTop = scrollY;
+
+            document.documentElement.classList.add('modal-scroll-locked');
+            document.body.classList.add('modal-scroll-locked');
+            document.body.style.top = `-${scrollY}px`;
+        }
+
+        function unlockPageScroll() {
+            if (scrollLockTop === null) return;
+            const restoreY = scrollLockTop;
+            scrollLockTop = null;
+
+            document.documentElement.classList.remove('modal-scroll-locked');
+            document.body.classList.remove('modal-scroll-locked');
+            document.body.style.top = '';
+            window.scrollTo(0, restoreY);
+        }
+
+        function syncPageScrollLock() {
+            if (hasVisibleModalOverlay()) {
+                lockPageScroll();
+                return;
+            }
+            unlockPageScroll();
+        }
 
         function reviveModalInputs(modalEl) {
             if (!modalEl) return;
@@ -24,6 +59,8 @@
                 modalEl.style.display = 'none';
                 modalEl.style.pointerEvents = 'none';
             });
+
+            syncPageScrollLock();
         }
 
         function resetOverlayState() {
@@ -86,6 +123,8 @@
             const inner = modalEl.querySelector('.modal');
             if (inner) inner.style.zIndex = '6001';
 
+            syncPageScrollLock();
+
             reviveModalInputs(modalEl);
 
             if (!modalEl.dataset.focusHandler) {
@@ -110,7 +149,8 @@
             activateModal,
             closeAllModals,
             resetOverlayState,
-            reviveModalInputs
+            reviveModalInputs,
+            syncPageScrollLock
         };
     }
 

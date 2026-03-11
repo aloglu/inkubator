@@ -4,6 +4,9 @@ const os = require('node:os');
 const path = require('node:path');
 const fs = require('fs-extra');
 const {
+  collectReferencedImageRelativePaths,
+  copyReferencedImages,
+  disposeManagedImage,
   runSavePostCommitSteps,
   replaceImagesWithStaging
 } = require('../lib/critical-persistence');
@@ -53,6 +56,109 @@ test('runSavePostCommitSteps returns warning when backup step fails after commit
   assert.equal(result.success, true);
   assert.equal(result.warning, true);
   assert.match(result.message, /backup step failed/i);
+});
+
+test('collectReferencedImageRelativePaths keeps only active managed image references', () => {
+  const relativePaths = collectReferencedImageRelativePaths({
+    pens: [
+      { image: 'pens/pilot-custom-823-1.webp' },
+      { image: 'default_pen.png' },
+      { image: 'images/pens/pilot-custom-823-1.webp' }
+    ],
+    inks: [
+      { image: 'inks/kon-peki.webp' },
+      { image: 'https://example.com/ignored.webp' }
+    ],
+    swatches: [
+      { image: 'swatches/kon-peki-a.webp' },
+      { image: 'swatches/kon-peki-b.webp' },
+      { image: 'data:image/png;base64,abc123' }
+    ]
+  });
+
+  assert.deepEqual(relativePaths, [
+    'inks/kon-peki.webp',
+    'pens/pilot-custom-823-1.webp',
+    'swatches/kon-peki-a.webp',
+    'swatches/kon-peki-b.webp'
+  ]);
+});
+
+test('copyReferencedImages copies only the requested managed files', async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'inkubator-critical-'));
+  const sourceRoot = path.join(tempRoot, 'source');
+  const destinationRoot = path.join(tempRoot, 'destination');
+
+  await fs.ensureDir(path.join(sourceRoot, 'pens'));
+  await fs.ensureDir(path.join(sourceRoot, 'swatches'));
+  await fs.writeFile(path.join(sourceRoot, 'pens', 'keep.webp'), 'pen', 'utf8');
+  await fs.writeFile(path.join(sourceRoot, 'swatches', 'keep.webp'), 'swatch', 'utf8');
+  await fs.writeFile(path.join(sourceRoot, 'swatches', 'skip.webp'), 'skip', 'utf8');
+
+  const copied = await copyReferencedImages({
+    fs,
+    sourceRoot,
+    destinationRoot,
+    relativePaths: ['pens/keep.webp', 'swatches/keep.webp']
+  });
+
+  assert.deepEqual(copied, ['pens/keep.webp', 'swatches/keep.webp']);
+  assert.equal(await fs.pathExists(path.join(destinationRoot, 'pens', 'keep.webp')), true);
+  assert.equal(await fs.pathExists(path.join(destinationRoot, 'swatches', 'keep.webp')), true);
+  assert.equal(await fs.pathExists(path.join(destinationRoot, 'swatches', 'skip.webp')), false);
+
+  await fs.remove(tempRoot);
+});
+
+test('disposeManagedImage deletes the active file when archive retention is off', async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'inkubator-critical-'));
+  const imagesRoot = path.join(tempRoot, 'images');
+  const archiveRoot = path.join(tempRoot, 'archive');
+
+  await fs.ensureDir(path.join(imagesRoot, 'pens'));
+  await fs.writeFile(path.join(imagesRoot, 'pens', 'old.webp'), 'old', 'utf8');
+
+  const result = await disposeManagedImage({
+    fs,
+    imagesRoot,
+    archiveRoot,
+    imagePath: 'pens/old.webp',
+    keepArchived: false
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.action, 'deleted');
+  assert.equal(await fs.pathExists(path.join(imagesRoot, 'pens', 'old.webp')), false);
+  assert.equal(await fs.pathExists(path.join(archiveRoot, 'pens', 'old.webp')), false);
+
+  await fs.remove(tempRoot);
+});
+
+test('disposeManagedImage archives replaced files without touching the live image tree', async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'inkubator-critical-'));
+  const imagesRoot = path.join(tempRoot, 'images');
+  const archiveRoot = path.join(tempRoot, 'archive');
+
+  await fs.ensureDir(path.join(imagesRoot, 'swatches'));
+  await fs.ensureDir(path.join(archiveRoot, 'swatches'));
+  await fs.writeFile(path.join(imagesRoot, 'swatches', 'old.webp'), 'old', 'utf8');
+  await fs.writeFile(path.join(archiveRoot, 'swatches', 'old.webp'), 'existing', 'utf8');
+
+  const result = await disposeManagedImage({
+    fs,
+    imagesRoot,
+    archiveRoot,
+    imagePath: 'swatches/old.webp',
+    keepArchived: true
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.action, 'archived');
+  assert.equal(await fs.pathExists(path.join(imagesRoot, 'swatches', 'old.webp')), false);
+  assert.equal(await fs.pathExists(path.join(archiveRoot, 'swatches', 'old.webp')), true);
+  assert.equal(await fs.pathExists(path.join(archiveRoot, 'swatches', 'old-2.webp')), true);
+
+  await fs.remove(tempRoot);
 });
 
 test('replaceImagesWithStaging restores rollback image set when final move fails', async () => {

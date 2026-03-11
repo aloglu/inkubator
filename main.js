@@ -3,7 +3,18 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const fs = require('fs-extra');
 const { normalizeAppData } = require('./lib/data-schema');
-const { runSavePostCommitSteps, replaceImagesWithStaging } = require('./lib/critical-persistence');
+const { prepareImageInputForSharp } = require('./lib/image-import');
+const {
+  resolveReleaseVersion,
+  getReleaseVersionState
+} = require('./lib/release-version');
+const {
+  collectReferencedImageRelativePaths,
+  copyReferencedImages,
+  disposeManagedImage,
+  runSavePostCommitSteps,
+  replaceImagesWithStaging
+} = require('./lib/critical-persistence');
 const packageInfo = require('./package.json');
 
 let mainWindow;
@@ -23,6 +34,7 @@ const REMOTE_FETCH_TIMEOUT_MS = 15000;
 const isWindows = process.platform === 'win32';
 const isGpuFallbackRun = process.argv.includes(GPU_FALLBACK_ARG);
 let hasTriggeredWindowsGpuFallback = false;
+const MANAGED_IMAGE_SUBDIRS = ['pens', 'inks', 'swatches'];
 
 if (typeof app.setName === 'function') {
   app.setName(APP_NAME);
@@ -159,6 +171,10 @@ function getImagesPath() {
   return path.join(app.getPath('userData'), 'images');
 }
 
+function getReplacedImagesArchivePath() {
+  return path.join(app.getPath('userData'), 'replaced-images');
+}
+
 function getBackupPaths() {
   const root = path.join(app.getPath('userData'), 'backups');
   return {
@@ -186,39 +202,6 @@ function clampInt(value, min, max, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, Math.round(n)));
-}
-
-function normalizeVersionForCompare(rawVersion) {
-  const cleaned = String(rawVersion || '')
-    .trim()
-    .replace(/^v/i, '')
-    .split('+')[0]
-    .split('-')[0];
-  const parts = cleaned.split('.').map((part) => Number.parseInt(part, 10));
-  if (parts.length === 0 || parts.some((part) => Number.isNaN(part))) return null;
-  return parts;
-}
-
-function compareVersions(currentVersion, latestVersion) {
-  const current = normalizeVersionForCompare(currentVersion);
-  const latest = normalizeVersionForCompare(latestVersion);
-  if (!current || !latest) return 0;
-  const maxLen = Math.max(current.length, latest.length);
-  for (let i = 0; i < maxLen; i += 1) {
-    const a = current[i] || 0;
-    const b = latest[i] || 0;
-    if (a > b) return 1;
-    if (a < b) return -1;
-  }
-  return 0;
-}
-
-function resolveReleaseVersion(release) {
-  const tag = String(release?.tag_name || '').trim();
-  if (tag) return tag.replace(/^v/i, '');
-  const name = String(release?.name || '').trim();
-  if (name) return name.replace(/^v/i, '');
-  return '';
 }
 
 function toNormalizedData(input) {
@@ -288,7 +271,8 @@ function getBackupSettings(data) {
   return {
     auto_frequency: ['off', 'daily', 'weekly', 'monthly'].includes(frequency) ? frequency : 'daily',
     retention_count: clampInt(raw.retention_count, 1, AUTO_BACKUP_HARD_MAX_FILES, AUTO_BACKUP_DEFAULT_MAX_FILES),
-    include_images: typeof raw.include_images === 'boolean' ? raw.include_images : false
+    include_images: typeof raw.include_images === 'boolean' ? raw.include_images : true,
+    keep_replaced_images: typeof raw.keep_replaced_images === 'boolean' ? raw.keep_replaced_images : false
   };
 }
 
@@ -322,6 +306,44 @@ function sanitizeDataForExport(data, includeOptionalMetadata = true) {
     });
   }
   return cloned;
+}
+
+async function ensureManagedImageTypeDirs(rootPath) {
+  await Promise.all(
+    MANAGED_IMAGE_SUBDIRS.map((dirName) => fs.ensureDir(path.join(rootPath, dirName)))
+  );
+}
+
+async function writeCurrentImagesSnapshot(collectionData, destinationRoot) {
+  const referencedImages = collectReferencedImageRelativePaths(collectionData);
+  await fs.remove(destinationRoot);
+  await fs.ensureDir(destinationRoot);
+  await ensureManagedImageTypeDirs(destinationRoot);
+  await copyReferencedImages({
+    fs,
+    sourceRoot: getImagesPath(),
+    destinationRoot,
+    relativePaths: referencedImages
+  });
+  return referencedImages;
+}
+
+async function writeReplacedImagesSnapshot(destinationRoot, includeArchivedImages) {
+  await fs.remove(destinationRoot);
+  if (!includeArchivedImages) {
+    return false;
+  }
+
+  await fs.ensureDir(destinationRoot);
+  await ensureManagedImageTypeDirs(destinationRoot);
+  const archiveRoot = getReplacedImagesArchivePath();
+  if (await fs.pathExists(archiveRoot)) {
+    await fs.copy(archiveRoot, destinationRoot, {
+      overwrite: true,
+      errorOnExist: false
+    });
+  }
+  return true;
 }
 
 function mergeById(existingArr = [], incomingArr = [], behavior = 'overwrite') {
@@ -483,23 +505,27 @@ async function createAutoBackupSnapshot(data, reason = 'save', options = {}) {
   const paths = await ensureBackupDirs();
   const backupPath = path.join(paths.auto, `auto-${makeTimestamp()}`);
   const exportData = sanitizeDataForExport(normalizedCollection, true);
+  const includeReplacedImages = !!backupSettings.keep_replaced_images;
   await fs.ensureDir(backupPath);
   await fs.writeJson(path.join(backupPath, 'data.json'), exportData, { spaces: 2 });
   await fs.writeJson(path.join(backupPath, 'preferences.json'), normalizedPreferences, { spaces: 2 });
-  // Automated backups always include images for complete disaster recovery.
-  if (await fs.pathExists(getImagesPath())) {
-    await fs.copy(getImagesPath(), path.join(backupPath, 'images'), { overwrite: true });
-  }
+  await writeCurrentImagesSnapshot(normalizedCollection, path.join(backupPath, 'images'));
+  await writeReplacedImagesSnapshot(
+    path.join(backupPath, 'replaced-images'),
+    includeReplacedImages
+  );
   await fs.writeJson(path.join(backupPath, 'manifest.json'), {
     type: 'inkubator-auto-backup',
-    version: 2,
+    version: 3,
     created_at: new Date().toISOString(),
     reason,
     include_images: true,
+    include_replaced_images: includeReplacedImages,
     include_preferences: true,
     include_optional_metadata: true,
     auto_frequency: backupSettings.auto_frequency,
-    retention_count: backupSettings.retention_count
+    retention_count: backupSettings.retention_count,
+    keep_replaced_images: includeReplacedImages
   }, { spaces: 2 });
   await pruneAutoBackups(backupSettings.retention_count);
   return backupPath;
@@ -566,24 +592,29 @@ async function createManualBackup(targetFolder) {
   const backupDataPath = path.join(folder, 'data.json');
   const backupPreferencesPath = path.join(folder, 'preferences.json');
   const backupImagesPath = path.join(folder, 'images');
+  const backupReplacedImagesPath = path.join(folder, 'replaced-images');
   const rawData = await fs.readJson(dataPath);
   const rawPreferences = (await fs.pathExists(preferencesPath))
     ? await fs.readJson(preferencesPath).catch(() => ({}))
     : currentPreferences;
+  const normalizedCollection = toCollectionData(rawData);
   const exportData = sanitizeDataForExport(rawData, true);
   const exportPreferences = toNormalizedPreferences(rawPreferences);
+  const backupSettings = getBackupSettings({ preferences: exportPreferences });
+  const includeReplacedImages = !!backupSettings.keep_replaced_images;
   await fs.writeJson(backupDataPath, exportData, { spaces: 2 });
   await fs.writeJson(backupPreferencesPath, exportPreferences, { spaces: 2 });
-  if (await fs.pathExists(imagesPath)) {
-    await fs.copy(imagesPath, backupImagesPath, { overwrite: true });
-  }
+  await writeCurrentImagesSnapshot(normalizedCollection, backupImagesPath);
+  await writeReplacedImagesSnapshot(backupReplacedImagesPath, includeReplacedImages);
   await fs.writeJson(path.join(folder, 'manifest.json'), {
     type: 'inkubator-backup',
-    version: 2,
+    version: 3,
     created_at: new Date().toISOString(),
-    includes_images: await fs.pathExists(backupImagesPath),
+    includes_images: true,
+    includes_replaced_images: includeReplacedImages,
     includes_preferences: true,
-    include_optional_metadata: true
+    include_optional_metadata: true,
+    keep_replaced_images: includeReplacedImages
   }, { spaces: 2 });
   return folder;
 }
@@ -665,6 +696,27 @@ async function importManualBackup(backupFolder, options = {}) {
       }
     }
 
+    const backupReplacedImagesPath = path.join(backupFolder, 'replaced-images');
+    const replacedImagesPath = getReplacedImagesArchivePath();
+    if (await fs.pathExists(backupReplacedImagesPath)) {
+      if (conflictBehavior === 'overwrite') {
+        await replaceImagesWithStaging({
+          fs,
+          backupImagesPath: backupReplacedImagesPath,
+          imagesPath: replacedImagesPath,
+          tempRoot: app.getPath('userData')
+        });
+      } else if (conflictBehavior === 'skip') {
+        await fs.copy(backupReplacedImagesPath, replacedImagesPath, { overwrite: false, errorOnExist: false });
+      } else {
+        await fs.copy(backupReplacedImagesPath, replacedImagesPath, { overwrite: true });
+      }
+    } else if (conflictBehavior === 'overwrite' && await fs.pathExists(replacedImagesPath)) {
+      await fs.remove(replacedImagesPath);
+    }
+
+    await ensureManagedImageTypeDirs(getImagesPath());
+
     const combined = combineCollectionWithPreferences(merged, incomingPreferences);
     await createAutoBackupSnapshot(combined, 'post-import-restore', { force: true });
     return { success: true, data: combined };
@@ -686,7 +738,6 @@ async function exportShowcaseBundle(targetFolder) {
   const showcaseRoot = path.join(targetFolder, 'showcase');
   const bundledRoot = __dirname;
   const dataPath = getDataPath();
-  const imagesPath = getImagesPath();
   const rendererPath = getBundledRendererPath();
   const iconsPath = getBundledIconsPath();
   const fontsPath = getBundledFontsPath();
@@ -748,14 +799,7 @@ async function exportShowcaseBundle(targetFolder) {
     'utf8'
   );
 
-  if (await fs.pathExists(imagesPath)) {
-    await fs.copy(imagesPath, path.join(showcaseRoot, 'images'), {
-      overwrite: true,
-      errorOnExist: false
-    });
-  } else {
-    await fs.ensureDir(path.join(showcaseRoot, 'images'));
-  }
+  await writeCurrentImagesSnapshot(showcaseData, path.join(showcaseRoot, 'images'));
 
   const showcaseIndexPath = path.join(showcaseRoot, 'index.html');
   if (await fs.pathExists(showcaseIndexPath)) {
@@ -1171,6 +1215,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = REMOTE_FETCH_TIME
 // ----------------------------------------------------------------
 
 let sharpModule = null;
+let heicConvertModule = null;
 let ort = null;
 let penModelSessionPromise = null;
 
@@ -1190,6 +1235,56 @@ function getSharpOrThrow() {
     wrapped.cause = error;
     throw wrapped;
   }
+}
+
+function getHeicConvertOrThrow() {
+  if (heicConvertModule) return heicConvertModule;
+  try {
+    heicConvertModule = require('heic-convert');
+    return heicConvertModule;
+  } catch (error) {
+    const message = [
+      'HEIC/HEIF conversion module "heic-convert" is unavailable in this build.',
+      `Original error: ${error && error.message ? error.message : String(error)}`
+    ].join(' ');
+    const wrapped = new Error(message);
+    wrapped.code = 'HEIC_CONVERT_UNAVAILABLE';
+    wrapped.cause = error;
+    throw wrapped;
+  }
+}
+
+async function convertHeicBufferForSharp(inputBuffer) {
+  const heicConvert = getHeicConvertOrThrow();
+  return await heicConvert({
+    buffer: inputBuffer,
+    format: 'PNG'
+  });
+}
+
+async function getLocalImagePreviewUrl(sourcePath) {
+  if (!sourcePath) {
+    throw new Error('Missing source path.');
+  }
+
+  const sharpInput = await prepareImageInputForSharp({
+    input: sourcePath,
+    fs,
+    sourcePath,
+    convertHeicBuffer: convertHeicBufferForSharp
+  });
+
+  if (!Buffer.isBuffer(sharpInput)) {
+    return pathToFileURL(sourcePath).href;
+  }
+
+  const sharp = getSharpOrThrow();
+  const previewBuffer = await sharp(sharpInput)
+    .resize({ width: 1200, withoutEnlargement: true, fit: 'inside' })
+    .webp({ quality: 80 })
+    .toBuffer();
+
+  return `data:image/webp;base64,${previewBuffer.toString('base64')}`;
 }
 
 async function getOrtModule() {
@@ -1486,7 +1581,13 @@ function isolatePenCorePoints(points, width, height) {
 async function detectPenColorsWithML(sourcePath) {
   const sharp = getSharpOrThrow();
   const modelSize = 320;
-  const { data: rgbBuffer } = await sharp(sourcePath)
+  const sharpInput = await prepareImageInputForSharp({
+    input: sourcePath,
+    fs,
+    sourcePath,
+    convertHeicBuffer: convertHeicBufferForSharp
+  });
+  const { data: rgbBuffer } = await sharp(sharpInput)
     .removeAlpha()
     .resize(modelSize, modelSize, { fit: 'fill' })
     .raw()
@@ -1596,9 +1697,15 @@ ipcMain.handle('save-image', async (event, sourcePath, type, metadata) => {
     }
 
     const destPath = path.join(imagesDir, filename);
+    const sharpInput = await prepareImageInputForSharp({
+      input: sourcePath,
+      fs,
+      sourcePath,
+      convertHeicBuffer: convertHeicBufferForSharp
+    });
 
     // Process with Sharp: Resize max-width 1200px and convert to WebP
-    await sharp(sourcePath)
+    await sharp(sharpInput)
       .resize({ width: 1200, withoutEnlargement: true, fit: 'inside' })
       .webp({ quality: 80 })
       .toFile(destPath);
@@ -1686,6 +1793,25 @@ ipcMain.handle('dialog:openFile', async () => {
   }
 });
 
+ipcMain.handle('dispose-replaced-image', async (event, relativePath) => {
+  if (!relativePath || (typeof relativePath === 'string' && relativePath.includes('default_'))) {
+    return { success: true, action: 'noop' };
+  }
+  try {
+    const backupSettings = getBackupSettings({ preferences: currentPreferences });
+    return await disposeManagedImage({
+      fs,
+      imagesRoot: getImagesPath(),
+      archiveRoot: getReplacedImagesArchivePath(),
+      imagePath: relativePath,
+      keepArchived: !!backupSettings.keep_replaced_images
+    });
+  } catch (err) {
+    console.error('Dispose Replaced Image Error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('detect-pen-colors', async (event, sourcePath) => {
   if (!sourcePath) return { success: false, message: 'Missing source path.' };
   try {
@@ -1696,6 +1822,10 @@ ipcMain.handle('detect-pen-colors', async (event, sourcePath) => {
     console.error("Detect Pen Colors Error:", error);
     return { success: false, message: error.message };
   }
+});
+
+ipcMain.handle('image:preview-url', async (event, sourcePath) => {
+  return await getLocalImagePreviewUrl(sourcePath);
 });
 
 // 5a. Backup status
@@ -1742,15 +1872,15 @@ ipcMain.handle('release:status', async () => {
     const latestVersion = resolveReleaseVersion(release) || null;
     const publishedAt = release?.published_at || release?.created_at || null;
     const releaseUrl = release?.html_url || GITHUB_RELEASES_URL;
-    const hasUpdate = latestVersion
-      ? compareVersions(currentVersion, latestVersion) < 0
-      : (latestTag ? latestTag !== currentTag : false);
+    const versionState = getReleaseVersionState(currentVersion, latestVersion, latestTag, currentTag);
+    const hasUpdate = versionState === 'update_available';
     return {
       success: true,
       currentVersion,
       currentTag,
       latestVersion,
       latestTag,
+      versionState,
       hasUpdate,
       releaseUrl,
       releasesUrl: GITHUB_RELEASES_URL,
@@ -1969,6 +2099,7 @@ ipcMain.handle('save-image-url', async (event, url, type, metadata) => {
     if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
 
     const buffer = await response.arrayBuffer();
+    const sourceBuffer = Buffer.from(buffer);
 
     const typeFolder = (type === 'pen') ? 'pens' : (type === 'ink' ? 'inks' : 'swatches');
     const imagesDir = path.join(getImagesPath(), typeFolder);
@@ -1984,9 +2115,15 @@ ipcMain.handle('save-image-url', async (event, url, type, metadata) => {
     }
 
     const destPath = path.join(imagesDir, filename);
+    const sharpInput = await prepareImageInputForSharp({
+      input: sourceBuffer,
+      sourceUrl: parsed.toString(),
+      mimeType: response.headers.get('content-type') || '',
+      convertHeicBuffer: convertHeicBufferForSharp
+    });
 
     // Process Buffer with Sharp
-    await sharp(Buffer.from(buffer))
+    await sharp(sharpInput)
       .resize({ width: 1200, withoutEnlargement: true, fit: 'inside' })
       .webp({ quality: 80 })
       .toFile(destPath);

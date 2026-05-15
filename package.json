@@ -46,7 +46,8 @@
         "appId": "com.inkubator.app",
         "productName": "Inkubator",
         "directories": {
-            "output": "dist"
+            "output": "dist",
+            "buildResources": "build"
         },
         "asar": true,
         "asarUnpack": [
@@ -126,7 +127,7 @@
             ],
             "category": "Utility",
             "artifactName": "Inkubator-${version}-linux-${arch}.${ext}",
-            "icon": "build/icons"
+            "icon": "icons"
         },
         "flatpak": {
             "runtimeVersion": "25.08",

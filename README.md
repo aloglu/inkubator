@@ -38,6 +38,25 @@ Inkubator is a local-first desktop application for managing and cataloging fount
 ### Binary Execution
 Pre-compiled binaries for supported operating systems are available via the GitHub [Releases](https://github.com/aloglu/inkubator/releases) page.
 
+### Linux Packages
+Linux release artifacts are available as DEB, RPM, and Flatpak packages.
+
+Install or remove the package with the tool that matches the artifact you used:
+
+```bash
+# DEB
+sudo apt install ./Inkubator-<version>-linux-x64.deb
+sudo apt remove inkubator
+
+# RPM
+sudo dnf install ./Inkubator-<version>-linux-x64.rpm
+sudo dnf remove inkubator
+
+# Flatpak
+flatpak install --user ./Inkubator-<version>-linux-x64.flatpak
+flatpak uninstall --user com.inkubator.app
+```
+
 ### Source Build & Development
 **Prerequisites**: Node.js (v18.0.0+) and npm (v9.0.0+).
 

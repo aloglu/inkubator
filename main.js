@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, globalShortcut } = require('electron');
 const path = require('path');
-const { pathToFileURL } = require('url');
+const { fileURLToPath, pathToFileURL } = require('url');
 const fs = require('fs-extra');
 const { normalizeAppData } = require('./lib/data-schema');
 const { prepareImageInputForSharp } = require('./lib/image-import');
@@ -27,6 +27,7 @@ const GPU_FALLBACK_ARG = '--inkubator-gpu-fallback';
 const GPU_TOGGLE_SHORTCUT = 'CommandOrControl+Shift+F12';
 const WINDOWS_WHITE_FRAME_CHECK_DELAY_MS = 2000;
 const WINDOWS_WHITE_FRAME_THRESHOLD = 0.997;
+const MAX_REMOTE_IMAGE_BYTES = 25 * 1024 * 1024;
 let autoBackupIntervalHandle = null;
 const GITHUB_REPO = 'aloglu/inkubator';
 const GITHUB_RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases`;
@@ -35,6 +36,8 @@ const isWindows = process.platform === 'win32';
 const isGpuFallbackRun = process.argv.includes(GPU_FALLBACK_ARG);
 let hasTriggeredWindowsGpuFallback = false;
 const MANAGED_IMAGE_SUBDIRS = ['pens', 'inks', 'swatches'];
+const ALLOWED_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif']);
+const selectedExternalImagePaths = new Set();
 
 if (typeof app.setName === 'function') {
   app.setName(APP_NAME);
@@ -135,28 +138,90 @@ if (
   app.commandLine.appendSwitch('xdg-portal-required-version', '4');
 }
 
+function getBundledResourcePath(relativePath) {
+  const bundledPath = path.join(__dirname, relativePath);
+  const unpackedCandidates = [];
+
+  if (process.resourcesPath) {
+    unpackedCandidates.push(path.join(process.resourcesPath, 'app.asar.unpacked', relativePath));
+  }
+
+  if (__dirname.includes('.asar')) {
+    unpackedCandidates.push(path.join(__dirname.replace('.asar', '.asar.unpacked'), relativePath));
+  }
+
+  const unpackedPath = unpackedCandidates.find((candidate) => fs.existsSync(candidate));
+  return unpackedPath || bundledPath;
+}
+
 function getBundledDataPath() {
-  return path.join(__dirname, 'data.json');
+  return getBundledResourcePath('data.json');
 }
 
 function getBundledImagesPath() {
-  return path.join(__dirname, 'images');
+  return getBundledResourcePath('images');
 }
 
 function getBundledRendererPath() {
-  return path.join(__dirname, 'renderer');
+  return getBundledResourcePath('renderer');
 }
 
 function getBundledIconsPath() {
-  return path.join(__dirname, 'assets', 'icons');
+  return getBundledResourcePath(path.join('assets', 'icons'));
 }
 
 function getBundledFontsPath() {
-  return path.join(__dirname, 'assets', 'fonts');
+  return getBundledResourcePath(path.join('assets', 'fonts'));
+}
+
+function getBundledPhosphorPath() {
+  return getBundledResourcePath(path.join('assets', 'phosphor'));
 }
 
 function getBundledWindowIconPath() {
-  return path.join(__dirname, 'assets', 'icons', 'ink-drop-white-icon.png');
+  return getBundledResourcePath(path.join('assets', 'icons', 'inkubator-icon.png'));
+}
+
+async function copyRequiredShowcasePath(sourcePath, destinationPath, label) {
+  if (!(await fs.pathExists(sourcePath))) {
+    throw new Error(`Showcase export source missing: ${label} (${sourcePath})`);
+  }
+
+  await fs.copy(sourcePath, destinationPath, {
+    overwrite: true,
+    errorOnExist: false
+  });
+
+  if (!(await fs.pathExists(destinationPath))) {
+    throw new Error(`Showcase export failed to write: ${label} (${destinationPath})`);
+  }
+}
+
+async function replaceShowcaseWithStage(finalPath, stagePath) {
+  const backupPath = `${finalPath}.previous-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  let hasBackup = false;
+
+  try {
+    if (await fs.pathExists(finalPath)) {
+      await fs.move(finalPath, backupPath, { overwrite: false });
+      hasBackup = true;
+    }
+
+    await fs.move(stagePath, finalPath, { overwrite: false });
+
+    if (hasBackup) {
+      await fs.remove(backupPath).catch((cleanupError) => {
+        console.warn(`Could not remove previous showcase export backup: ${cleanupError.message}`);
+      });
+    }
+  } catch (error) {
+    if (hasBackup && !(await fs.pathExists(finalPath)) && await fs.pathExists(backupPath)) {
+      await fs.move(backupPath, finalPath, { overwrite: false }).catch((restoreError) => {
+        console.error(`Could not restore previous showcase export after failure: ${restoreError.message}`);
+      });
+    }
+    throw error;
+  }
 }
 
 function getDataPath() {
@@ -736,97 +801,111 @@ async function exportShowcaseBundle(targetFolder) {
   await ensureAppStorage();
 
   const showcaseRoot = path.join(targetFolder, 'showcase');
+  const showcaseStage = path.join(targetFolder, `.showcase-export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const bundledRoot = __dirname;
   const dataPath = getDataPath();
   const rendererPath = getBundledRendererPath();
   const iconsPath = getBundledIconsPath();
   const fontsPath = getBundledFontsPath();
+  const phosphorPath = getBundledPhosphorPath();
 
-  await fs.ensureDir(showcaseRoot);
+  await fs.remove(showcaseStage);
+  await fs.ensureDir(showcaseStage);
 
-  const fileCopies = [
-    ['index.html', 'index.html'],
-    ['style.css', 'style.css'],
-    ['renderer.js', 'renderer.js']
-  ];
+  try {
+    const fileCopies = [
+      ['index.html', 'index.html'],
+      ['style.css', 'style.css'],
+      ['renderer.js', 'renderer.js']
+    ];
 
-  for (const [srcName, dstName] of fileCopies) {
-    await fs.copy(path.join(bundledRoot, srcName), path.join(showcaseRoot, dstName), {
-      overwrite: true,
-      errorOnExist: false
-    });
-  }
-
-  if (await fs.pathExists(rendererPath)) {
-    await fs.copy(rendererPath, path.join(showcaseRoot, 'renderer'), {
-      overwrite: true,
-      errorOnExist: false
-    });
-  }
-
-  if (await fs.pathExists(iconsPath)) {
-    await fs.copy(iconsPath, path.join(showcaseRoot, 'assets', 'icons'), {
-      overwrite: true,
-      errorOnExist: false
-    });
-  }
-
-  if (await fs.pathExists(fontsPath)) {
-    await fs.copy(fontsPath, path.join(showcaseRoot, 'assets', 'fonts'), {
-      overwrite: true,
-      errorOnExist: false
-    });
-  }
-
-  let showcaseData;
-  if (await fs.pathExists(dataPath)) {
-    const raw = await fs.readJson(dataPath);
-    const normalized = toCollectionData(raw);
-    const exportSettings = getImportExportSettings({ preferences: currentPreferences });
-    const sanitizedCollection = sanitizeDataForExport(normalized, exportSettings.include_optional_metadata);
-    showcaseData = combineCollectionWithPreferences(sanitizedCollection, currentPreferences);
-  } else {
-    showcaseData = combineCollectionWithPreferences(
-      toCollectionData({ pens: [], inks: [], currently_inked: [] }),
-      currentPreferences
-    );
-  }
-
-  await fs.writeJson(path.join(showcaseRoot, 'data.json'), showcaseData, { spaces: 2 });
-  await fs.writeFile(
-    path.join(showcaseRoot, 'data.js'),
-    `window.__INKUBATOR_DATA__ = ${JSON.stringify(showcaseData)};\n`,
-    'utf8'
-  );
-
-  await writeCurrentImagesSnapshot(showcaseData, path.join(showcaseRoot, 'images'));
-
-  const showcaseIndexPath = path.join(showcaseRoot, 'index.html');
-  if (await fs.pathExists(showcaseIndexPath)) {
-    let html = await fs.readFile(showcaseIndexPath, 'utf8');
-    if (!html.includes('src="data.js"')) {
-      html = html.replace(
-        '<script src="renderer.js"></script>',
-        '    <script src="data.js"></script>\n    <script src="renderer.js"></script>'
+    for (const [srcName, dstName] of fileCopies) {
+      await copyRequiredShowcasePath(
+        path.join(bundledRoot, srcName),
+        path.join(showcaseStage, dstName),
+        srcName
       );
     }
-    await fs.writeFile(showcaseIndexPath, html, 'utf8');
 
-    // Route entry files for static hosts without rewrite rules:
-    // /inks, /pens, /swatches, etc. resolve to their own index.html and still load shared assets.
-    const routeNames = ['dashboard', 'pens', 'inks', 'swatches', 'stats', 'activity', 'settings'];
-    const headMatch = html.match(/<head[^>]*>/i);
-    const routeHtml = headMatch
-      ? html.replace(headMatch[0], `${headMatch[0]}\n    <base href="../">`)
-      : html;
-    for (const routeName of routeNames) {
-      const routeDir = path.join(showcaseRoot, routeName);
-      await fs.ensureDir(routeDir);
-      await fs.writeFile(path.join(routeDir, 'index.html'), routeHtml, 'utf8');
+    if (await fs.pathExists(rendererPath)) {
+      await fs.copy(rendererPath, path.join(showcaseStage, 'renderer'), {
+        overwrite: true,
+        errorOnExist: false
+      });
     }
-  }
 
-  return showcaseRoot;
+    await copyRequiredShowcasePath(
+      iconsPath,
+      path.join(showcaseStage, 'assets', 'icons'),
+      'assets/icons'
+    );
+
+    await copyRequiredShowcasePath(
+      fontsPath,
+      path.join(showcaseStage, 'assets', 'fonts'),
+      'assets/fonts'
+    );
+
+    await copyRequiredShowcasePath(
+      phosphorPath,
+      path.join(showcaseStage, 'assets', 'phosphor'),
+      'assets/phosphor'
+    );
+
+    let showcaseData;
+    if (await fs.pathExists(dataPath)) {
+      const raw = await fs.readJson(dataPath);
+      const normalized = toCollectionData(raw);
+      const exportSettings = getImportExportSettings({ preferences: currentPreferences });
+      const sanitizedCollection = sanitizeDataForExport(normalized, exportSettings.include_optional_metadata);
+      showcaseData = combineCollectionWithPreferences(sanitizedCollection, currentPreferences);
+    } else {
+      showcaseData = combineCollectionWithPreferences(
+        toCollectionData({ pens: [], inks: [], currently_inked: [] }),
+        currentPreferences
+      );
+    }
+
+    await fs.writeJson(path.join(showcaseStage, 'data.json'), showcaseData, { spaces: 2 });
+    await fs.writeFile(
+      path.join(showcaseStage, 'data.js'),
+      `window.__INKUBATOR_DATA__ = ${JSON.stringify(showcaseData)};\n`,
+      'utf8'
+    );
+
+    await writeCurrentImagesSnapshot(showcaseData, path.join(showcaseStage, 'images'));
+
+    const showcaseIndexPath = path.join(showcaseStage, 'index.html');
+    if (await fs.pathExists(showcaseIndexPath)) {
+      let html = await fs.readFile(showcaseIndexPath, 'utf8');
+      if (!html.includes('src="data.js"')) {
+        html = html.replace(
+          '<script src="renderer.js"></script>',
+          '    <script src="data.js"></script>\n    <script src="renderer.js"></script>'
+        );
+      }
+      await fs.writeFile(showcaseIndexPath, html, 'utf8');
+
+      // Route entry files for static hosts without rewrite rules:
+      // /inks, /pens, /swatches, etc. resolve to their own index.html and still load shared assets.
+      const routeNames = ['dashboard', 'pens', 'inks', 'swatches', 'stats', 'activity', 'settings'];
+      const headMatch = html.match(/<head[^>]*>/i);
+      const routeHtml = headMatch
+        ? html.replace(headMatch[0], `${headMatch[0]}\n    <base href="../">`)
+        : html;
+      for (const routeName of routeNames) {
+        const routeDir = path.join(showcaseStage, routeName);
+        await fs.ensureDir(routeDir);
+        await fs.writeFile(path.join(routeDir, 'index.html'), routeHtml, 'utf8');
+      }
+    }
+
+    await replaceShowcaseWithStage(showcaseRoot, showcaseStage);
+    return showcaseRoot;
+  } catch (error) {
+    await fs.remove(showcaseStage).catch(() => {});
+    throw error;
+  }
 }
 
 async function migratePenImageNames(data) {
@@ -904,6 +983,10 @@ function createWindow() {
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      enableRemoteModule: false
     }
   });
 
@@ -1192,6 +1275,58 @@ function isPathInside(parent, candidate) {
   return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
+function normalizeLocalFilesystemPath(inputPath = '') {
+  if (typeof inputPath !== 'string') return '';
+  const trimmed = inputPath.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('file://')) {
+    try {
+      return path.normalize(fileURLToPath(trimmed));
+    } catch (_error) {
+      return '';
+    }
+  }
+  return path.normalize(trimmed);
+}
+
+function registerSelectedImagePath(filePath) {
+  const normalized = normalizeLocalFilesystemPath(filePath);
+  if (normalized) selectedExternalImagePaths.add(normalized);
+  return normalized;
+}
+
+function isAllowedSelectedImagePath(filePath) {
+  const normalized = normalizeLocalFilesystemPath(filePath);
+  if (!normalized) return false;
+  return selectedExternalImagePaths.has(normalized);
+}
+
+function isManagedImageFilesystemPath(filePath) {
+  const normalized = normalizeLocalFilesystemPath(filePath);
+  if (!normalized) return false;
+  const imagesRoot = getImagesPath();
+  return isPathInside(imagesRoot, normalized);
+}
+
+async function assertAllowedLocalImagePath(filePath, contextLabel = 'image') {
+  const normalized = normalizeLocalFilesystemPath(filePath);
+  if (!normalized) {
+    throw new Error(`Missing ${contextLabel} path.`);
+  }
+  if (!isAllowedSelectedImagePath(normalized) && !isManagedImageFilesystemPath(normalized)) {
+    throw new Error(`Access to this ${contextLabel} path is not allowed.`);
+  }
+  const stat = await fs.stat(normalized).catch(() => null);
+  if (!stat || !stat.isFile()) {
+    throw new Error(`Selected ${contextLabel} file does not exist.`);
+  }
+  const ext = path.extname(normalized).toLowerCase();
+  if (!ALLOWED_IMAGE_EXTENSIONS.has(ext)) {
+    throw new Error(`Unsupported ${contextLabel} file type.`);
+  }
+  return normalized;
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs = REMOTE_FETCH_TIMEOUT_MS) {
   const timeout = Number(timeoutMs);
   const safeTimeout = Number.isFinite(timeout) && timeout > 0 ? timeout : REMOTE_FETCH_TIMEOUT_MS;
@@ -1263,19 +1398,17 @@ async function convertHeicBufferForSharp(inputBuffer) {
 }
 
 async function getLocalImagePreviewUrl(sourcePath) {
-  if (!sourcePath) {
-    throw new Error('Missing source path.');
-  }
+  const safeSourcePath = await assertAllowedLocalImagePath(sourcePath, 'preview image');
 
   const sharpInput = await prepareImageInputForSharp({
-    input: sourcePath,
+    input: safeSourcePath,
     fs,
-    sourcePath,
+    sourcePath: safeSourcePath,
     convertHeicBuffer: convertHeicBufferForSharp
   });
 
   if (!Buffer.isBuffer(sharpInput)) {
-    return pathToFileURL(sourcePath).href;
+    return pathToFileURL(safeSourcePath).href;
   }
 
   const sharp = getSharpOrThrow();
@@ -1299,7 +1432,7 @@ async function getPenModelSession() {
 
   penModelSessionPromise = (async () => {
     const ortLib = await getOrtModule();
-    const modelPath = path.join(__dirname, 'assets', 'models', 'u2netp.onnx');
+    const modelPath = getBundledResourcePath(path.join('assets', 'models', 'u2netp.onnx'));
     if (!(await fs.pathExists(modelPath))) {
       throw new Error(`Missing local ML model at ${modelPath}`);
     }
@@ -1682,6 +1815,7 @@ ipcMain.handle('save-data', async (event, newData) => {
 ipcMain.handle('save-image', async (event, sourcePath, type, metadata) => {
   if (!sourcePath) return null;
   try {
+    const safeSourcePath = await assertAllowedLocalImagePath(sourcePath, 'source image');
     const sharp = getSharpOrThrow();
     const typeFolder = (type === 'pen') ? 'pens' : (type === 'ink' ? 'inks' : 'swatches');
     const imagesDir = path.join(getImagesPath(), typeFolder);
@@ -1698,9 +1832,9 @@ ipcMain.handle('save-image', async (event, sourcePath, type, metadata) => {
 
     const destPath = path.join(imagesDir, filename);
     const sharpInput = await prepareImageInputForSharp({
-      input: sourcePath,
+      input: safeSourcePath,
       fs,
-      sourcePath,
+      sourcePath: safeSourcePath,
       convertHeicBuffer: convertHeicBufferForSharp
     });
 
@@ -1789,7 +1923,7 @@ ipcMain.handle('dialog:openFile', async () => {
   if (canceled) {
     return null;
   } else {
-    return filePaths[0];
+    return registerSelectedImagePath(filePaths[0]);
   }
 });
 
@@ -1815,7 +1949,8 @@ ipcMain.handle('dispose-replaced-image', async (event, relativePath) => {
 ipcMain.handle('detect-pen-colors', async (event, sourcePath) => {
   if (!sourcePath) return { success: false, message: 'Missing source path.' };
   try {
-    const colors = await detectPenColorsWithML(sourcePath);
+    const safeSourcePath = await assertAllowedLocalImagePath(sourcePath, 'pen image');
+    const colors = await detectPenColorsWithML(safeSourcePath);
     if (!colors) return { success: false, message: 'No reliable pen colors detected.' };
     return { success: true, colors };
   } catch (error) {
@@ -2092,14 +2227,25 @@ ipcMain.handle('save-image-url', async (event, url, type, metadata) => {
   try {
     const sharp = getSharpOrThrow();
     const parsed = new URL(String(url || ''));
-    if (type === 'swatch' && parsed.protocol !== 'https:') {
-      return { success: false, message: 'Only https URLs are allowed for swatch images.' };
+    if (parsed.protocol !== 'https:') {
+      return { success: false, message: 'Only https URLs are allowed for remote images.' };
     }
     const response = await fetchWithTimeout(parsed.toString());
     if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+    const contentType = String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (contentType && !contentType.startsWith('image/')) {
+      throw new Error(`Remote URL did not return an image (${contentType}).`);
+    }
+    const contentLength = Number(response.headers.get('content-length') || 0);
+    if (Number.isFinite(contentLength) && contentLength > MAX_REMOTE_IMAGE_BYTES) {
+      throw new Error('Remote image is too large.');
+    }
 
     const buffer = await response.arrayBuffer();
     const sourceBuffer = Buffer.from(buffer);
+    if (sourceBuffer.length > MAX_REMOTE_IMAGE_BYTES) {
+      throw new Error('Remote image is too large.');
+    }
 
     const typeFolder = (type === 'pen') ? 'pens' : (type === 'ink' ? 'inks' : 'swatches');
     const imagesDir = path.join(getImagesPath(), typeFolder);

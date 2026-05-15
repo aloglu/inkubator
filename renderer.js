@@ -319,10 +319,16 @@ let autocompleteData = {
     'pen-color-input': []
 };
 
-// Global Error Handler for Debugging (Crucial for identifying "blank page" issues)
+// Keep raw runtime errors out of normal user/showcase flows.
 window.onerror = function (message, source, lineno, colno, error) {
-    alert(`JS Error: ${message}\nAt: ${source}:${lineno}:${colno}`);
     console.error("Global Error:", error);
+    try {
+        if (localStorage.getItem('inkubatorDebugErrors') === '1') {
+            alert(`JS Error: ${message}\nAt: ${source}:${lineno}:${colno}`);
+        }
+    } catch (_error) {
+        // Ignore storage access failures in privacy-restricted contexts.
+    }
 };
 
 function scheduleRender(fn) {
@@ -2485,23 +2491,42 @@ function updateInkPricePrefix() {
     if (penPricePrefix) penPricePrefix.textContent = symbol;
 }
 
-function parsePriceNumber(value) {
+function parseLocalizedNumber(value) {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (typeof value !== 'string') return NaN;
-    const cleaned = value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    let cleaned = value.trim().replace(/\s+/g, '').replace(/[^0-9.,-]/g, '');
     if (!cleaned) return NaN;
+    const isNegative = cleaned.startsWith('-');
+    cleaned = cleaned.replace(/-/g, '');
+    const lastComma = cleaned.lastIndexOf(',');
+    const lastDot = cleaned.lastIndexOf('.');
+    if (lastComma !== -1 && lastDot !== -1) {
+        const decimalSep = lastComma > lastDot ? ',' : '.';
+        const thousandsSep = decimalSep === ',' ? '.' : ',';
+        cleaned = cleaned.replace(new RegExp(`\\${thousandsSep}`, 'g'), '').replace(decimalSep, '.');
+    } else {
+        const sep = lastComma !== -1 ? ',' : (lastDot !== -1 ? '.' : '');
+        if (sep) {
+            const parts = cleaned.split(sep);
+            const tail = parts[parts.length - 1] || '';
+            const looksLikeThousands = parts.length > 1 && tail.length === 3 && parts.slice(0, -1).every(part => part.length > 0 && part.length <= 3);
+            cleaned = looksLikeThousands ? parts.join('') : parts.join('.');
+        }
+    }
+    if (isNegative) cleaned = `-${cleaned}`;
     const parsed = Number(cleaned);
     return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function parsePriceNumber(value) {
+    return parseLocalizedNumber(value);
 }
 
 function parseAmountNumber(value, fallback = 1) {
     if (typeof value === 'number' && Number.isFinite(value)) {
         return value >= 0 ? value : fallback;
     }
-    if (typeof value !== 'string') return fallback;
-    const cleaned = value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
-    if (!cleaned) return fallback;
-    const parsed = Number(cleaned);
+    const parsed = parseLocalizedNumber(value);
     if (!Number.isFinite(parsed)) return fallback;
     return parsed >= 0 ? parsed : fallback;
 }
@@ -7565,10 +7590,10 @@ function renderPenFilters() {
     const createTagList = (category, options) => `
         <div class="filter-tags">
             ${options.map((opt) => {
-                const safeCategory = escapeJsSingleQuoted(category);
-                const safeOptJs = escapeJsSingleQuoted(opt);
+                const safeCategory = escapeHtml(category);
+                const safeOpt = escapeHtml(opt);
                 const safeOptHtml = escapeHtml(opt);
-                return `<span class="filter-tag ${(activePensFilters[category] || []).includes(opt) ? 'active' : ''}" onclick="togglePenFilterTag('${safeCategory}', '${safeOptJs}')">${safeOptHtml}</span>`;
+                return `<span class="filter-tag ${(activePensFilters[category] || []).includes(opt) ? 'active' : ''}" data-filter-category="${safeCategory}" data-filter-value="${safeOpt}">${safeOptHtml}</span>`;
             }).join('')}
         </div>
     `;
@@ -7682,10 +7707,10 @@ function renderFilters() {
     const createTagList = (category, options) => `
         <div class="filter-tags">
             ${options.map((opt) => {
-                const safeCategory = escapeJsSingleQuoted(category);
-                const safeOptJs = escapeJsSingleQuoted(opt);
+                const safeCategory = escapeHtml(category);
+                const safeOpt = escapeHtml(opt);
                 const safeOptHtml = escapeHtml(opt);
-                return `<span class="filter-tag ${(activeInksFilters[category] || []).includes(opt) ? 'active' : ''}" onclick="toggleFilterTag('${safeCategory}', '${safeOptJs}')">${safeOptHtml}</span>`;
+                return `<span class="filter-tag ${(activeInksFilters[category] || []).includes(opt) ? 'active' : ''}" data-filter-category="${safeCategory}" data-filter-value="${safeOpt}">${safeOptHtml}</span>`;
             }).join('')}
         </div>
     `;
@@ -7693,9 +7718,9 @@ function renderFilters() {
     const createVolumeTagList = (options) => `
         <div class="filter-tags">
             ${options.map((opt) => {
-                const safeOptJs = escapeJsSingleQuoted(opt);
+                const safeOpt = escapeHtml(opt);
                 const safeOptHtml = escapeHtml(opt);
-                return `<span class="filter-tag ${(activeInksFilters.volume || []).includes(opt) ? 'active' : ''}" onclick="toggleFilterTag('volume', '${safeOptJs}')">${safeOptHtml} cl</span>`;
+                return `<span class="filter-tag ${(activeInksFilters.volume || []).includes(opt) ? 'active' : ''}" data-filter-category="volume" data-filter-value="${safeOpt}">${safeOptHtml} cl</span>`;
             }).join('')}
         </div>
     `;
@@ -7705,9 +7730,10 @@ function renderFilters() {
         ${createGroup('Color Group', `
             <div class="color-chips" style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; min-height: 24px;">
                 ${colors.length > 0 ? colors.map(c => `
-                    <div class="color-chip ${(activeInksFilters.color || []).includes(c) ? 'active' : ''}" 
-                         style="background: ${c}; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(0,0,0,0.3); box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex-shrink: 0;" 
-                         onclick="toggleFilterTag('color', '${escapeJsSingleQuoted(c)}')"
+                    <div class="color-chip ${(activeInksFilters.color || []).includes(c) ? 'active' : ''}"
+                         style="background: ${c}; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(0,0,0,0.3); box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex-shrink: 0;"
+                         data-filter-category="color"
+                         data-filter-value="${escapeHtml(c)}"
                          title="${escapeHtml(c)}"></div>
                 `).join('') : '<span style="color: #999; font-size: 13px; font-style: italic; display: block;">No colors detected.</span>'}
             </div>
@@ -7794,10 +7820,10 @@ function renderSwatchFilters() {
     const createTagList = (category, options) => `
         <div class="filter-tags">
             ${options.map((opt) => {
-                const safeCategory = escapeJsSingleQuoted(category);
-                const safeOptJs = escapeJsSingleQuoted(opt);
+                const safeCategory = escapeHtml(category);
+                const safeOpt = escapeHtml(opt);
                 const safeOptHtml = escapeHtml(opt);
-                return `<span class="filter-tag ${(activeSwatchesFilters[category] || []).includes(opt) ? 'active' : ''}" onclick="toggleSwatchFilterTag('${safeCategory}', '${safeOptJs}')">${safeOptHtml}</span>`;
+                return `<span class="filter-tag ${(activeSwatchesFilters[category] || []).includes(opt) ? 'active' : ''}" data-filter-category="${safeCategory}" data-filter-value="${safeOpt}">${safeOptHtml}</span>`;
             }).join('')}
         </div>
     `;
@@ -7807,9 +7833,10 @@ function renderSwatchFilters() {
     sections.push(createGroup('Color Group', `
             <div class="color-chips" style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; min-height: 24px;">
                 ${colors.length > 0 ? colors.map(c => `
-                    <div class="color-chip ${(activeSwatchesFilters.color || []).includes(c) ? 'active' : ''}" 
-                         style="background: ${c}; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(0,0,0,0.3); box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex-shrink: 0;" 
-                         onclick="toggleSwatchFilterTag('color', '${escapeJsSingleQuoted(c)}')"
+                    <div class="color-chip ${(activeSwatchesFilters.color || []).includes(c) ? 'active' : ''}"
+                         style="background: ${c}; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(0,0,0,0.3); box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex-shrink: 0;"
+                         data-filter-category="color"
+                         data-filter-value="${escapeHtml(c)}"
                          title="${escapeHtml(c)}"></div>
                 `).join('') : '<span style="color: #999; font-size: 13px; font-style: italic; display: block;">No colors detected.</span>'}
             </div>
@@ -8029,12 +8056,14 @@ function renderSwatches() {
         const safeSwatchNib = swatch.swatch_nib ? escapeHtml(swatch.swatch_nib) : '';
 
         card.innerHTML = `
-            <div class="ink-swatch-bg" style="height: 150px; background-image: url('${imagePath}'); background-size: cover; background-position: center;"></div>
+            <div class="ink-swatch-bg" style="height: 150px; background-size: cover; background-position: center;"></div>
             <div class="card-content">
                 <div class="pen-name" style="font-weight: 600;">${safeInkName}</div>
                 <div class="pen-detail" style="font-size: 12px; color: var(--color-text-muted);">${safeInkBrand}${safeSwatchNib ? ` • ${safeSwatchNib}` : ''}</div>
             </div>
         `;
+        const swatchVisual = card.querySelector('.ink-swatch-bg');
+        if (swatchVisual) swatchVisual.style.backgroundImage = `url(${JSON.stringify(imagePath)})`;
         grid.appendChild(card);
     });
 }
@@ -8390,6 +8419,19 @@ document.getElementById('reset-filters-pens')?.addEventListener('click', () => {
     renderPenFilters();
     renderPens();
 });
+
+function attachFilterTagDelegation(containerId, toggleHandler) {
+    document.getElementById(containerId)?.addEventListener('click', (event) => {
+        const tag = event.target.closest('[data-filter-category][data-filter-value]');
+        if (!tag) return;
+        event.preventDefault();
+        toggleHandler(tag.dataset.filterCategory, tag.dataset.filterValue);
+    });
+}
+
+attachFilterTagDelegation('pen-filter-options-container', togglePenFilterTag);
+attachFilterTagDelegation('filter-options-container', toggleFilterTag);
+attachFilterTagDelegation('swatch-filter-options-container', toggleSwatchFilterTag);
 
 document.addEventListener('click', (e) => {
     const dropdownInk = document.getElementById('sort-dropdown');
@@ -8891,7 +8933,7 @@ function setupCustomControls() {
             const matches = [...startsWith, ...includes];
 
             if (matches.length > 0) {
-                list.innerHTML = matches.map(item => `<div class="custom-option">${item}</div>`).join('');
+                list.innerHTML = matches.map(item => `<div class="custom-option">${escapeHtml(item)}</div>`).join('');
                 list.classList.add('show');
 
                 // Re-bind option clicks for new elements

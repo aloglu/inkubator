@@ -2,7 +2,7 @@
 
 pkgname=inkubator
 pkgver=2.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Local-first fountain pen and ink collection manager'
 arch=('x86_64')
 url='https://github.com/aloglu/inkubator'
@@ -26,6 +26,17 @@ sha256sums=('SKIP')
 
 build() {
   cd "${srcdir}/${pkgname}-${pkgver}"
+
+  # Keep Rust's native dependencies, especially ring, on the system GCC linker.
+  # Some user makepkg environments inject lld and can fail with missing ring_core symbols.
+  export CC=gcc
+  export CXX=g++
+  export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=gcc
+  local rustflags_cleaned="${RUSTFLAGS:-}"
+  rustflags_cleaned="${rustflags_cleaned//-C link-arg=-fuse-ld=lld/}"
+  rustflags_cleaned="${rustflags_cleaned//-Clink-arg=-fuse-ld=lld/}"
+  export RUSTFLAGS="${rustflags_cleaned}"
+
   npm ci
   npm run build:linux:deb -- --ci
 }

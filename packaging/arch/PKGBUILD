@@ -7,6 +7,7 @@ pkgdesc='Local-first fountain pen and ink collection manager'
 arch=('x86_64')
 url='https://github.com/aloglu/inkubator'
 license=('MIT')
+options=('!lto')
 depends=(
   'gtk3'
   'libayatana-appindicator'
@@ -36,6 +37,10 @@ build() {
   rustflags_cleaned="${rustflags_cleaned//-C link-arg=-fuse-ld=lld/}"
   rustflags_cleaned="${rustflags_cleaned//-Clink-arg=-fuse-ld=lld/}"
   export RUSTFLAGS="${rustflags_cleaned}"
+  export CFLAGS="${CFLAGS//-flto=auto/}"
+  export CXXFLAGS="${CXXFLAGS//-flto=auto/}"
+  export LDFLAGS="${LDFLAGS//-flto=auto/}"
+  export LDFLAGS="${LDFLAGS//-flto/}"
 
   npm ci
   npm run build:linux:deb -- --ci

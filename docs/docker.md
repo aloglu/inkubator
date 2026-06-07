@@ -13,22 +13,28 @@ The container listens on plain HTTP. For anything beyond local testing, put it b
 docker run \
   --name inkubator \
   --restart unless-stopped \
-  -p 127.0.0.1:8080:8080 \
+  -p 8080:8080 \
   -e INKUBATOR_ADMIN_USER='admin' \
   -e INKUBATOR_ADMIN_PASSWORD='change-this-password' \
   -v "$PWD/inkubator-data:/data" \
   ghcr.io/aloglu/inkubator:2.0.0
 ```
 
-Binding to `127.0.0.1` keeps the container reachable only from the host machine. Your reverse proxy can still reach it locally, but the container port is not directly exposed to the network.
+This exposes Inkubator on the host at `http://YOUR-SERVER-IP:8080`, which works for LAN testing and for reverse proxies running on the same host or another machine.
 
 The first port is the host port. The second port is the container's internal port. If host port `8080` is already occupied, change only the first value:
 
 ```bash
--p 127.0.0.1:8090:8080
+-p 8090:8080
 ```
 
-With that mapping, Inkubator is available on the host at `http://localhost:8090`, and the container still listens internally on `8080`.
+With that mapping, Inkubator is available on the host at `http://YOUR-SERVER-IP:8090`, and the container still listens internally on `8080`.
+
+If your reverse proxy runs on the same host and you do not want the port reachable from your LAN, bind to localhost instead:
+
+```bash
+-p 127.0.0.1:8080:8080
+```
 
 ## Configuration
 
@@ -51,7 +57,7 @@ services:
     container_name: inkubator
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${INKUBATOR_HOST_PORT:-8080}:8080"
+      - "${INKUBATOR_HOST_PORT:-8080}:8080"
     environment:
       INKUBATOR_ADMIN_USER: ${INKUBATOR_ADMIN_USER:-admin}
       INKUBATOR_ADMIN_PASSWORD: ${INKUBATOR_ADMIN_PASSWORD:-change-this-password}
@@ -70,13 +76,25 @@ INKUBATOR_ADMIN_PASSWORD=your-password
 
 ## Caddy Example
 
+If Caddy runs on the same host as Docker:
+
 ```caddyfile
 inkubator.example.com {
   reverse_proxy 127.0.0.1:8080
 }
 ```
 
+If Caddy runs on another machine, use the Docker host IP instead:
+
+```caddyfile
+inkubator.example.com {
+  reverse_proxy YOUR-SERVER-IP:8080
+}
+```
+
 ## Nginx Example
+
+If Nginx runs on the same host as Docker:
 
 ```nginx
 server {
@@ -95,6 +113,12 @@ server {
     proxy_set_header X-Forwarded-Proto $scheme;
   }
 }
+```
+
+If Nginx runs on another machine, replace `proxy_pass http://127.0.0.1:8080;` with:
+
+```nginx
+proxy_pass http://YOUR-SERVER-IP:8080;
 ```
 
 ## Public-Domain Smoke Test

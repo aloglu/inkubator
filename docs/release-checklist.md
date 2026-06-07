@@ -24,7 +24,6 @@ Expected release assets:
 - `Inkubator-X.Y.Z-linux-x64.deb`
 - `Inkubator-X.Y.Z-linux-x64.rpm`
 - `ghcr.io/aloglu/inkubator:X.Y.Z`
-- `ghcr.io/aloglu/inkubator:X.Y`
 - `ghcr.io/aloglu/inkubator:latest`
 
 ## Local Preflight
@@ -76,7 +75,7 @@ Before tagging a 2.0 release candidate, verify:
 After the `vX.Y.Z` tag workflows finish:
 
 - Confirm the GitHub Release contains every expected desktop artifact.
-- Confirm the GitHub Container Registry package is visible and has `X.Y.Z`, `X.Y`, and `latest` tags.
+- Confirm the GitHub Container Registry package is visible and has `X.Y.Z` and `latest` tags.
 - Download at least one generated Linux package and verify it installs, launches, and uses the packaged icon.
 - Pull `ghcr.io/aloglu/inkubator:X.Y.Z` and confirm `/`, `/admin/`, login, backups, and image uploads work against a mounted `/data` directory.
 

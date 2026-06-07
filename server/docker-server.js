@@ -28,6 +28,7 @@ const ADMIN_PASSWORD = process.env.INKUBATOR_ADMIN_PASSWORD || '';
 const MAX_BODY_BYTES = Number(process.env.INKUBATOR_MAX_BODY_BYTES || 120 * 1024 * 1024);
 const MAX_REMOTE_IMAGE_BYTES = 25 * 1024 * 1024;
 const VERSION = require('../package.json').version;
+const RELEASE_TAG = process.env.INKUBATOR_RELEASE_TAG || `v${VERSION}`;
 const GITHUB_RELEASES_URL = 'https://github.com/aloglu/inkubator/releases';
 const GITHUB_CONTAINER_URL = 'https://github.com/aloglu/inkubator/pkgs/container/inkubator';
 const DOCKER_IMAGE = process.env.INKUBATOR_IMAGE || `ghcr.io/aloglu/inkubator:${VERSION}`;
@@ -607,7 +608,6 @@ async function fetchInkSwatch(query) {
 }
 
 async function releaseStatus() {
-  const currentTag = `v${VERSION}`;
   const response = await fetch('https://api.github.com/repos/aloglu/inkubator/releases/latest', {
     headers: { Accept: 'application/vnd.github+json', 'User-Agent': `inkubator/${VERSION}` },
     signal: AbortSignal.timeout(15000)
@@ -616,7 +616,7 @@ async function releaseStatus() {
     return {
       success: false,
       currentVersion: VERSION,
-      currentTag,
+      currentTag: RELEASE_TAG,
       distribution: 'docker',
       dockerImage: DOCKER_IMAGE,
       containerUrl: GITHUB_CONTAINER_URL,
@@ -626,11 +626,11 @@ async function releaseStatus() {
   }
   const release = await response.json();
   const latestVersion = resolveReleaseVersion(release);
-  const versionState = getReleaseVersionState(VERSION, latestVersion, release.tag_name, currentTag);
+  const versionState = getReleaseVersionState(VERSION, latestVersion, release.tag_name, RELEASE_TAG);
   return {
     success: true,
     currentVersion: VERSION,
-    currentTag,
+    currentTag: RELEASE_TAG,
     distribution: 'docker',
     dockerImage: DOCKER_IMAGE,
     containerUrl: GITHUB_CONTAINER_URL,
@@ -648,7 +648,7 @@ function appInfo() {
   return {
     success: true,
     currentVersion: VERSION,
-    currentTag: `v${VERSION}`,
+    currentTag: RELEASE_TAG,
     distribution: 'docker',
     dockerImage: DOCKER_IMAGE,
     containerUrl: GITHUB_CONTAINER_URL,

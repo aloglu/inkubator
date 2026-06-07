@@ -71,13 +71,22 @@ docker run \
   --name inkubator \
   --restart unless-stopped \
   -p 127.0.0.1:8080:8080 \
-  -e INKUBATOR_ADMIN_USER=admin \
+  -e INKUBATOR_ADMIN_USER='admin' \
   -e INKUBATOR_ADMIN_PASSWORD='change-this-password' \
   -v "$PWD/inkubator-data:/data" \
-  ghcr.io/aloglu/inkubator:2.0
+  ghcr.io/aloglu/inkubator:2.0.0
 ```
 
 Then open `http://localhost:8080` for the public showcase or `http://localhost:8080/admin/` for the admin interface. For a public domain, route the domain to the container through your HTTPS reverse proxy. See `docs/docker-deployment.md` for Caddy and Nginx examples.
+
+If port `8080` is already used on your host, change the left side of the port mapping. For example, `-p 127.0.0.1:8090:8080` makes Inkubator available at `http://localhost:8090` while keeping the container's internal port unchanged.
+
+The admin username and password are both configurable:
+
+```bash
+-e INKUBATOR_ADMIN_USER='your-username'
+-e INKUBATOR_ADMIN_PASSWORD='your-password'
+```
 
 For local source builds:
 
@@ -86,8 +95,8 @@ npm run docker:build
 docker run \
   --name inkubator-local \
   --rm \
-  -p 8080:8080 \
-  -e INKUBATOR_ADMIN_USER=admin \
+  -p 127.0.0.1:8080:8080 \
+  -e INKUBATOR_ADMIN_USER='admin' \
   -e INKUBATOR_ADMIN_PASSWORD='change-this-password' \
   -v "$PWD/inkubator-data:/data" \
   inkubator:local
@@ -100,7 +109,7 @@ To update Docker mode, pull the newer `ghcr.io/aloglu/inkubator` image and recre
 For a plain `docker run` install, the update flow is:
 
 ```bash
-docker pull ghcr.io/aloglu/inkubator:2.0
+docker pull ghcr.io/aloglu/inkubator:2.0.0
 docker stop inkubator
 docker rm inkubator
 # Re-run the original docker run command with the same -v /data mount.

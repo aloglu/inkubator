@@ -15,7 +15,7 @@
     "build:linux:rpm": "tauri build --bundles rpm",
     "docker:start": "node server/docker-server.js",
     "docker:build": "docker build -t inkubator:local .",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/critical-persistence.test.js tests/data-schema.test.js tests/release-version.test.js"
   },
   "keywords": [
     "fountain-pens",

@@ -14,30 +14,58 @@ docker run \
   --name inkubator \
   --restart unless-stopped \
   -p 127.0.0.1:8080:8080 \
-  -e INKUBATOR_ADMIN_USER=admin \
+  -e INKUBATOR_ADMIN_USER='admin' \
   -e INKUBATOR_ADMIN_PASSWORD='change-this-password' \
   -v "$PWD/inkubator-data:/data" \
-  ghcr.io/aloglu/inkubator:2.0
+  ghcr.io/aloglu/inkubator:2.0.0
 ```
 
 Binding to `127.0.0.1` keeps the container reachable only from the host machine. Your reverse proxy can still reach it locally, but the container port is not directly exposed to the network.
+
+The first port is the host port. The second port is the container's internal port. If host port `8080` is already occupied, change only the first value:
+
+```bash
+-p 127.0.0.1:8090:8080
+```
+
+With that mapping, Inkubator is available on the host at `http://localhost:8090`, and the container still listens internally on `8080`.
+
+## Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `INKUBATOR_ADMIN_USER` | `admin` | Username for the Docker admin login |
+| `INKUBATOR_ADMIN_PASSWORD` | none | Password for the Docker admin login |
+| `INKUBATOR_DATA_DIR` | `/data` | Container path for app data, preferences, images, and backups |
+| `INKUBATOR_EXPORT_DIR` | `/data/exports` | Container path for generated exports |
+| `INKUBATOR_PORT` / `PORT` | `8080` | Internal HTTP port used by the Node server |
+
+Most users should leave the internal port at `8080` and only change the host-side port mapping.
 
 ## Docker Compose
 
 ```yaml
 services:
   inkubator:
-    image: ghcr.io/aloglu/inkubator:2.0
+    image: ghcr.io/aloglu/inkubator:2.0.0
     container_name: inkubator
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${INKUBATOR_HOST_PORT:-8080}:8080"
     environment:
-      INKUBATOR_ADMIN_USER: admin
-      INKUBATOR_ADMIN_PASSWORD: change-this-password
+      INKUBATOR_ADMIN_USER: ${INKUBATOR_ADMIN_USER:-admin}
+      INKUBATOR_ADMIN_PASSWORD: ${INKUBATOR_ADMIN_PASSWORD:-change-this-password}
       INKUBATOR_DATA_DIR: /data
     volumes:
       - ./inkubator-data:/data
+```
+
+Example `.env` file for Docker Compose:
+
+```dotenv
+INKUBATOR_HOST_PORT=8090
+INKUBATOR_ADMIN_USER=your-username
+INKUBATOR_ADMIN_PASSWORD=your-password
 ```
 
 ## Caddy Example
@@ -93,7 +121,7 @@ Manual full backups download as ZIP files through the browser. Automated backups
 For `docker run`:
 
 ```bash
-docker pull ghcr.io/aloglu/inkubator:2.0
+docker pull ghcr.io/aloglu/inkubator:2.0.0
 docker stop inkubator
 docker rm inkubator
 # Re-run the original docker run command with the same /data mount.

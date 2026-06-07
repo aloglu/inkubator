@@ -50,7 +50,6 @@ Inkubator 2.0.0 moves the desktop app from Electron to Tauri and adds a Docker a
 Expected image tags:
 
 - `ghcr.io/aloglu/inkubator:2.0.0`
-- `ghcr.io/aloglu/inkubator:2.0`
 - `ghcr.io/aloglu/inkubator:latest`
 
 To update a Docker install, pull the newer image and recreate the container while keeping the same `/data` mount.

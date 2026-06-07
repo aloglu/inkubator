@@ -57,7 +57,6 @@ Expected GitHub Release assets:
 Confirm the GitHub Container Registry package has:
 
 - `2.0.0`
-- `2.0`
 - `latest`
 
 Then smoke-test:

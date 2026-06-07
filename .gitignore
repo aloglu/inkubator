@@ -1,10 +1,11 @@
-﻿# Dependencies
+# Dependencies
 node_modules/
 
 # Build output
 out/
 dist/
 release/
+src-tauri/target/
 
 # Runtime artifacts
 *.log

@@ -1,4 +1,4 @@
-﻿name: Build Desktop Artifacts
+name: Build Desktop Artifacts
 
 on:
   workflow_dispatch:
@@ -11,17 +11,37 @@ permissions:
 
 jobs:
   build:
+    name: Build ${{ matrix.artifact }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
-            target: win
-          - os: macos-latest
-            target: mac
+            platform: win
+            arch: x64
+            artifact: win-x64
+            build_script: build:win
+          - os: windows-11-arm
+            platform: win
+            arch: arm64
+            artifact: win-arm64
+            build_script: build:win
+          - os: macos-15-intel
+            platform: mac
+            arch: x64
+            artifact: mac-x64
+            build_script: build:mac
+          - os: macos-15
+            platform: mac
+            arch: arm64
+            artifact: mac-arm64
+            build_script: build:mac
           - os: ubuntu-latest
-            target: linux
+            platform: linux
+            arch: x64
+            artifact: linux-x64
+            build_script: build:linux
 
     steps:
       - name: Checkout
@@ -33,147 +53,92 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci --include=optional
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Verify native runtime modules
+      - name: Install Linux Tauri prerequisites
+        if: matrix.platform == 'linux'
         shell: bash
         run: |
-          node -e "require('sharp'); console.log('sharp ok')"
-          node -e "require('onnxruntime-node'); console.log('onnxruntime-node ok')"
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            pkg-config \
+            rpm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Sync package version from tag
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          npm run sync-version -- "$VERSION"
 
-      - name: Detect signing availability
-        id: signing
-        shell: bash
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          signed=false
-          reason="No signing secrets configured."
+      - name: Run JavaScript tests
+        run: npm test
 
-          if [[ "${{ matrix.target }}" == "mac" ]]; then
-            if [[ -n "${CSC_LINK}" && -n "${CSC_KEY_PASSWORD}" && -n "${APPLE_ID}" && -n "${APPLE_APP_SPECIFIC_PASSWORD}" && -n "${APPLE_TEAM_ID}" ]]; then
-              signed=true
-              reason="macOS signing + notarization secrets found."
-            else
-              reason="Missing one or more macOS signing/notarization secrets."
-            fi
-          elif [[ "${{ matrix.target }}" == "win" ]]; then
-            if [[ -n "${WIN_CSC_LINK}" && -n "${WIN_CSC_KEY_PASSWORD}" ]] || [[ -n "${CSC_LINK}" && -n "${CSC_KEY_PASSWORD}" ]]; then
-              signed=true
-              reason="Windows signing secrets found."
-            else
-              reason="Missing Windows signing secrets."
-            fi
-          else
-            reason="Linux build runs unsigned in this workflow."
-          fi
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
 
-          echo "signed=${signed}" >> "$GITHUB_OUTPUT"
-          echo "reason=${reason}" >> "$GITHUB_OUTPUT"
+      - name: Build Tauri bundle (${{ matrix.artifact }})
+        run: npm run ${{ matrix.build_script }} -- --ci
 
-      - name: Build signed (${{ matrix.target }})
-        if: steps.signing.outputs.signed == 'true'
-        run: npm run build:${{ matrix.target }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          CSC_IDENTITY_AUTO_DISCOVERY: "true"
-
-      - name: Build unsigned fallback (${{ matrix.target }})
-        if: steps.signing.outputs.signed != 'true'
-        run: npm run build:${{ matrix.target }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-
-      - name: Install Flatpak toolchain (Linux)
-        if: matrix.target == 'linux'
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
-          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak --system install -y flathub \
-            org.freedesktop.Platform/x86_64/25.08 \
-            org.freedesktop.Sdk/x86_64/25.08 \
-            org.electronjs.Electron2.BaseApp/x86_64/25.08
-          flatpak remotes --system --show-details
-          flatpak list --system
-
-      - name: Build Flatpak (Linux)
-        if: matrix.target == 'linux'
-        run: npm run build:linux:flatpak
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-          DEBUG: electron-builder
-
-      - name: Verify packaged showcase assets
+      - name: Normalize release filenames
         shell: bash
         run: |
           set -euo pipefail
+          shopt -s globstar nullglob
 
-          echo "Packaged showcase asset files:"
-          find dist -type f \( \
-            -path '*/app.asar.unpacked/assets/icons/ink-drop-white-icon.png' -o \
-            -path '*/app.asar.unpacked/assets/fonts/peachi.woff2' -o \
-            -path '*/app.asar.unpacked/assets/fonts/inter/inter-latin-400-normal.woff2' -o \
-            -path '*/app.asar.unpacked/assets/phosphor/Phosphor.woff2' -o \
-            -path '*/app.asar.unpacked/assets/models/u2netp.onnx' \
-          \) | sort
+          version="$(node -p "require('./package.json').version")"
+          mkdir -p release-assets
 
-          if ! find dist -type f -path '*/app.asar.unpacked/assets/icons/ink-drop-white-icon.png' | grep -q .; then
-            echo "Missing unpacked icon asset in packaged output." >&2
-            exit 1
-          fi
+          case "${{ matrix.platform }}" in
+            win)
+              for file in src-tauri/target/release/bundle/nsis/*.exe; do
+                cp "$file" "release-assets/Inkubator-${version}-win-${{ matrix.arch }}.exe"
+              done
+              ;;
+            mac)
+              for file in src-tauri/target/release/bundle/dmg/*.dmg; do
+                cp "$file" "release-assets/Inkubator-${version}-mac-${{ matrix.arch }}.dmg"
+              done
+              if compgen -G "src-tauri/target/release/bundle/macos/*.app" > /dev/null; then
+                ditto -c -k --sequesterRsrc --keepParent \
+                  src-tauri/target/release/bundle/macos/*.app \
+                  "release-assets/Inkubator-${version}-mac-${{ matrix.arch }}.zip"
+              fi
+              ;;
+            linux)
+              for file in src-tauri/target/release/bundle/deb/*.deb; do
+                cp "$file" "release-assets/Inkubator-${version}-linux-${{ matrix.arch }}.deb"
+              done
+              for file in src-tauri/target/release/bundle/rpm/*.rpm; do
+                cp "$file" "release-assets/Inkubator-${version}-linux-${{ matrix.arch }}.rpm"
+              done
+              ;;
+          esac
 
-          if ! find dist -type f -path '*/app.asar.unpacked/assets/fonts/peachi.woff2' | grep -q .; then
-            echo "Missing unpacked font asset in packaged output." >&2
-            exit 1
-          fi
-
-          if ! find dist -type f -path '*/app.asar.unpacked/assets/fonts/inter/inter-latin-400-normal.woff2' | grep -q .; then
-            echo "Missing unpacked Inter font asset in packaged output." >&2
-            exit 1
-          fi
-
-          if ! find dist -type f -path '*/app.asar.unpacked/assets/phosphor/Phosphor.woff2' | grep -q .; then
-            echo "Missing unpacked Phosphor icon font in packaged output." >&2
-            exit 1
-          fi
-
-          if ! find dist -type f -path '*/app.asar.unpacked/assets/models/u2netp.onnx' | grep -q .; then
-            echo "Missing unpacked pen color model in packaged output." >&2
+          if ! find release-assets -type f -name 'Inkubator-*' | grep -q .; then
+            echo "No normalized release assets were produced." >&2
+            find src-tauri/target/release/bundle -type f | sort >&2 || true
             exit 1
           fi
 
       - name: Verify Linux desktop icon metadata
-        if: matrix.target == 'linux'
+        if: matrix.platform == 'linux'
         shell: bash
         run: |
           set -euo pipefail
 
-          deb_file="$(find dist -maxdepth 1 -type f -name 'Inkubator-*-linux-amd64.deb' | head -n 1)"
+          deb_file="$(find release-assets -maxdepth 1 -type f -name 'Inkubator-*-linux-x64.deb' | head -n 1)"
           if [[ -z "${deb_file}" ]]; then
             echo "Missing Linux DEB artifact for desktop icon verification." >&2
             exit 1
@@ -184,42 +149,36 @@ jobs:
 
           dpkg-deb -x "${deb_file}" "${extract_dir}"
 
-          desktop_file="${extract_dir}/usr/share/applications/inkubator.desktop"
+          desktop_file="$(find "${extract_dir}/usr/share/applications" -maxdepth 1 -type f -name '*.desktop' | head -n 1)"
           if [[ ! -f "${desktop_file}" ]]; then
             echo "Missing Linux desktop entry." >&2
             exit 1
           fi
 
-          if ! grep -qx 'Icon=inkubator' "${desktop_file}"; then
+          if ! grep -q '^Icon=inkubator' "${desktop_file}"; then
             echo "Linux desktop entry does not reference the packaged inkubator icon." >&2
             cat "${desktop_file}" >&2
             exit 1
           fi
 
-          for size in 16 24 32 48 64 128 256 512; do
-            icon_path="${extract_dir}/usr/share/icons/hicolor/${size}x${size}/apps/inkubator.png"
-            if [[ ! -f "${icon_path}" ]]; then
-              echo "Missing Linux hicolor icon: ${icon_path}" >&2
-              exit 1
-            fi
-          done
+          if ! find "${extract_dir}/usr/share/icons/hicolor" -type f -name 'inkubator.png' | grep -q .; then
+            echo "Missing Linux hicolor app icon." >&2
+            find "${extract_dir}/usr/share/icons" -type f | sort >&2 || true
+            exit 1
+          fi
 
-      - name: Remove blockmap sidecar files
+      - name: List downloadable files
         shell: bash
         run: |
-          find dist -type f -name '*.blockmap' -delete
+          echo "Collected files:"
+          find release-assets -type f | sort
 
       - name: Upload artifact bundle
         uses: actions/upload-artifact@v4
         with:
-          name: inkubator-${{ matrix.target }}
-          path: dist/**
+          name: inkubator-${{ matrix.artifact }}
+          path: release-assets/**
           if-no-files-found: error
-
-      - name: Build mode summary
-        run: |
-          echo "Signed build: ${{ steps.signing.outputs.signed }}"
-          echo "Reason: ${{ steps.signing.outputs.reason }}"
 
   publish:
     if: startsWith(github.ref, 'refs/tags/')
@@ -251,9 +210,7 @@ jobs:
                 asset.name.startsWith('Inkubator-')
               );
 
-              core.info(
-                `Found ${staleAssets.length} existing Inkubator assets on ${tag}.`
-              );
+              core.info(`Found ${staleAssets.length} existing Inkubator assets on ${tag}.`);
 
               for (const asset of staleAssets) {
                 await github.rest.repos.deleteReleaseAsset({
@@ -277,31 +234,8 @@ jobs:
           merge-multiple: true
           path: release-assets
 
-      - name: Normalize Linux release filenames
+      - name: List release files
         shell: bash
-        run: |
-          shopt -s globstar nullglob
-          for file in release-assets/**/Inkubator-*-linux-amd64.deb; do
-            mv "$file" "${file/-linux-amd64.deb/-linux-x64.deb}"
-          done
-          for file in release-assets/**/Inkubator-*-linux-x86_64.rpm; do
-            mv "$file" "${file/-linux-x86_64.rpm/-linux-x64.rpm}"
-          done
-          for file in release-assets/**/Inkubator-*-linux-x86_64.flatpak; do
-            mv "$file" "${file/-linux-x86_64.flatpak/-linux-x64.flatpak}"
-          done
-
-      - name: Remove generic Windows installer artifact
-        shell: bash
-        run: |
-          shopt -s globstar nullglob
-          for file in release-assets/**/Inkubator-*-win.exe; do
-            if [[ "$file" != *"-win-x64.exe" && "$file" != *"-win-arm64.exe" ]]; then
-              rm -f "$file"
-            fi
-          done
-
-      - name: List downloadable files
         run: |
           echo "Collected files:"
           find release-assets -type f | sort

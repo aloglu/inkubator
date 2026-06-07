@@ -1,0 +1,50 @@
+# Maintainer: Abdullah Aloğlu <contact@alog.lu>
+
+pkgname=inkubator
+pkgver=2.0.0
+pkgrel=1
+pkgdesc='Local-first fountain pen and ink collection manager'
+arch=('x86_64')
+url='https://github.com/aloglu/inkubator'
+license=('MIT')
+depends=(
+  'gtk3'
+  'libayatana-appindicator'
+  'webkit2gtk-4.1'
+)
+makedepends=(
+  'base-devel'
+  'cargo'
+  'file'
+  'nodejs'
+  'npm'
+  'pkgconf'
+  'rust'
+)
+source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  npm ci
+  npm run build:linux:deb -- --ci
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  local deb_path
+  deb_path="$(find src-tauri/target/release/bundle/deb -maxdepth 1 -type f -name 'Inkubator_*.deb' -print -quit)"
+  if [[ -z "${deb_path}" ]]; then
+    echo 'Could not find Tauri DEB bundle output.' >&2
+    return 1
+  fi
+
+  local extract_dir="${srcdir}/deb-payload"
+  rm -rf "${extract_dir}"
+  mkdir -p "${extract_dir}"
+  ar x "${deb_path}" --output "${extract_dir}"
+  tar -xzf "${extract_dir}/data.tar.gz" -C "${pkgdir}"
+
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

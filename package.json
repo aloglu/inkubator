@@ -1,137 +1,44 @@
 {
-    "name": "inkubator",
-    "version": "1.7.6",
-    "description": "Local-first desktop application for the management and cataloging of fountain pen and ink collections.",
-    "main": "main.js",
-    "scripts": {
-        "start": "electron .",
-        "showcase": "serve .",
-        "build": "electron-builder --publish never",
-        "build:win": "electron-builder --win --publish never",
-        "build:mac": "electron-builder --mac --publish never",
-        "build:linux": "electron-builder --linux --publish never",
-        "build:linux:deb": "electron-builder --linux deb --publish never",
-        "build:linux:rpm": "electron-builder --linux rpm --publish never",
-        "build:linux:flatpak": "electron-builder --linux flatpak --publish never",
-        "build:all": "electron-builder --win --mac --linux --publish never",
-        "test": "node --test tests/*.test.js"
-    },
-    "keywords": [
-        "fountain-pens",
-        "tracker",
-        "electron"
-    ],
-    "author": {
-        "name": "Abdullah Aloğlu",
-        "email": "contact@alog.lu"
-    },
-    "homepage": "https://github.com/aloglu/inkubator",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/aloglu/inkubator.git"
-    },
-    "license": "MIT",
-    "devDependencies": {
-        "electron": "^40.6.0",
-        "electron-builder": "^26.8.1",
-        "serve": "^14.2.6"
-    },
-    "dependencies": {
-        "fs-extra": "^11.3.3",
-        "heic-convert": "^2.1.0",
-        "onnxruntime-node": "^1.24.1",
-        "sharp": "^0.34.5"
-    },
-    "build": {
-        "appId": "com.inkubator.app",
-        "productName": "Inkubator",
-        "directories": {
-            "output": "dist",
-            "buildResources": "build"
-        },
-        "asar": true,
-        "asarUnpack": [
-            "assets/**/*",
-            "node_modules/sharp/**/*",
-            "node_modules/@img/**/*",
-            "node_modules/onnxruntime-node/**/*",
-            "node_modules/heic-convert/**/*",
-            "node_modules/heic-decode/**/*",
-            "node_modules/libheif-js/**/*"
-        ],
-        "files": [
-            "index.html",
-            "style.css",
-            "renderer.js",
-            "main.js",
-            "preload.js",
-            "package.json",
-            "data.json",
-            "assets/**/*",
-            "images/**/*",
-            "lib/**/*",
-            "renderer/**/*"
-        ],
-        "extraMetadata": {
-            "main": "main.js"
-        },
-        "win": {
-            "target": [
-                {
-                    "target": "nsis",
-                    "arch": [
-                        "x64",
-                        "arm64"
-                    ]
-                }
-            ],
-            "artifactName": "Inkubator-${version}-win-${arch}.${ext}",
-            "icon": "assets/icons/inkubator-icon.ico"
-        },
-        "mac": {
-            "target": [
-                {
-                    "target": "dmg",
-                    "arch": [
-                        "x64",
-                        "arm64"
-                    ]
-                },
-                {
-                    "target": "zip",
-                    "arch": [
-                        "x64",
-                        "arm64"
-                    ]
-                }
-            ],
-            "category": "public.app-category.productivity",
-            "artifactName": "Inkubator-${version}-mac-${arch}.${ext}",
-            "icon": "assets/icons/inkubator-icon.icns"
-        },
-        "linux": {
-            "maintainer": "Abdullah Aloğlu <contact@alog.lu>",
-            "target": [
-                {
-                    "target": "deb",
-                    "arch": [
-                        "x64"
-                    ]
-                },
-                {
-                    "target": "rpm",
-                    "arch": [
-                        "x64"
-                    ]
-                }
-            ],
-            "category": "Utility",
-            "artifactName": "Inkubator-${version}-linux-${arch}.${ext}",
-            "icon": "icons"
-        },
-        "flatpak": {
-            "runtimeVersion": "25.08",
-            "baseVersion": "25.08"
-        }
-    }
+  "name": "inkubator",
+  "version": "2.0.0",
+  "description": "Local-first desktop application for the management and cataloging of fountain pen and ink collections.",
+  "scripts": {
+    "start": "tauri dev",
+    "tauri": "tauri",
+    "showcase": "serve app",
+    "sync-version": "node scripts/sync-version.mjs",
+    "build": "tauri build",
+    "build:win": "tauri build --bundles nsis",
+    "build:mac": "tauri build --bundles dmg,app",
+    "build:linux": "tauri build --bundles deb,rpm",
+    "build:linux:deb": "tauri build --bundles deb",
+    "build:linux:rpm": "tauri build --bundles rpm",
+    "docker:start": "node server/docker-server.js",
+    "docker:build": "docker build -t inkubator:local .",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "fountain-pens",
+    "tracker",
+    "tauri"
+  ],
+  "author": {
+    "name": "Abdullah Aloğlu",
+    "email": "contact@alog.lu"
+  },
+  "homepage": "https://github.com/aloglu/inkubator",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aloglu/inkubator.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "fs-extra": "^11.3.3",
+    "serve": "^14.2.6"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "adm-zip": "^0.5.17"
+  }
 }

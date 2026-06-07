@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log*
+.git
+.github
+.DS_Store
+src-tauri/target
+src-tauri/Cargo.lock
+release-assets
+packaging
+docs
+tests
+docker-compose*.yml
+README.md
+*.log

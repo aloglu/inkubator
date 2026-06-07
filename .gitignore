@@ -18,6 +18,7 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+Changelog.md
 
 # Local backups/archives created by app/users
 backups/

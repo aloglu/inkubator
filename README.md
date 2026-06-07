@@ -36,7 +36,7 @@ docker run \
   -e INKUBATOR_ADMIN_USER='admin' \
   -e INKUBATOR_ADMIN_PASSWORD='change-this-password' \
   -v "$PWD/inkubator-data:/data" \
-  ghcr.io/aloglu/inkubator:2.0.0
+  ghcr.io/aloglu/inkubator:latest
 ```
 
 Open `http://localhost:8080` or `http://YOUR-SERVER-IP:8080`.

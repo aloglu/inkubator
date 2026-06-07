@@ -1,6 +1,6 @@
 services:
   inkubator:
-    image: ghcr.io/aloglu/inkubator:2.0.0
+    image: ghcr.io/aloglu/inkubator:latest
     container_name: inkubator
     restart: unless-stopped
     ports:

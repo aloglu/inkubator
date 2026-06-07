@@ -17,10 +17,12 @@ docker run \
   -e INKUBATOR_ADMIN_USER='admin' \
   -e INKUBATOR_ADMIN_PASSWORD='change-this-password' \
   -v "$PWD/inkubator-data:/data" \
-  ghcr.io/aloglu/inkubator:2.0.0
+  ghcr.io/aloglu/inkubator:latest
 ```
 
 This exposes Inkubator on the host at `http://YOUR-SERVER-IP:8080`, which works for LAN testing and for reverse proxies running on the same host or another machine.
+
+The `latest` tag tracks the newest published release. If you prefer controlled upgrades, pin a specific release instead, such as `ghcr.io/aloglu/inkubator:2.0.0`.
 
 The first port is the host port. The second port is the container's internal port. If host port `8080` is already occupied, change only the first value:
 
@@ -53,7 +55,7 @@ Most users should leave the internal port at `8080` and only change the host-sid
 ```yaml
 services:
   inkubator:
-    image: ghcr.io/aloglu/inkubator:2.0.0
+    image: ghcr.io/aloglu/inkubator:latest
     container_name: inkubator
     restart: unless-stopped
     ports:
@@ -145,7 +147,7 @@ Manual full backups download as ZIP files through the browser. Automated backups
 For `docker run`:
 
 ```bash
-docker pull ghcr.io/aloglu/inkubator:2.0.0
+docker pull ghcr.io/aloglu/inkubator:latest
 docker stop inkubator
 docker rm inkubator
 # Re-run the original docker run command with the same /data mount.

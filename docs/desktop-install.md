@@ -43,4 +43,23 @@ cd packaging/arch
 makepkg -si
 ```
 
+To remove the Arch package:
+
+```bash
+sudo pacman -Rns inkubator inkubator-debug
+```
+
+Arch may install `inkubator-debug` automatically when debug symbols are produced. It is safe to remove it with the main package.
+
+Uninstalling the package does not delete your collection data. To reset a current Tauri-based Inkubator install completely, remove the local app data after uninstalling:
+
+> [!WARNING]
+> This deletes your collection data, images, preferences, and automated backups. Export a full backup first if you want to keep your data.
+
+```bash
+rm -rf ~/.local/share/com.aloglu.inkubator
+```
+
+If you previously used the Electron version, you may also have legacy data in `~/.local/share/com.inkubator.app` or `~/.config/Inkubator`.
+
 Flatpak is not currently provided. The Linux release artifacts are DEB, RPM, and the Arch PKGBUILD template.

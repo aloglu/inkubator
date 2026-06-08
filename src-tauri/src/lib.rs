@@ -136,6 +136,16 @@ fn manual_backups_path(app: &AppHandle) -> Result<PathBuf> {
 }
 
 fn frontend_source_root(app: &AppHandle) -> Result<PathBuf> {
+    let resource_app = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|path| path.join("app"))
+        .filter(|path| path.exists());
+    if let Some(path) = resource_app {
+        return Ok(path);
+    }
+
     let manifest_app = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .ok_or_else(|| anyhow!("Could not resolve repository root"))?
@@ -144,12 +154,9 @@ fn frontend_source_root(app: &AppHandle) -> Result<PathBuf> {
         return Ok(manifest_app);
     }
 
-    let resource_app = app
-        .path()
-        .resource_dir()
-        .context("Could not resolve bundled resource directory")?
-        .join("app");
-    Ok(resource_app)
+    Err(anyhow!(
+        "Could not find bundled app files needed for showcase export."
+    ))
 }
 
 fn ensure_managed_image_dirs(root: &Path) -> Result<()> {
@@ -462,6 +469,17 @@ fn ensure_app_storage(app: &AppHandle) -> Result<()> {
 
 fn copy_dir_all(source: &Path, destination: &Path) -> Result<()> {
     copy_dir_all_with_mode(source, destination, true)
+}
+
+fn copy_required_file(source: &Path, destination: &Path) -> Result<()> {
+    if !source.exists() {
+        return Err(anyhow!("Missing required app file: {}", source.display()));
+    }
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::copy(source, destination)?;
+    Ok(())
 }
 
 fn create_backup_folder(
@@ -958,34 +976,6 @@ fn latest_auto_backup(auto_root: &Path) -> Option<(PathBuf, SystemTime)> {
         }
     }
     latest
-}
-
-fn latest_valid_backup_folder(root: &Path) -> Option<PathBuf> {
-    let entries = fs::read_dir(root).ok()?;
-    let mut latest: Option<(PathBuf, SystemTime)> = None;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir()
-            || !path.join("data.json").exists()
-            || !path.join("preferences.json").exists()
-        {
-            continue;
-        }
-        let Ok(metadata) = entry.metadata() else {
-            continue;
-        };
-        let Ok(modified) = metadata.modified() else {
-            continue;
-        };
-        if latest
-            .as_ref()
-            .map(|(_, time)| modified > *time)
-            .unwrap_or(true)
-        {
-            latest = Some((path, modified));
-        }
-    }
-    latest.map(|(path, _)| path)
 }
 
 fn frequency_duration(frequency: &str) -> Option<Duration> {
@@ -1555,26 +1545,13 @@ async fn import_backup(
 ) -> std::result::Result<Value, String> {
     (|| {
         ensure_app_storage(&app)?;
-        let options_ref = options.as_ref();
-        if let Some(local_backup) = latest_valid_backup_folder(&auto_backups_path(&app)?) {
-            let confirmed = rfd::MessageDialog::new()
-                .set_title("Local Backup Found")
-                .set_description("A local automated backup was found. Press OK to import the latest local backup, or Cancel to choose a ZIP file manually.")
-                .set_buttons(rfd::MessageButtons::OkCancel)
-                .show();
-            if matches!(confirmed, rfd::MessageDialogResult::Ok | rfd::MessageDialogResult::Yes) {
-                return import_backup_folder(&app, &local_backup, options_ref);
-            }
-        } else {
-            let confirmed = rfd::MessageDialog::new()
-                .set_title("No Local Backup Found")
-                .set_description("No backup file was found locally. Press OK to import a ZIP file manually.")
-                .set_buttons(rfd::MessageButtons::OkCancel)
-                .show();
-            if !matches!(confirmed, rfd::MessageDialogResult::Ok | rfd::MessageDialogResult::Yes) {
-                return Ok(json!({ "success": false, "canceled": true }));
-            }
-        }
+        let overwrite_options = ImportOptions {
+            conflict_behavior: Some("overwrite".to_string()),
+            auto_validate_import: options
+                .as_ref()
+                .and_then(|value| value.auto_validate_import),
+        };
+        let options_ref = Some(&overwrite_options);
 
         let Some(zip_path) = rfd::FileDialog::new()
             .set_title("Choose backup ZIP to import")
@@ -1623,11 +1600,15 @@ async fn export_showcase(app: AppHandle) -> std::result::Result<Value, String> {
         }
         fs::create_dir_all(&stage)?;
 
-        for name in ["index.html", "style.css", "renderer.js", "tauri-api.js"] {
-            let source = frontend.join(name);
-            if source.exists() {
-                fs::copy(source, stage.join(name))?;
-            }
+        for name in [
+            "index.html",
+            "style.css",
+            "theme-boot.js",
+            "heic-converter.js",
+            "renderer.js",
+            "tauri-api.js",
+        ] {
+            copy_required_file(&frontend.join(name), &stage.join(name))?;
         }
         for name in ["assets", "renderer"] {
             let source = frontend.join(name);

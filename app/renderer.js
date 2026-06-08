@@ -6823,9 +6823,9 @@ if (btnImportBackup) {
         const importExportPrefs = getImportExportPreferences();
         const proceed = await confirmAction({
             title: 'Import Backup',
-            message: 'Importing a backup will replace your current data and may replace images. Continue?',
+            message: 'Importing a backup will overwrite your current collection, preferences, and images with the selected ZIP. Continue?',
             destructive: true,
-            buttons: ['Cancel', 'Import Backup'],
+            buttons: ['Cancel', 'Import'],
             defaultId: 0,
             cancelId: 0,
             confirmedIndex: 1
@@ -6836,7 +6836,7 @@ if (btnImportBackup) {
         try {
             result = await desktopAPI.importBackup({
                 auto_validate_import: !!importPrefs.auto_validate_import,
-                conflict_behavior: String(importPrefs.conflict_behavior || 'overwrite').toLowerCase()
+                conflict_behavior: 'overwrite'
             });
         } catch (error) {
             showAppNotice(`Backup import failed: ${error && error.message ? error.message : error}`, 'error');

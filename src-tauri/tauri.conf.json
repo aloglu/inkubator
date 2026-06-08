@@ -33,6 +33,9 @@
   },
   "bundle": {
     "active": true,
+    "resources": {
+      "../app": "app"
+    },
     "targets": [
       "deb",
       "rpm",

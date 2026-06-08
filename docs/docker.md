@@ -142,6 +142,8 @@ Keep the `/data` mount stable across upgrades. It contains app data, preferences
 
 Manual full backups download as ZIP files through the browser. Automated backups remain inside `/data/backups/auto`.
 
+For restore steps and backup settings, see [Backups And Data Safety](backups.md).
+
 ## Updating
 
 For `docker run`:

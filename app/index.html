@@ -431,26 +431,18 @@
                                             <span>Keep replaced photos in backups</span>
                                         </label>
                                     </div>
-                                    <div class="settings-inline-field">
-                                        <label class="activity-inline-label" for="import-conflict-behavior-select" data-tooltip="Decide how imports handle items that already exist by ID.">Conflict Behavior</label>
-                                        <select id="import-conflict-behavior-select" class="activity-select">
-                                            <option value="overwrite" selected>Overwrite</option>
-                                            <option value="skip">Skip</option>
-                                            <option value="merge">Merge</option>
-                                        </select>
-                                    </div>
                                     <div class="settings-subheader">Backup Actions</div>
                                     <div id="backup-actions" class="backup-actions">
                                         <div class="backup-meta">
                                             <span id="backup-status" class="backup-status-text">Checking automated backups...</span>
-                                            <span class="backup-meta-note">Showcase exports include only current referenced images. Full backups can also keep replaced photos when enabled.</span>
+                                            <span class="backup-meta-note">Importing a full backup restores the selected ZIP and overwrites current data. Showcase exports include only current referenced images.</span>
                                         </div>
                                         <div class="backup-actions-divider" aria-hidden="true"></div>
                                         <div class="backup-buttons">
                                             <button class="btn-glass" id="btn-export-backup" data-tooltip="Create a full backup with data and images. Best before migration or sharing.">
                                                 <span>Export Full Backup</span>
                                             </button>
-                                            <button class="btn-glass" id="btn-import-backup" data-tooltip="Restore data and images from a previously exported full backup.">
+                                            <button class="btn-glass" id="btn-import-backup" data-tooltip="Choose a backup ZIP and restore it over the current collection.">
                                                 <span>Import Full Backup</span>
                                             </button>
                                         </div>

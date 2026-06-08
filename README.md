@@ -51,9 +51,9 @@ See [Docker Deployment](docs/docker.md) for configuration, reverse proxy example
 
 ## Backups
 
-Manual full backups export as `.zip` files and include collection data, preferences, images, and replaced-image archives when enabled. Import accepts these ZIP backups in both desktop and Docker admin mode.
+Manual full backups export as `.zip` files and include collection data, preferences, images, and replaced-image archives when enabled. Import accepts these ZIP backups in both desktop and Docker admin mode. See [Backups And Data Safety](docs/backups.md) for data locations, automated backups, and restore steps.
 
-Pre-2.0 folder backups remain usable. In desktop mode, old backup folders can still be selected directly. In Docker mode, compress the old backup folder into a ZIP and import that ZIP.
+Pre-2.0 folder backups remain usable after you compress the backup folder into a ZIP and import that ZIP.
 
 ## License
 

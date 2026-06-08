@@ -2,6 +2,8 @@
 
 Download the latest desktop installer from the GitHub [Releases](https://github.com/aloglu/inkubator/releases) page.
 
+Before moving machines, uninstalling, or testing a new build, create a full backup ZIP. See [Backups And Data Safety](backups.md) for export, import, and automated backup details.
+
 ## Windows
 
 Download the Windows `.exe` installer and run it.

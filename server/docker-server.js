@@ -514,23 +514,6 @@ async function importBackup(decoded, options = {}) {
   return { success: true, data: await loadCombinedData() };
 }
 
-async function readBackupFolder(folder) {
-  const decoded = new Map();
-  async function walk(current) {
-    const entries = await fs.readdir(current, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        await walk(fullPath);
-      } else if (entry.isFile()) {
-        decoded.set(backupRelativePath(path.relative(folder, fullPath)), await fs.readFile(fullPath));
-      }
-    }
-  }
-  await walk(folder);
-  return decoded;
-}
-
 async function readBackupZip(zipBase64) {
   const zip = new AdmZip(Buffer.from(String(zipBase64 || ''), 'base64'));
   const decoded = new Map();
@@ -541,15 +524,6 @@ async function readBackupZip(zipBase64) {
     decoded.set(relative, entry.getData());
   }
   return decoded;
-}
-
-async function importLocalBackup(payload) {
-  const latest = await latestValidLocalBackup();
-  if (!latest) {
-    return { success: false, noLocalBackup: true, message: 'No backup file was found locally.' };
-  }
-  const decoded = await readBackupFolder(latest.folder);
-  return importBackup(decoded, payload.options);
 }
 
 async function exportShowcase() {
@@ -701,27 +675,19 @@ async function handleApi(req, res, pathname) {
       latest: latest ? { name: latest.name, path: latest.folder, updated_at: latest.updated_at } : null
     });
   }
-  if (req.method === 'GET' && pathname === '/api/local-backup-status') {
-    const latest = await latestValidLocalBackup();
-    return sendJson(res, 200, {
-      success: true,
-      found: !!latest,
-      latest: latest ? { name: latest.name, updated_at: latest.updated_at } : null
-    });
-  }
   if (req.method === 'POST' && pathname === '/api/export-backup') {
     const exported = await exportBackupZip();
     await sendDownload(res, exported.zipPath, exported.filename, 'application/zip');
     await fs.rm(exported.zipPath, { force: true });
     return true;
   }
-  if (req.method === 'POST' && pathname === '/api/import-local-backup') {
-    return sendJson(res, 200, await importLocalBackup(await readJsonBody(req)));
-  }
   if (req.method === 'POST' && pathname === '/api/import-backup') {
     const payload = await readJsonBody(req);
     const decoded = await readBackupZip(payload.zipBase64);
-    return sendJson(res, 200, await importBackup(decoded, payload.options));
+    return sendJson(res, 200, await importBackup(decoded, {
+      ...(payload.options || {}),
+      conflict_behavior: 'overwrite'
+    }));
   }
   if (req.method === 'POST' && pathname === '/api/export-showcase') {
     return sendJson(res, 410, { success: false, message: 'Showcase export is unavailable in Docker mode because the public website is served directly.' });

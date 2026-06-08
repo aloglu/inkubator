@@ -202,22 +202,15 @@
         backupStatus: () => apiFetch('/api/backup-status'),
         exportBackup: downloadBackupZip,
         importBackup: async (options) => {
-            const local = await apiFetch('/api/local-backup-status');
-            if (local && local.found) {
-                const useLocal = window.confirm('A local automated backup was found. Import the latest local backup?\n\nChoose Cancel to import a ZIP file manually instead.');
-                if (useLocal) {
-                    return apiFetch('/api/import-local-backup', { method: 'POST', body: JSON.stringify({ options }) });
-                }
-            } else {
-                const useManual = window.confirm('No backup file found locally. Want to import a ZIP file manually?');
-                if (!useManual) return { success: false, canceled: true };
-            }
             const file = await openBackupDirectoryPicker();
             if (!file) return { success: false, canceled: true };
             return apiFetch('/api/import-backup', {
                 method: 'POST',
                 body: JSON.stringify({
-                    options,
+                    options: {
+                        ...(options || {}),
+                        conflict_behavior: 'overwrite'
+                    },
                     filename: file.name,
                     zipBase64: await readFileBase64(file)
                 })

@@ -43,17 +43,18 @@ Open `http://localhost:8080` or `http://YOUR-SERVER-IP:8080`.
 
 See [Docker Deployment](docs/docker.md) for configuration, reverse proxy examples, and update instructions.
 
-## Documentation
-
-- [Desktop Install](docs/desktop-install.md)
-- [Docker Deployment](docs/docker.md)
-- [Build From Source](docs/build-from-source.md)
-
 ## Backups
 
 Manual full backups export as `.zip` files and include collection data, preferences, images, and replaced-image archives when enabled. Import accepts these ZIP backups in both desktop and Docker admin mode. See [Backups And Data Safety](docs/backups.md) for data locations, automated backups, and restore steps.
 
 Pre-2.0 folder backups remain usable after you compress the backup folder into a ZIP and import that ZIP.
+
+## Documentation
+
+- [Desktop Install](docs/desktop-install.md)
+- [Docker Deployment](docs/docker.md)
+- [Backups and Data Safety](docs/backups.md)
+- [Build From Source](docs/build-from-source.md)
 
 ## License
 

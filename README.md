@@ -1,6 +1,6 @@
 # Inkubator
 
-Inkubator is a local-first app for cataloging fountain pens, inks, and swatches. It stores your collection in files, supports images and backups, and can run either as a desktop app or as a self-hosted Docker web app.
+Inkubator is an app for cataloging fountain pens, inks, and swatches. It stores your collection in files, supports images and backups, and can run either as a desktop app or as a self-hosted Docker web app.
 
 ## Features
 

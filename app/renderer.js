@@ -6839,7 +6839,7 @@ if (btnImportBackup) {
                 conflict_behavior: String(importPrefs.conflict_behavior || 'overwrite').toLowerCase()
             });
         } catch (error) {
-            alert(`Backup import failed: ${error && error.message ? error.message : error}`);
+            showAppNotice(`Backup import failed: ${error && error.message ? error.message : error}`, 'error');
             return;
         }
         if (result && result.success) {
@@ -6851,7 +6851,7 @@ if (btnImportBackup) {
                         && Array.isArray(reloaded.currently_inked)
                         && Array.isArray(reloaded.activity_log);
                     if (!basicValid) {
-                        alert('Imported backup validation failed. Data shape is unexpected.');
+                        showAppNotice('Imported backup validation failed. Data shape is unexpected', 'error');
                         return;
                     }
                 }
@@ -6873,12 +6873,12 @@ if (btnImportBackup) {
             closeAllModals();
             refreshBackupStatus();
             if (result.warning) {
-                alert(result.message || 'Backup imported with warnings. Please review your images and backups.');
+                showAppNotice(result.message || 'Backup imported with warnings. Please review your images and backups', 'warning');
             } else {
-                alert('Backup imported successfully.');
+                showAppNotice('Backup imported successfully', 'success');
             }
         } else if (!(result && result.canceled)) {
-            alert(`Backup import failed: ${result && result.message ? result.message : 'Unknown error.'}`);
+            showAppNotice(`Backup import failed: ${result && result.message ? result.message : 'Unknown error'}`, 'error');
         }
     });
 }

@@ -2,7 +2,9 @@
     if (window.inkubatorAPI) return;
 
     const uploads = new Map();
+    const backupUploads = new Map();
     let uploadCounter = 0;
+    let backupUploadCounter = 0;
 
     function apiFetch(path, options = {}) {
         return fetch(path, {
@@ -55,9 +57,9 @@
         });
     }
 
-    async function imageBlobToWebpBase64(blob) {
+    async function imageBlobToWebpBase64(blob, maxSize = 1200) {
         const image = await blobToImage(blob);
-        const scale = Math.min(1, 1200 / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+        const scale = Math.min(1, maxSize / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
         const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
         const height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
         const canvas = document.createElement('canvas');
@@ -150,10 +152,12 @@
         const file = uploadFileFor(token);
         if (!file) throw new Error('Selected upload is no longer available.');
         const webpBase64 = await imageBlobToWebpBase64(file);
+        const thumbnailBase64 = await imageBlobToWebpBase64(file, 480);
         return apiFetch('/api/save-image-bytes', {
             method: 'POST',
             body: JSON.stringify({
                 bytesBase64: webpBase64,
+                thumbnailBase64,
                 imageType,
                 metadata,
                 sourceHint: file.name || 'upload.webp'
@@ -172,10 +176,12 @@
         },
         saveImageBytes: async (bytesBase64, type, metadata, sourceHint) => {
             const bytes = base64ToBytes(bytesBase64);
-            const webpBase64 = await imageBlobToWebpBase64(new Blob([bytes]));
+            const blob = new Blob([bytes]);
+            const webpBase64 = await imageBlobToWebpBase64(blob);
+            const thumbnailBase64 = await imageBlobToWebpBase64(blob, 480);
             return apiFetch('/api/save-image-bytes', {
                 method: 'POST',
-                body: JSON.stringify({ bytesBase64: webpBase64, imageType: type, metadata, sourceHint })
+                body: JSON.stringify({ bytesBase64: webpBase64, thumbnailBase64, imageType: type, metadata, sourceHint })
             });
         },
         deleteImage: (path) => apiFetch('/api/delete-image', { method: 'POST', body: JSON.stringify({ relativePath: path }) }),
@@ -196,25 +202,35 @@
             return `/api/images/${String(path || '').replace(/^images\//, '').replace(/^\/+/, '')}`;
         },
         getImagesBaseUrl: async () => '/api/images',
-        getImageDataUrls: (paths) => apiFetch('/api/image-data-urls', { method: 'POST', body: JSON.stringify({ paths }) }),
-        toAssetUrl: (path) => path,
         isDockerMode: () => true,
         backupStatus: () => apiFetch('/api/backup-status'),
         exportBackup: downloadBackupZip,
-        importBackup: async (options) => {
+        selectBackup: async () => {
             const file = await openBackupDirectoryPicker();
-            if (!file) return { success: false, canceled: true };
-            return apiFetch('/api/import-backup', {
+            if (!file) return null;
+            const token = `docker-backup:${Date.now()}-${backupUploadCounter += 1}`;
+            backupUploads.clear();
+            backupUploads.set(token, file);
+            return token;
+        },
+        importBackup: async (token, options) => {
+            const file = backupUploads.get(token);
+            backupUploads.delete(token);
+            if (!file) throw new Error('Selected backup is no longer available.');
+            const response = await fetch('/api/import-backup', {
                 method: 'POST',
-                body: JSON.stringify({
-                    options: {
-                        ...(options || {}),
-                        conflict_behavior: 'overwrite'
-                    },
-                    filename: file.name,
-                    zipBase64: await readFileBase64(file)
-                })
+                headers: {
+                    'Content-Type': 'application/zip',
+                    'X-Inkubator-Auto-Validate': options?.auto_validate_import === false ? '0' : '1'
+                },
+                body: file
             });
+            const text = await response.text();
+            const payload = text ? JSON.parse(text) : null;
+            if (!response.ok) {
+                throw new Error((payload && payload.message) || `Backup import failed: ${response.status}`);
+            }
+            return payload;
         },
         confirmDialog: async (options) => ({ success: true, confirmed: window.confirm(`${options?.message || 'Are you sure?'}${options?.detail ? `\n\n${options.detail}` : ''}`) }),
         focusWindow: async () => ({ success: true }),

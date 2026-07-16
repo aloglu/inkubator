@@ -22,7 +22,7 @@ docker run \
 
 This exposes Inkubator on the host at `http://YOUR-SERVER-IP:8080`, which works for LAN testing and for reverse proxies running on the same host or another machine.
 
-The `latest` tag tracks the newest published release. If you prefer controlled upgrades, pin a specific release instead, such as `ghcr.io/aloglu/inkubator:2.0.0`.
+The `latest` tag tracks the newest published release. If you prefer controlled upgrades, pin a specific release instead, such as `ghcr.io/aloglu/inkubator:2.1.0`.
 
 The first port is the host port. The second port is the container's internal port. If host port `8080` is already occupied, change only the first value:
 
@@ -47,8 +47,11 @@ If your reverse proxy runs on the same host and you do not want the port reachab
 | `INKUBATOR_DATA_DIR` | `/data` | Container path for app data, preferences, images, and backups |
 | `INKUBATOR_EXPORT_DIR` | `/data/exports` | Container path for generated exports |
 | `INKUBATOR_PORT` / `PORT` | `8080` | Internal HTTP port used by the Node server |
+| `INKUBATOR_MAX_BACKUP_BYTES` | `1073741824` | Maximum compressed backup upload size (1 GiB) |
+| `INKUBATOR_MAX_BACKUP_EXPANDED_BYTES` | `2147483648` | Maximum total extracted backup size (2 GiB) |
+| `INKUBATOR_MAX_BACKUP_ENTRIES` | `20000` | Maximum files and directories accepted from a backup |
 
-Most users should leave the internal port at `8080` and only change the host-side port mapping.
+Most users should leave the internal port and backup safety limits at their defaults and only change the host-side port mapping.
 
 ## Docker Compose
 
@@ -102,6 +105,7 @@ If Nginx runs on the same host as Docker:
 server {
   listen 443 ssl http2;
   server_name inkubator.example.com;
+  client_max_body_size 1g;
 
   ssl_certificate /path/to/fullchain.pem;
   ssl_certificate_key /path/to/privkey.pem;
@@ -136,11 +140,24 @@ After DNS and HTTPS are configured:
 7. Export a full backup and confirm the browser downloads a `.zip`.
 8. Log out and confirm `/admin/` requires login again.
 
+## Caching And Compression
+
+Docker mode sends cache validators for app assets and managed images, supports conditional `304 Not Modified` responses, fingerprints app-shell asset URLs, and compresses text-like responses with Brotli or gzip when the browser supports them. Fingerprinted app-shell assets can be cached immutably. ZIP backups and already-compressed image formats are not compressed.
+
+If you place Nginx, Caddy, Cloudflare, or another reverse proxy in front of the container, avoid overriding these response headers unless you are deliberately taking over caching there. For exported static showcase folders, use the same policy on your static host:
+
+- Revalidate `index.html` and `data.js`.
+- Compress HTML, CSS, JavaScript, JSON, SVG, and font responses.
+- Cache fingerprinted CSS, JavaScript, fonts, and icons immutably; cache collection images with validators.
+- Do not cache backup ZIP downloads if you expose any private download route outside Docker.
+
 ## Data And Backups
 
 Keep the `/data` mount stable across upgrades. It contains app data, preferences, images, automated backups, and export output. Updating the container should not replace this directory.
 
 Manual full backups download as ZIP files through the browser. Automated backups remain inside `/data/backups/auto`.
+
+Docker backup uploads send ZIP bytes directly rather than encoding the archive inside JSON. The server writes the upload to temporary storage, validates and extracts entries with bounded memory, generates thumbnails, and only then replaces the active collection. Invalid imports and commit failures restore the previous collection. A reverse proxy must permit request bodies at least as large as the backups you intend to restore; the Nginx example above matches Inkubator's default 1 GiB compressed-backup limit.
 
 For restore steps and backup settings, see [Backups And Data Safety](backups.md).
 

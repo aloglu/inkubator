@@ -7,9 +7,10 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use std::{
     collections::HashSet,
+    env,
     fs::{self, File},
     io::{Cursor, Read, Write},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     sync::Mutex,
     time::{Duration, SystemTime},
 };
@@ -31,6 +32,7 @@ const ALLOWED_IMAGE_EXTENSIONS: [&str; 7] = ["jpg", "jpeg", "png", "webp", "heic
 #[derive(Default)]
 struct InkubatorState {
     selected_external_image_paths: Mutex<HashSet<PathBuf>>,
+    selected_backup_paths: Mutex<HashSet<PathBuf>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -101,7 +103,24 @@ fn release_version_state(current_version: &str, latest_version: &str) -> &'stati
     }
 }
 
+fn normalize_data_dir_override(value: Option<&str>) -> Option<PathBuf> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+}
+
+fn desktop_data_dir_override() -> Option<PathBuf> {
+    env::var("INKUBATOR_DATA_DIR")
+        .ok()
+        .and_then(|value| normalize_data_dir_override(Some(&value)))
+}
+
 fn app_storage_dir(app: &AppHandle) -> Result<PathBuf> {
+    if let Some(path) = desktop_data_dir_override() {
+        return Ok(path);
+    }
+
     app.path()
         .app_data_dir()
         .context("Could not resolve application data directory")
@@ -117,6 +136,10 @@ fn preferences_path(app: &AppHandle) -> Result<PathBuf> {
 
 fn images_path(app: &AppHandle) -> Result<PathBuf> {
     Ok(app_storage_dir(app)?.join("images"))
+}
+
+fn thumbnails_path(app: &AppHandle) -> Result<PathBuf> {
+    Ok(images_path(app)?.join(".thumbs"))
 }
 
 fn replaced_images_path(app: &AppHandle) -> Result<PathBuf> {
@@ -462,6 +485,8 @@ fn ensure_app_storage(app: &AppHandle) -> Result<()> {
     }
     fs::create_dir_all(&images)?;
     ensure_managed_image_dirs(&images)?;
+    fs::create_dir_all(thumbnails_path(app)?)?;
+    ensure_managed_image_dirs(&thumbnails_path(app)?)?;
     fs::create_dir_all(auto_backups_path(app)?)?;
     fs::create_dir_all(manual_backups_path(app)?)?;
     Ok(())
@@ -480,6 +505,180 @@ fn copy_required_file(source: &Path, destination: &Path) -> Result<()> {
     }
     fs::copy(source, destination)?;
     Ok(())
+}
+
+fn prune_showcase_only_assets(root: &Path) -> Result<()> {
+    for relative in [
+        "assets/brand/inkubator-logo-background-source.png",
+        "assets/brand/inkubator-logo-transparent-source.png",
+        "assets/icons/ink-drop-white.source.png",
+    ] {
+        let target = root.join(relative);
+        if target.exists() {
+            fs::remove_file(target)?;
+        }
+    }
+    Ok(())
+}
+
+fn content_fingerprint(bytes: &[u8]) -> String {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for byte in bytes {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn version_asset_reference(root: &Path, raw: &str) -> Result<String> {
+    if raw.is_empty()
+        || raw.starts_with('#')
+        || raw.starts_with('?')
+        || raw.starts_with("//")
+        || raw.contains(':')
+    {
+        return Ok(raw.to_string());
+    }
+
+    let (before_hash, hash) = raw
+        .split_once('#')
+        .map(|(left, right)| (left, format!("#{right}")))
+        .unwrap_or((raw, String::new()));
+    let (pathname, query) = before_hash
+        .split_once('?')
+        .map(|(left, right)| (left, right))
+        .unwrap_or((before_hash, ""));
+    let normalized = pathname.trim_start_matches('/');
+    if normalized.is_empty()
+        || normalized == "data.js"
+        || normalized.split(['/', '\\']).any(|part| part == "..")
+    {
+        return Ok(raw.to_string());
+    }
+
+    let target = root.join(normalized);
+    if !target.is_file() {
+        return Ok(raw.to_string());
+    }
+
+    let fingerprint = content_fingerprint(&fs::read(&target)?);
+    let mut query_parts = query
+        .split('&')
+        .filter(|part| !part.is_empty() && !part.starts_with("v="))
+        .map(|part| part.to_string())
+        .collect::<Vec<_>>();
+    query_parts.push(format!("v={fingerprint}"));
+    Ok(format!("{}?{}{}", pathname, query_parts.join("&"), hash))
+}
+
+fn version_html_attr_references(root: &Path, html: &str, attr: &str) -> Result<String> {
+    let pattern = format!("{attr}=\"");
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+
+    while let Some(index) = rest.find(&pattern) {
+        out.push_str(&rest[..index + pattern.len()]);
+        let after = &rest[index + pattern.len()..];
+        let Some(end) = after.find('"') else {
+            out.push_str(after);
+            return Ok(out);
+        };
+        out.push_str(&version_asset_reference(root, &after[..end])?);
+        rest = &after[end..];
+    }
+
+    out.push_str(rest);
+    Ok(out)
+}
+
+fn version_html_asset_references(root: &Path, html: &str) -> Result<String> {
+    let html = version_html_attr_references(root, html, "src")?;
+    version_html_attr_references(root, &html, "href")
+}
+
+fn remove_html_script_line(html: &str, src: &str) -> String {
+    let tag = format!("<script src=\"{src}\"></script>");
+    let lines = html
+        .lines()
+        .filter(|line| line.trim() != tag)
+        .collect::<Vec<_>>();
+    let mut output = lines.join("\n");
+    if html.ends_with('\n') {
+        output.push('\n');
+    }
+    output
+}
+
+fn ensure_showcase_data_script(html: &str) -> Result<String> {
+    if html.contains("src=\"data.js\"") {
+        return Ok(html.to_string());
+    }
+    if !html.contains("<script src=\"renderer.js\"></script>") {
+        return Err(anyhow!(
+            "Could not find renderer script while preparing showcase export."
+        ));
+    }
+    Ok(html.replace(
+        "<script src=\"renderer.js\"></script>",
+        "<script src=\"data.js\"></script>\n    <script src=\"renderer.js\"></script>",
+    ))
+}
+
+fn prepare_showcase_index_html(root: &Path, html: &str, data: &Value) -> Result<String> {
+    let html = ensure_showcase_data_script(html)?;
+    let html = remove_html_script_line(&html, "tauri-api.js");
+    let html = remove_html_script_line(&html, "docker-api.js");
+    let html = remove_html_script_line(&html, "docker-shell.js");
+    let html = inject_public_color_mode(&html, &showcase_color_mode_from_data(data));
+    version_html_asset_references(root, &html)
+}
+
+fn showcase_color_mode_from_data(data: &Value) -> String {
+    let mode = data
+        .get("preferences")
+        .and_then(|value| value.get("showcase"))
+        .and_then(|value| value.get("color_mode"))
+        .and_then(Value::as_str)
+        .unwrap_or("auto")
+        .to_lowercase();
+    if matches!(mode.as_str(), "light" | "dark" | "auto") {
+        mode
+    } else {
+        "auto".to_string()
+    }
+}
+
+fn inject_public_color_mode(html: &str, mode: &str) -> String {
+    let safe_mode = if matches!(mode, "light" | "dark" | "auto") {
+        mode
+    } else {
+        "auto"
+    };
+    if html.contains("data-inkubator-public-color-mode=") {
+        let Some(start) = html.find("data-inkubator-public-color-mode=\"") else {
+            return html.to_string();
+        };
+        let value_start = start + "data-inkubator-public-color-mode=\"".len();
+        let Some(relative_end) = html[value_start..].find('"') else {
+            return html.to_string();
+        };
+        let mut out = String::with_capacity(html.len());
+        out.push_str(&html[..value_start]);
+        out.push_str(safe_mode);
+        out.push_str(&html[value_start + relative_end..]);
+        return out;
+    }
+    if let Some(index) = html.find("<html") {
+        let insert_at = index + "<html".len();
+        let mut out = String::with_capacity(html.len() + 48);
+        out.push_str(&html[..insert_at]);
+        out.push_str(&format!(
+            " data-inkubator-public-color-mode=\"{safe_mode}\""
+        ));
+        out.push_str(&html[insert_at..]);
+        return out;
+    }
+    html.to_string()
 }
 
 fn create_backup_folder(
@@ -784,12 +983,66 @@ fn path_inside(parent: &Path, candidate: &Path) -> bool {
     candidate.starts_with(parent)
 }
 
+fn collection_references_local_image_path(app: &AppHandle, candidate: &Path) -> Result<bool> {
+    let data = read_json_or(&data_path(app)?, default_collection_data());
+    let candidate = candidate
+        .canonicalize()
+        .unwrap_or_else(|_| candidate.to_path_buf());
+
+    for key in ["pens", "inks", "swatches"] {
+        let Some(items) = data.get(key).and_then(Value::as_array) else {
+            continue;
+        };
+        for item in items {
+            let direct = item.get("image").and_then(Value::as_str);
+            let gallery = item
+                .get("images")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(|entry| entry.get("path").and_then(Value::as_str));
+            for raw_path in direct.into_iter().chain(gallery) {
+                let Ok(path) = local_path_from_input(raw_path) else {
+                    continue;
+                };
+                let path = path.canonicalize().unwrap_or(path);
+                if path == candidate {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+
+    Ok(false)
+}
+
 fn local_path_from_input(input: &str) -> Result<PathBuf> {
     if input.starts_with("file://") {
         let url = Url::parse(input)?;
         return url.to_file_path().map_err(|_| anyhow!("Invalid file URL"));
     }
     Ok(PathBuf::from(input))
+}
+
+fn take_selected_backup_path(
+    selected_backup_paths: &Mutex<HashSet<PathBuf>>,
+    input: &str,
+) -> Result<PathBuf> {
+    let path = local_path_from_input(input)?;
+    let was_selected = selected_backup_paths
+        .lock()
+        .map_err(|_| anyhow!("Backup selection state is unavailable"))?
+        .remove(&path);
+    if !was_selected {
+        return Err(anyhow!("The selected backup is no longer available."));
+    }
+    if !path.is_file() {
+        return Err(anyhow!("Selected backup file does not exist."));
+    }
+    if extension_lower(&path) != "zip" {
+        return Err(anyhow!("Selected backup must be a ZIP archive."));
+    }
+    Ok(path)
 }
 
 fn extension_lower(path: &Path) -> String {
@@ -814,6 +1067,118 @@ fn image_mime_type(path: &Path) -> &'static str {
     }
 }
 
+fn managed_media_base_url() -> &'static str {
+    if cfg!(any(target_os = "windows", target_os = "android")) {
+        "http://inkubator.localhost/images"
+    } else {
+        "inkubator://localhost/images"
+    }
+}
+
+fn resolve_managed_media_path(images_root: &Path, request_path: &str) -> Result<PathBuf> {
+    let decoded = urlencoding::decode(request_path).context("Invalid managed image URL")?;
+    let relative = decoded
+        .trim_start_matches('/')
+        .strip_prefix("images/")
+        .ok_or_else(|| anyhow!("Invalid managed image URL"))?;
+    let relative_path = Path::new(relative);
+    if relative_path.as_os_str().is_empty()
+        || relative_path
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
+    {
+        return Err(anyhow!("Invalid managed image path"));
+    }
+    let target = images_root.join(relative_path);
+    if !path_inside(images_root, &target) || !is_allowed_image_extension(&target) {
+        return Err(anyhow!("Invalid managed image path"));
+    }
+    Ok(target)
+}
+
+fn managed_media_response(
+    app: &AppHandle,
+    request: &tauri::http::Request<Vec<u8>>,
+) -> tauri::http::Response<Vec<u8>> {
+    use tauri::http::{header, Method, Response, StatusCode};
+
+    let response =
+        |status, body: Vec<u8>, content_type: &'static str, cache_control: &'static str| {
+            Response::builder()
+                .status(status)
+                .header(header::CONTENT_TYPE, content_type)
+                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                .header(header::CACHE_CONTROL, cache_control)
+                .header(header::CONTENT_LENGTH, body.len())
+                .body(body)
+                .unwrap_or_else(|_| Response::new(Vec::new()))
+        };
+
+    if request.method() != Method::GET && request.method() != Method::HEAD {
+        return response(
+            StatusCode::METHOD_NOT_ALLOWED,
+            Vec::new(),
+            "text/plain",
+            "no-store",
+        );
+    }
+    let images = match images_path(app) {
+        Ok(path) => path,
+        Err(_) => {
+            return response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Vec::new(),
+                "text/plain",
+                "no-store",
+            )
+        }
+    };
+    let requested_target = match resolve_managed_media_path(&images, request.uri().path()) {
+        Ok(path) => path,
+        Err(_) => return response(StatusCode::FORBIDDEN, Vec::new(), "text/plain", "no-store"),
+    };
+    let thumbnail_root = images.join(".thumbs");
+    let fallback = requested_target
+        .strip_prefix(&thumbnail_root)
+        .ok()
+        .map(|relative| images.join(relative))
+        .filter(|path| path.is_file() && path_inside(&images, path));
+    let using_full_image_fallback = !requested_target.is_file() && fallback.is_some();
+    let target = if requested_target.is_file() {
+        requested_target
+    } else if let Some(path) = fallback {
+        path
+    } else {
+        return response(StatusCode::NOT_FOUND, Vec::new(), "text/plain", "no-store");
+    };
+    let content_type = image_mime_type(&target);
+    let body = if request.method() == Method::HEAD {
+        Vec::new()
+    } else {
+        match fs::read(&target) {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                return response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Vec::new(),
+                    "text/plain",
+                    "no-store",
+                )
+            }
+        }
+    };
+    response(
+        StatusCode::OK,
+        body,
+        content_type,
+        if using_full_image_fallback {
+            "no-store"
+        } else {
+            "public, max-age=31536000, immutable"
+        },
+    )
+}
+
 fn assert_allowed_local_image_path(
     app: &AppHandle,
     state: &State<InkubatorState>,
@@ -834,13 +1199,18 @@ fn assert_allowed_local_image_path(
         .map_err(|_| anyhow!("Image selection state is unavailable"))?;
     let selected_ok = selected.contains(&path);
     let managed_ok = path_inside(&images, &path);
-    if !selected_ok && !managed_ok {
+    let referenced_ok = collection_references_local_image_path(app, &path)?;
+    if !selected_ok && !managed_ok && !referenced_ok {
         return Err(anyhow!("Access to this image path is not allowed."));
     }
     Ok(path)
 }
 
-fn process_image_to_webp(source: &[u8], source_hint: &str) -> Result<Vec<u8>> {
+fn process_image_to_webp_with_max(
+    source: &[u8],
+    source_hint: &str,
+    max_size: u32,
+) -> Result<Vec<u8>> {
     let lower = source_hint.to_lowercase();
     if lower.ends_with(".heic") || lower.ends_with(".heif") {
         return Err(anyhow!(
@@ -848,15 +1218,113 @@ fn process_image_to_webp(source: &[u8], source_hint: &str) -> Result<Vec<u8>> {
         ));
     }
 
+    if is_preprocessed_heic_webp(source_hint) {
+        let image = image::load_from_memory(source).context("Could not decode image")?;
+        if image.width() <= max_size && image.height() <= max_size {
+            return Ok(source.to_vec());
+        }
+    }
+
     let image = image::load_from_memory(source).context("Could not decode image")?;
-    let resized = if image.width() > 1200 || image.height() > 1200 {
-        image.thumbnail(1200, 1200)
+    let resized = if image.width() > max_size || image.height() > max_size {
+        image.thumbnail(max_size, max_size)
     } else {
         image
     };
     let mut output = Cursor::new(Vec::new());
     resized.write_to(&mut output, ImageFormat::WebP)?;
     Ok(output.into_inner())
+}
+
+fn process_image_to_webp(source: &[u8], source_hint: &str) -> Result<Vec<u8>> {
+    process_image_to_webp_with_max(source, source_hint, 1200)
+}
+
+fn is_preprocessed_heic_webp(source_hint: &str) -> bool {
+    let lower = source_hint.to_lowercase();
+    lower.ends_with(".heic.webp") || lower.ends_with(".heif.webp")
+}
+
+fn thumbnail_path_for(app: &AppHandle, relative_path: &str) -> Result<PathBuf> {
+    let normalized = normalize_relative_image_path(relative_path);
+    if normalized.is_empty() {
+        return Err(anyhow!("Invalid thumbnail path."));
+    }
+    let root = thumbnails_path(app)?;
+    let target = root.join(normalized);
+    if !path_inside(&root, target.parent().unwrap_or(&root)) {
+        return Err(anyhow!("Invalid thumbnail path."));
+    }
+    Ok(target)
+}
+
+fn write_thumbnail_for(
+    app: &AppHandle,
+    relative_path: &str,
+    source_bytes: &[u8],
+    source_hint: &str,
+) -> Result<()> {
+    let target = thumbnail_path_for(app, relative_path)?;
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(
+        target,
+        process_image_to_webp_with_max(source_bytes, source_hint, 480)?,
+    )?;
+    Ok(())
+}
+
+fn ensure_thumbnail_for(app: &AppHandle, relative_path: &str) -> Result<()> {
+    let normalized = normalize_relative_image_path(relative_path);
+    if normalized.is_empty() {
+        return Ok(());
+    }
+    let target = thumbnail_path_for(app, &normalized)?;
+    if target.exists() {
+        return Ok(());
+    }
+    let source = images_path(app)?.join(&normalized);
+    if !source.exists() || !source.is_file() || !path_inside(&images_path(app)?, &source) {
+        return Ok(());
+    }
+    let bytes = fs::read(&source)?;
+    write_thumbnail_for(app, &normalized, &bytes, &normalized)
+}
+
+fn ensure_referenced_thumbnails(app: &AppHandle, data: &Value) -> Result<()> {
+    fs::create_dir_all(thumbnails_path(app)?)?;
+    ensure_managed_image_dirs(&thumbnails_path(app)?)?;
+    let mut failures = Vec::new();
+    for relative_path in collect_referenced_images(data) {
+        if let Err(error) = ensure_thumbnail_for(app, &relative_path) {
+            eprintln!("Failed to generate thumbnail for {relative_path}: {error}");
+            failures.push(relative_path);
+        }
+    }
+    if !failures.is_empty() {
+        return Err(anyhow!(
+            "{} referenced thumbnail(s) could not be generated.",
+            failures.len()
+        ));
+    }
+    Ok(())
+}
+
+fn regenerate_thumbnails_in_background(app: AppHandle, data: Value) {
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(error) = ensure_referenced_thumbnails(&app, &data) {
+            eprintln!("Some thumbnails could not be generated in the background: {error}");
+        }
+    });
+}
+
+fn remove_thumbnail_for(app: &AppHandle, relative_path: &str) -> Result<()> {
+    let target = thumbnail_path_for(app, relative_path)?;
+    if target.exists() {
+        fs::remove_file(target)?;
+    }
+    Ok(())
 }
 
 fn save_processed_image(
@@ -880,8 +1348,10 @@ fn save_processed_image(
         _ => next_ink_filename(&dir, metadata),
     };
     let output = process_image_to_webp(source_bytes, source_hint)?;
-    fs::write(dir.join(&filename), output)?;
-    Ok(format!("{folder}/{filename}"))
+    let relative_path = format!("{folder}/{filename}");
+    fs::write(dir.join(&filename), &output)?;
+    write_thumbnail_for(app, &relative_path, &output, &relative_path)?;
+    Ok(relative_path)
 }
 
 fn collect_referenced_images(data: &Value) -> Vec<String> {
@@ -889,22 +1359,32 @@ fn collect_referenced_images(data: &Value) -> Vec<String> {
     for key in ["pens", "inks", "swatches"] {
         if let Some(items) = data.get(key).and_then(Value::as_array) {
             for item in items {
-                let Some(image) = item.get("image").and_then(Value::as_str) else {
-                    continue;
-                };
-                if image.is_empty()
-                    || image.contains("default_")
-                    || image.starts_with("data:")
-                    || image.starts_with("blob:")
-                    || image.starts_with("http://")
-                    || image.starts_with("https://")
-                    || image.starts_with("file://")
+                for image in item
+                    .get("images")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|entry| entry.get("path").and_then(Value::as_str))
+                    .chain(item.get("image").and_then(Value::as_str))
                 {
-                    continue;
-                }
-                let normalized = normalize_relative_image_path(image);
-                if !normalized.is_empty() {
-                    out.insert(normalized);
+                    if image.is_empty()
+                        || image.contains("default_")
+                        || image.starts_with("data:")
+                        || image.starts_with("blob:")
+                        || image.starts_with("http://")
+                        || image.starts_with("https://")
+                        || image.starts_with("file://")
+                    {
+                        continue;
+                    }
+                    let normalized = normalize_relative_image_path(image);
+                    // Migrated ink records may retain a swatch-owned compatibility path.
+                    if key == "inks" && normalized.starts_with("swatches/") {
+                        continue;
+                    }
+                    if !normalized.is_empty() {
+                        out.insert(normalized);
+                    }
                 }
             }
         }
@@ -1260,6 +1740,7 @@ async fn delete_image(app: AppHandle, relative_path: String) -> std::result::Res
         if target.exists() && path_inside(&images, &target) {
             fs::remove_file(target)?;
         }
+        let _ = remove_thumbnail_for(&app, &relative_path);
         Ok(json!({ "success": true }))
     })()
     .map_err(command_error)
@@ -1308,6 +1789,7 @@ async fn dispose_replaced_image(
             index += 1;
         }
         fs::rename(source, &unique)?;
+        let _ = remove_thumbnail_for(&app, &normalized);
         Ok(json!({ "success": true, "action": "archived", "relativePath": normalized }))
     })()
     .map_err(command_error)
@@ -1340,50 +1822,9 @@ async fn get_image_preview_url(
 }
 
 #[tauri::command]
-async fn get_image_data_urls(
-    app: AppHandle,
-    paths: Vec<String>,
-) -> std::result::Result<Value, String> {
-    (|| {
-        ensure_app_storage(&app)?;
-        let images = images_path(&app)?;
-        let mut out = Map::new();
-
-        for raw_path in paths {
-            let normalized = normalize_relative_image_path(&raw_path);
-            if normalized.is_empty() || normalized.contains("default_") {
-                continue;
-            }
-
-            let path = images.join(&normalized);
-            if !path.exists() || !path.is_file() || !path_inside(&images, &path) {
-                continue;
-            }
-            if !is_allowed_image_extension(&path) {
-                continue;
-            }
-
-            let bytes = fs::read(&path)?;
-            let data_url = format!(
-                "data:{};base64,{}",
-                image_mime_type(&path),
-                base64::engine::general_purpose::STANDARD.encode(bytes)
-            );
-            out.insert(normalized, Value::String(data_url));
-        }
-
-        Ok(Value::Object(out))
-    })()
-    .map_err(command_error)
-}
-
-#[tauri::command]
 async fn get_images_base_url(app: AppHandle) -> std::result::Result<Option<String>, String> {
-    (|| {
-        ensure_app_storage(&app)?;
-        Ok(Some(images_path(&app)?.to_string_lossy().to_string()))
-    })()
-    .map_err(command_error)
+    ensure_app_storage(&app).map_err(command_error)?;
+    Ok(Some(managed_media_base_url().to_string()))
 }
 
 #[tauri::command]
@@ -1500,7 +1941,6 @@ fn import_backup_folder(
     }
 
     let current_collection = read_json_or(&data_path(app)?, default_collection_data());
-    create_auto_backup(app, &current_collection, "pre-import-restore", true)?;
     let behavior = normalize_import_conflict_behavior(
         options.and_then(|value| value.conflict_behavior.clone()),
     );
@@ -1534,17 +1974,45 @@ fn import_backup_folder(
         fs::remove_dir_all(&replaced_images)?;
     }
 
-    create_auto_backup(app, &data, "post-import-restore", true)?;
-    Ok(json!({ "success": true, "data": combine_collection_with_preferences(data, preferences) }))
+    Ok(json!({
+        "success": true,
+        "data": combine_collection_with_preferences(data, preferences)
+    }))
+}
+
+#[tauri::command]
+async fn select_backup(
+    state: State<'_, InkubatorState>,
+) -> std::result::Result<Option<String>, String> {
+    (|| {
+        let Some(path) = rfd::FileDialog::new()
+            .set_title("Choose backup ZIP to import")
+            .add_filter("ZIP archive", &["zip"])
+            .pick_file()
+        else {
+            return Ok(None);
+        };
+        let mut selected = state
+            .selected_backup_paths
+            .lock()
+            .map_err(|_| anyhow!("Backup selection state is unavailable"))?;
+        selected.clear();
+        selected.insert(path.clone());
+        Ok(Some(path.to_string_lossy().to_string()))
+    })()
+    .map_err(command_error)
 }
 
 #[tauri::command]
 async fn import_backup(
     app: AppHandle,
+    state: State<'_, InkubatorState>,
+    zip_path: String,
     options: Option<ImportOptions>,
 ) -> std::result::Result<Value, String> {
     (|| {
         ensure_app_storage(&app)?;
+        let zip_path = take_selected_backup_path(&state.selected_backup_paths, &zip_path)?;
         let overwrite_options = ImportOptions {
             conflict_behavior: Some("overwrite".to_string()),
             auto_validate_import: options
@@ -1553,14 +2021,11 @@ async fn import_backup(
         };
         let options_ref = Some(&overwrite_options);
 
-        let Some(zip_path) = rfd::FileDialog::new()
-            .set_title("Choose backup ZIP to import")
-            .add_filter("ZIP archive", &["zip"])
-            .pick_file()
-        else {
-            return Ok(json!({ "success": false, "canceled": true }));
-        };
-        let stage = manual_backups_path(&app)?.join(format!(".manual-import-{}-{}", timestamp(), Uuid::new_v4().simple()));
+        let stage = manual_backups_path(&app)?.join(format!(
+            ".manual-import-{}-{}",
+            timestamp(),
+            Uuid::new_v4().simple()
+        ));
         if stage.exists() {
             fs::remove_dir_all(&stage)?;
         }
@@ -1572,14 +2037,24 @@ async fn import_backup(
         if stage.exists() {
             fs::remove_dir_all(&stage).ok();
         }
-        result
+        let result = result?;
+        if result
+            .get("success")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            let data = read_json_or(&data_path(&app)?, default_collection_data());
+            regenerate_thumbnails_in_background(app.clone(), data);
+        }
+        Ok(result)
     })()
     .map_err(command_error)
 }
 
 #[tauri::command]
 async fn export_showcase(app: AppHandle) -> std::result::Result<Value, String> {
-    (|| {
+    let mut cleanup_stage: Option<PathBuf> = None;
+    let result: Result<Value> = (|| {
         ensure_app_storage(&app)?;
         let Some(target) = rfd::FileDialog::new()
             .set_title("Choose destination for showcase folder")
@@ -1599,6 +2074,7 @@ async fn export_showcase(app: AppHandle) -> std::result::Result<Value, String> {
             fs::remove_dir_all(&stage)?;
         }
         fs::create_dir_all(&stage)?;
+        cleanup_stage = Some(stage.clone());
 
         for name in [
             "index.html",
@@ -1606,7 +2082,6 @@ async fn export_showcase(app: AppHandle) -> std::result::Result<Value, String> {
             "theme-boot.js",
             "heic-converter.js",
             "renderer.js",
-            "tauri-api.js",
         ] {
             copy_required_file(&frontend.join(name), &stage.join(name))?;
         }
@@ -1614,6 +2089,13 @@ async fn export_showcase(app: AppHandle) -> std::result::Result<Value, String> {
             let source = frontend.join(name);
             if source.exists() {
                 copy_dir_all(&source, &stage.join(name))?;
+            }
+        }
+        prune_showcase_only_assets(&stage)?;
+        for name in ["tauri-api.js", "docker-api.js", "docker-shell.js"] {
+            let target = stage.join(name);
+            if target.exists() {
+                fs::remove_file(target)?;
             }
         }
 
@@ -1628,19 +2110,30 @@ async fn export_showcase(app: AppHandle) -> std::result::Result<Value, String> {
                 serde_json::to_string(&showcase_data)?
             ),
         )?;
-        copy_referenced_images(&images_path(&app)?, &stage.join("images"), &data)?;
 
         let index_path = stage.join("index.html");
+        let mut prepared_html = None;
         if index_path.exists() {
-            let mut html = fs::read_to_string(&index_path)?;
-            if !html.contains("src=\"data.js\"") {
-                html = html.replace(
-                    "<script src=\"renderer.js\"></script>",
-                    "<script src=\"data.js\"></script>\n    <script src=\"renderer.js\"></script>",
-                );
-            }
-            html = html.replace("<script src=\"tauri-api.js\"></script>\n", "");
+            let html = fs::read_to_string(&index_path)?;
+            let html = prepare_showcase_index_html(&stage, &html, &showcase_data)?;
             fs::write(&index_path, &html)?;
+            prepared_html = Some(html);
+        }
+
+        copy_referenced_images(&images_path(&app)?, &stage.join("images"), &data)?;
+        copy_referenced_images(&images_path(&app)?, &stage.join("thumbs"), &data)?;
+        let thumbnail_warning = match ensure_referenced_thumbnails(&app, &data) {
+            Ok(()) => None,
+            Err(error) => {
+                eprintln!("Showcase export will use original images for some thumbnails: {error}");
+                Some(format!(
+                    "Showcase exported, but {error} Full-size images were used as fallbacks for those thumbnails."
+                ))
+            }
+        };
+        copy_referenced_images(&thumbnails_path(&app)?, &stage.join("thumbs"), &data)?;
+
+        if let Some(html) = prepared_html {
             for route in [
                 "dashboard",
                 "pens",
@@ -1661,9 +2154,25 @@ async fn export_showcase(app: AppHandle) -> std::result::Result<Value, String> {
             fs::remove_dir_all(&showcase)?;
         }
         fs::rename(&stage, &showcase)?;
-        Ok(json!({ "success": true, "path": showcase }))
-    })()
-    .map_err(command_error)
+        cleanup_stage = None;
+
+        let mut response = json!({ "success": true, "path": showcase });
+        if let Some(message) = thumbnail_warning {
+            response["warning"] = json!(true);
+            response["message"] = json!(message);
+        }
+        Ok(response)
+    })();
+
+    if result.is_err() {
+        if let Some(stage) = cleanup_stage {
+            if stage.exists() {
+                let _ = fs::remove_dir_all(stage);
+            }
+        }
+    }
+
+    result.map_err(command_error)
 }
 
 #[tauri::command]
@@ -1782,11 +2291,18 @@ async fn get_release_status(app: AppHandle) -> std::result::Result<Value, String
 #[tauri::command]
 async fn get_app_info(app: AppHandle) -> std::result::Result<Value, String> {
     let version = app.package_info().version.to_string();
+    let data_dir = app_storage_dir(&app)
+        .ok()
+        .map(|path| path.to_string_lossy().to_string());
+    let data_dir_override =
+        desktop_data_dir_override().map(|path| path.to_string_lossy().to_string());
     Ok(json!({
         "success": true,
         "currentVersion": version,
         "currentTag": format!("v{version}"),
         "distribution": "desktop",
+        "dataDir": data_dir,
+        "dataDirOverride": data_dir_override,
         "releasesUrl": GITHUB_RELEASES_URL
     }))
 }
@@ -1849,6 +2365,9 @@ async fn detect_pen_colors(_source_path: String) -> std::result::Result<Value, S
 
 pub fn run() {
     tauri::Builder::default()
+        .register_uri_scheme_protocol("inkubator", |context, request| {
+            managed_media_response(context.app_handle(), &request)
+        })
         .manage(InkubatorState::default())
         .setup(|app| {
             let handle = app.handle().clone();
@@ -1856,6 +2375,8 @@ pub fn run() {
                 eprintln!("Failed to initialize app storage: {error}");
                 error
             })?;
+            let data = read_json_or(&data_path(&handle)?, default_collection_data());
+            regenerate_thumbnails_in_background(handle, data);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1870,10 +2391,10 @@ pub fn run() {
             delete_image,
             dispose_replaced_image,
             get_image_preview_url,
-            get_image_data_urls,
             get_images_base_url,
             backup_status,
             export_backup,
+            select_backup,
             import_backup,
             export_showcase,
             confirm_dialog,
@@ -1891,6 +2412,61 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn selected_backup_paths_are_consumed_once() {
+        let path = env::temp_dir().join(format!(
+            "inkubator-selected-backup-{}.zip",
+            Uuid::new_v4().simple()
+        ));
+        fs::write(&path, b"test").unwrap();
+        let selected = Mutex::new(HashSet::from([path.clone()]));
+
+        assert_eq!(
+            take_selected_backup_path(&selected, path.to_string_lossy().as_ref()).unwrap(),
+            path
+        );
+        assert!(take_selected_backup_path(&selected, path.to_string_lossy().as_ref()).is_err());
+
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn data_dir_override_ignores_empty_values() {
+        assert_eq!(normalize_data_dir_override(None), None);
+        assert_eq!(normalize_data_dir_override(Some("")), None);
+        assert_eq!(normalize_data_dir_override(Some("   ")), None);
+    }
+
+    #[test]
+    fn data_dir_override_accepts_trimmed_path() {
+        assert_eq!(
+            normalize_data_dir_override(Some(" /tmp/inkubator-desktop-dev ")),
+            Some(PathBuf::from("/tmp/inkubator-desktop-dev"))
+        );
+    }
+
+    #[test]
+    fn managed_media_paths_are_confined_to_the_image_root() {
+        let root = PathBuf::from("/tmp");
+        assert_eq!(
+            resolve_managed_media_path(&root, "/images/.thumbs/pens/example.webp").unwrap(),
+            root.join(".thumbs/pens/example.webp")
+        );
+        assert!(resolve_managed_media_path(&root, "/images/../data.json").is_err());
+        assert!(resolve_managed_media_path(&root, "/other/example.webp").is_err());
+        assert!(resolve_managed_media_path(&root, "/images/pens/example.txt").is_err());
+    }
+
+    #[test]
+    fn preprocessed_heic_webp_detection_is_narrow() {
+        assert!(is_preprocessed_heic_webp("/tmp/photo.HEIC.webp"));
+        assert!(is_preprocessed_heic_webp(
+            "https://example.test/photo.heif.webp"
+        ));
+        assert!(!is_preprocessed_heic_webp("/tmp/photo.webp"));
+        assert!(!is_preprocessed_heic_webp("/tmp/photo.heic"));
+    }
 
     #[test]
     fn merge_collection_data_skip_preserves_existing_conflicts() {
@@ -1986,6 +2562,78 @@ mod tests {
             currently_inked[0].get("ink_id").and_then(Value::as_str),
             Some("ink-new")
         );
+    }
+
+    #[test]
+    fn referenced_images_ignore_migrated_ink_swatch_compatibility_paths() {
+        let data = json!({
+            "pens": [{ "image": "pens/keep.webp" }],
+            "inks": [
+                { "image": "inks/keep.webp" },
+                { "image": "swatches/legacy-ink-swatch.webp" }
+            ],
+            "swatches": [{ "image": "swatches/keep.webp" }]
+        });
+
+        assert_eq!(
+            collect_referenced_images(&data),
+            vec![
+                "inks/keep.webp".to_string(),
+                "pens/keep.webp".to_string(),
+                "swatches/keep.webp".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn prepare_showcase_index_injects_data_and_removes_manager_scripts() {
+        let html = r#"<html>
+<head></head>
+<body>
+	    <script src="renderer/data-schema.js"></script>
+	    <script src="tauri-api.js"></script>
+	    <script src="renderer.js"></script>
+</body>
+</html>
+"#;
+        let data = json!({
+            "preferences": {
+                "showcase": {
+                    "color_mode": "light"
+                }
+            }
+        });
+
+        let prepared = prepare_showcase_index_html(Path::new("/tmp"), html, &data).unwrap();
+
+        assert!(prepared.contains(r#"data-inkubator-public-color-mode="light""#));
+        assert!(prepared.contains(r#"<script src="data.js"></script>"#));
+        assert!(prepared.contains(r#"<script src="renderer.js"></script>"#));
+        assert!(!prepared.contains("tauri-api.js"));
+        assert!(
+            prepared.find("data.js").unwrap() < prepared.find("renderer.js").unwrap(),
+            "data.js must load before renderer.js"
+        );
+    }
+
+    #[test]
+    fn versioning_leaves_static_data_script_unversioned() {
+        let root = env::temp_dir().join(format!(
+            "inkubator-version-assets-{}",
+            Uuid::new_v4().simple()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("renderer.js"), b"console.log('renderer');").unwrap();
+        fs::write(root.join("data.js"), b"window.__INKUBATOR_DATA__ = {};").unwrap();
+
+        let html = r#"<script src="data.js"></script><script src="renderer.js"></script>"#;
+        let versioned = version_html_asset_references(&root, html).unwrap();
+
+        assert!(versioned.contains(r#"src="data.js""#));
+        assert!(!versioned.contains("data.js?v="));
+        assert!(versioned.contains("renderer.js?v="));
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

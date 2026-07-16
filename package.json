@@ -1,21 +1,24 @@
 {
   "name": "inkubator",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Local-first desktop application for the management and cataloging of fountain pen and ink collections.",
   "scripts": {
     "start": "tauri dev",
+    "start:isolated": "INKUBATOR_DATA_DIR=/tmp/inkubator-desktop-dev npm start",
     "tauri": "tauri",
     "showcase": "serve app",
     "sync-version": "node scripts/sync-version.mjs",
-    "build": "tauri build",
-    "build:win": "tauri build --bundles nsis",
-    "build:mac": "tauri build --bundles dmg,app",
-    "build:linux": "tauri build --bundles deb,rpm",
-    "build:linux:deb": "tauri build --bundles deb",
-    "build:linux:rpm": "tauri build --bundles rpm",
+    "clean:bundles": "node -e \"require('fs').rmSync('src-tauri/target/release/bundle', { recursive: true, force: true })\"",
+    "build": "npm run clean:bundles && tauri build",
+    "build:win": "npm run clean:bundles && tauri build --bundles nsis",
+    "build:mac": "npm run clean:bundles && tauri build --bundles dmg,app",
+    "build:linux": "npm run clean:bundles && tauri build --bundles deb,rpm",
+    "build:linux:deb": "npm run clean:bundles && tauri build --bundles deb",
+    "build:linux:rpm": "npm run clean:bundles && tauri build --bundles rpm",
     "docker:start": "node server/docker-server.js",
     "docker:build": "docker build -t inkubator:local .",
-    "test": "node --test tests/critical-persistence.test.js tests/data-schema.test.js tests/release-version.test.js"
+    "test:renderer": "node scripts/check-renderer-flows.mjs",
+    "test": "node --test tests/critical-persistence.test.js tests/data-schema.test.js tests/release-version.test.js tests/docker-cache.test.js tests/backup-archive.test.js tests/backup-schedule.test.js"
   },
   "keywords": [
     "fountain-pens",
@@ -39,6 +42,8 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
-    "adm-zip": "^0.5.17"
+    "sharp": "^0.35.3",
+    "yauzl": "^3.4.0",
+    "yazl": "^3.3.1"
   }
 }

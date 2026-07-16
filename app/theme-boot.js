@@ -14,11 +14,14 @@
         document.body.setAttribute('data-theme', effective);
     }
 
+    const publicMode = document.documentElement
+        ? document.documentElement.getAttribute('data-inkubator-public-color-mode')
+        : null;
     let mode = 'auto';
     try {
-        mode = localStorage.getItem('inkubatorColorMode') || 'auto';
+        mode = publicMode || window.__INKUBATOR_PUBLIC_COLOR_MODE__ || localStorage.getItem('inkubatorColorMode') || 'auto';
     } catch (_error) {
-        mode = 'auto';
+        mode = publicMode || window.__INKUBATOR_PUBLIC_COLOR_MODE__ || 'auto';
     }
     applyTheme(mode);
 })();

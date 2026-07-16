@@ -128,6 +128,66 @@ test('normalizeAppData fills defaults while preserving existing values', () => {
     assert.equal(data.preferences.showcase.show_activity_filters, true);
 });
 
+test('normalizeAppData migrates pen image fields into ordered primary image entries', () => {
+    const data = normalizeAppData({
+        pens: [{
+            id: 'p1',
+            brand: 'Pilot',
+            model: '823',
+            image: 'pens/pilot-823.webp',
+            image_rotation: 90
+        }]
+    });
+
+    assert.equal(data.pens[0].image, 'pens/pilot-823.webp');
+    assert.equal(data.pens[0].image_rotation, 90);
+    assert.equal(data.pens[0].images.length, 1);
+    assert.equal(data.pens[0].images[0].path, 'pens/pilot-823.webp');
+    assert.equal(data.pens[0].images[0].rotation, 90);
+    assert.equal(data.pens[0].images[0].primary, true);
+});
+
+test('normalizeAppData preserves one primary image from image arrays', () => {
+    const data = normalizeAppData({
+        pens: [{
+            id: 'p1',
+            brand: 'Pilot',
+            model: '823',
+            image: 'pens/legacy.webp',
+            images: [
+                { id: 'img1', path: 'pens/side.webp', primary: false },
+                { id: 'img2', path: 'pens/front.webp', rotation: 180, primary: true },
+                { id: 'img3', path: 'pens/detail.webp', primary: true }
+            ]
+        }]
+    });
+
+    assert.equal(data.pens[0].images.length, 4);
+    assert.equal(data.pens[0].images.filter((entry) => entry.primary).length, 1);
+    assert.equal(data.pens[0].image, 'pens/front.webp');
+    assert.equal(data.pens[0].image_rotation, 180);
+});
+
+test('normalizeAppData promotes the remaining image when a primary image is removed', () => {
+    const data = normalizeAppData({
+        pens: [{
+            id: 'p1',
+            brand: 'Pilot',
+            model: '823',
+            image: 'default_pen.png',
+            images: [
+                { id: 'img2', path: 'pens/side.webp', rotation: 90, primary: false },
+                { id: 'img3', path: 'pens/detail.webp', primary: false }
+            ]
+        }]
+    });
+
+    assert.equal(data.pens[0].images.length, 2);
+    assert.equal(data.pens[0].images.filter((entry) => entry.primary).length, 1);
+    assert.equal(data.pens[0].image, 'pens/side.webp');
+    assert.equal(data.pens[0].image_rotation, 90);
+});
+
 test('normalizeAppData sanitizes invalid showcase default sort values', () => {
     const data = normalizeAppData({
         preferences: {
@@ -144,6 +204,24 @@ test('normalizeAppData sanitizes invalid showcase default sort values', () => {
     assert.equal(data.preferences.showcase.default_sort.pens, 'newest');
     assert.equal(data.preferences.showcase.default_sort.inks, 'newest');
     assert.equal(data.preferences.showcase.default_sort.swatches, 'newest');
+});
+
+test('normalizeAppData migrates legacy seeded defaults to blank user defaults', () => {
+    const data = normalizeAppData({
+        preferences: {
+            defaults: {
+                pen_nib: 'M',
+                pen_nib_material: 'Steel',
+                pen_status: 'clean',
+                ink_type: 'Bottle'
+            }
+        }
+    });
+
+    assert.equal(data.preferences.defaults.pen_nib, '');
+    assert.equal(data.preferences.defaults.pen_nib_material, '');
+    assert.equal(data.preferences.defaults.pen_status, '');
+    assert.equal(data.preferences.defaults.ink_type, '');
 });
 
 test('normalizeAppData sanitizes non-array/non-object fields', () => {

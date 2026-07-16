@@ -61,16 +61,23 @@ test('runSavePostCommitSteps returns warning when backup step fails after commit
 test('collectReferencedImageRelativePaths keeps only active managed image references', () => {
   const relativePaths = collectReferencedImageRelativePaths({
     pens: [
-      { image: 'pens/pilot-custom-823-1.webp' },
+      {
+        image: 'pens/pilot-custom-823-1.webp',
+        images: [
+          { path: 'pens/pilot-custom-823-2.webp' },
+          { path: 'https://example.com/ignored-gallery.webp' }
+        ]
+      },
       { image: 'default_pen.png' },
       { image: 'images/pens/pilot-custom-823-1.webp' }
     ],
     inks: [
       { image: 'inks/kon-peki.webp' },
+      { image: 'swatches/legacy-ink-swatch.webp' },
       { image: 'https://example.com/ignored.webp' }
     ],
     swatches: [
-      { image: 'swatches/kon-peki-a.webp' },
+      { image: 'swatches/kon-peki-a.webp', images: [{ path: 'swatches/kon-peki-c.webp' }] },
       { image: 'swatches/kon-peki-b.webp' },
       { image: 'data:image/png;base64,abc123' }
     ]
@@ -79,8 +86,10 @@ test('collectReferencedImageRelativePaths keeps only active managed image refere
   assert.deepEqual(relativePaths, [
     'inks/kon-peki.webp',
     'pens/pilot-custom-823-1.webp',
+    'pens/pilot-custom-823-2.webp',
     'swatches/kon-peki-a.webp',
-    'swatches/kon-peki-b.webp'
+    'swatches/kon-peki-b.webp',
+    'swatches/kon-peki-c.webp'
   ]);
 });
 

@@ -3,10 +3,6 @@
   const invoke = tauri && tauri.core && typeof tauri.core.invoke === 'function'
     ? tauri.core.invoke
     : null;
-  const convertFileSrc = tauri && tauri.core && typeof tauri.core.convertFileSrc === 'function'
-    ? tauri.core.convertFileSrc
-    : null;
-
   if (!invoke || window.inkubatorAPI) return;
 
   const call = (command, payload) => invoke(command, payload || {});
@@ -23,11 +19,10 @@
     readRemoteImageBytes: (url) => call('read_remote_image_bytes', { url }),
     getImagePreviewUrl: (path) => call('get_image_preview_url', { sourcePath: path }),
     getImagesBaseUrl: () => call('get_images_base_url'),
-    getImageDataUrls: (paths) => call('get_image_data_urls', { paths }),
-    toAssetUrl: (path) => convertFileSrc ? convertFileSrc(path) : path,
     backupStatus: () => call('backup_status'),
     exportBackup: () => call('export_backup'),
-    importBackup: (options) => call('import_backup', { options }),
+    selectBackup: () => call('select_backup'),
+    importBackup: (zipPath, options) => call('import_backup', { zipPath, options }),
     exportShowcase: () => call('export_showcase'),
     confirmDialog: (options) => call('confirm_dialog', { options }),
     focusWindow: () => call('focus_window'),

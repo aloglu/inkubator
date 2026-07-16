@@ -98,6 +98,7 @@ jobs:
           shopt -s nullglob
 
           version="$(node -p "require('./package.json').version")"
+          rm -rf release-assets
           mkdir -p release-assets
 
           case "${{ matrix.platform }}" in

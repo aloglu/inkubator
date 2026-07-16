@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: file: http: https:; connect-src 'self' https://api.github.com https://inkswatch.com; object-src 'none'; base-uri 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: file: http: https: inkubator:; connect-src 'self' https://api.github.com https://inkswatch.com; object-src 'none'; base-uri 'self';">
     <title>Inkubator</title>
     <link rel="icon" type="image/png" sizes="64x64" href="assets/icons/inkubator-icon-rounded.png">
     <link rel="alternate icon" type="image/x-icon" href="assets/icons/inkubator-icon-rounded.ico">
@@ -21,7 +21,6 @@
     </style>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="assets/phosphor/phosphor.css">
-    <script src="assets/heic/libheif-bundle.js" defer></script>
     <script src="heic-converter.js" defer></script>
 </head>
 
@@ -122,7 +121,7 @@
                 <section class="section-container">
                     <div class="recents-grid">
                         <!-- Recent Pens -->
-                        <div class="recent-list glass-panel">
+                        <div class="recent-list glass-panel" id="recent-pens-card">
                             <h3>
                                 <i class="ph ph-pen-nib"></i>
                                 Recent Pens
@@ -133,7 +132,7 @@
                         </div>
 
                         <!-- Recent Inks -->
-                        <div class="recent-list glass-panel">
+                        <div class="recent-list glass-panel" id="recent-inks-card">
                             <h3>
                                 <i class="ph ph-drop"></i>
                                 Recent Inks
@@ -144,7 +143,7 @@
                         </div>
 
                         <!-- Recent Swatches -->
-                        <div class="recent-list glass-panel">
+                        <div class="recent-list glass-panel" id="recent-swatches-card">
                             <h3>
                                 <i class="ph ph-image"></i>
                                 Recent Swatches
@@ -216,7 +215,7 @@
                                 <section class="settings-card settings-card-display">
                                     <h4 class="settings-title">Display</h4>
                                     <div class="settings-inline-field">
-                                        <label class="activity-inline-label" for="color-mode-select" data-tooltip="Choose app appearance. Auto follows your system theme.">Color Mode</label>
+                                        <label class="activity-inline-label" for="color-mode-select" data-tooltip="Choose app appearance. Auto follows your system theme." data-docker-label="Admin Color Mode" data-docker-tooltip="Choose admin panel appearance. Auto follows your system theme.">Color Mode</label>
                                         <select id="color-mode-select" class="activity-select">
                                             <option value="light">Light</option>
                                             <option value="dark">Dark</option>
@@ -759,103 +758,135 @@
                     <div class="header-text">
                         <h1>Activity Log</h1>
                     </div>
+                    <div class="activity-header-actions">
+                        <button class="btn-glass" id="btn-filter-activity">
+                            <i class="ph ph-funnel"></i>
+                            <span>Filter</span>
+                        </button>
+                    </div>
                 </header>
+
+                <div id="filter-sidebar-activity" class="sidebar-right glass-panel"
+                    style="display: none; z-index: 5000; overflow: hidden;">
+                    <header
+                        style="padding: 16px 32px; margin-bottom: 0; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                        <div class="header-text">
+                            <h1
+                                style="font-family: var(--font-heading); font-size: 36px; margin: 0; color: var(--color-text-main);">
+                                Filters</h1>
+                        </div>
+                        <button id="close-filters-activity" class="icon-btn-small"
+                            style="background: transparent; border: none; cursor: pointer; color: #888; font-size: 32px; display: flex; align-items: center; justify-content: center;">
+                            <i class="ph ph-x"></i>
+                        </button>
+                    </header>
+                    <div class="filter-content activity-filter-panel-content">
+                        <div class="filter-group activity-filter-panel-group">
+                            <label for="activity-filter-type">Type</label>
+                            <select id="activity-filter-type" class="activity-select">
+                                <option value="all" selected>All</option>
+                            </select>
+                        </div>
+                        <div class="filter-group activity-filter-panel-group">
+                            <label for="activity-filter-action">Action</label>
+                            <select id="activity-filter-action" class="activity-select">
+                                <option value="all" selected>All</option>
+                            </select>
+                        </div>
+                        <div class="filter-group activity-filter-panel-group">
+                            <label for="activity-filter-search">Search</label>
+                            <input type="text" id="activity-filter-search" class="activity-filter-input" placeholder="Message, action, type, or item ID">
+                        </div>
+                        <div class="filter-group activity-filter-panel-group">
+                            <label for="activity-date-filter">Exact Day</label>
+                            <div class="activity-filter-date-wrap activity-filter-panel-date-wrap" id="activity-date-picker-wrap">
+                                <div class="activity-filter-date-input-wrap">
+                                    <input type="text" id="activity-date-filter" class="activity-filter-date-input" placeholder="YYYY-MM-DD" readonly>
+                                    <button class="activity-date-icon-btn activity-inline-date-btn" id="activity-date-picker-toggle" title="Choose exact date" type="button">
+                                        <i class="ph ph-calendar-blank"></i>
+                                    </button>
+                                    <div class="activity-calendar-popover glass-panel activity-inline-calendar-popover" id="activity-calendar-popover">
+                                        <div class="activity-calendar-head">
+                                            <button class="activity-calendar-nav-btn" id="activity-calendar-prev" title="Previous month" type="button"><i class="ph ph-caret-left"></i></button>
+                                            <div id="activity-calendar-month-label">Month Year</div>
+                                            <button class="activity-calendar-nav-btn" id="activity-calendar-next" title="Next month" type="button"><i class="ph ph-caret-right"></i></button>
+                                        </div>
+                                        <div class="activity-calendar-weekdays">
+                                            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                                        </div>
+                                        <div class="activity-calendar-grid" id="activity-calendar-grid"></div>
+                                        <div class="activity-calendar-footer">
+                                            <button class="btn-glass" id="activity-calendar-clear" type="button">Clear</button>
+                                            <button class="btn-glass" id="activity-calendar-today" type="button">Today</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-group activity-filter-panel-group">
+                            <label for="activity-filter-date-from">From</label>
+                            <div class="activity-filter-date-wrap activity-filter-panel-date-wrap" id="activity-filter-date-from-wrap">
+                                <div class="activity-filter-date-input-wrap">
+                                    <input type="text" id="activity-filter-date-from" class="activity-filter-date-input" placeholder="YYYY-MM-DD" readonly>
+                                    <button class="activity-date-icon-btn activity-inline-date-btn" id="activity-filter-date-from-toggle" title="Choose from date" type="button">
+                                        <i class="ph ph-calendar"></i>
+                                    </button>
+                                    <div class="activity-calendar-popover glass-panel activity-inline-calendar-popover" id="activity-filter-date-from-popover">
+                                        <div class="activity-calendar-head">
+                                            <button class="activity-calendar-nav-btn" id="activity-filter-date-from-prev" title="Previous month" type="button"><i class="ph ph-caret-left"></i></button>
+                                            <div id="activity-filter-date-from-month-label">Month Year</div>
+                                            <button class="activity-calendar-nav-btn" id="activity-filter-date-from-next" title="Next month" type="button"><i class="ph ph-caret-right"></i></button>
+                                        </div>
+                                        <div class="activity-calendar-weekdays">
+                                            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                                        </div>
+                                        <div class="activity-calendar-grid" id="activity-filter-date-from-grid"></div>
+                                        <div class="activity-calendar-footer">
+                                            <button class="btn-glass" id="activity-filter-date-from-clear" type="button">Clear</button>
+                                            <button class="btn-glass" id="activity-filter-date-from-today" type="button">Today</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-group activity-filter-panel-group">
+                            <label for="activity-filter-date-to">To</label>
+                            <div class="activity-filter-date-wrap activity-filter-panel-date-wrap" id="activity-filter-date-to-wrap">
+                                <div class="activity-filter-date-input-wrap">
+                                    <input type="text" id="activity-filter-date-to" class="activity-filter-date-input" placeholder="YYYY-MM-DD" readonly>
+                                    <button class="activity-date-icon-btn activity-inline-date-btn" id="activity-filter-date-to-toggle" title="Choose to date" type="button">
+                                        <i class="ph ph-calendar"></i>
+                                    </button>
+                                    <div class="activity-calendar-popover glass-panel activity-inline-calendar-popover" id="activity-filter-date-to-popover">
+                                        <div class="activity-calendar-head">
+                                            <button class="activity-calendar-nav-btn" id="activity-filter-date-to-prev" title="Previous month" type="button"><i class="ph ph-caret-left"></i></button>
+                                            <div id="activity-filter-date-to-month-label">Month Year</div>
+                                            <button class="activity-calendar-nav-btn" id="activity-filter-date-to-next" title="Next month" type="button"><i class="ph ph-caret-right"></i></button>
+                                        </div>
+                                        <div class="activity-calendar-weekdays">
+                                            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                                        </div>
+                                        <div class="activity-calendar-grid" id="activity-filter-date-to-grid"></div>
+                                        <div class="activity-calendar-footer">
+                                            <button class="btn-glass" id="activity-filter-date-to-clear" type="button">Clear</button>
+                                            <button class="btn-glass" id="activity-filter-date-to-today" type="button">Today</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="filter-footer"
+                        style="padding: 24px 32px; border-top: 1px solid rgba(0,0,0,0.05); background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); display: flex; justify-content: flex-end; align-items: center; position: relative; z-index: 20;">
+                        <button id="btn-activity-filters-reset"
+                            style="background: transparent; color: #e74c3c; border: none; cursor: pointer; font-weight: 500; font-size: 14px; text-decoration: none; padding: 0;">Reset
+                            All Filters</button>
+                    </div>
+                </div>
 
                 <section class="section-container">
                     <div class="activity-log-shell">
-                        <div class="activity-toolbar glass-panel" id="activity-filter-toolbar">
-                            <div class="activity-toolbar-left">
-                                <div class="activity-inline-controls">
-                                    <label for="activity-filter-type" class="activity-inline-label">Type</label>
-                                    <select id="activity-filter-type" class="activity-select">
-                                        <option value="all" selected>All</option>
-                                    </select>
-                                </div>
-                                <div class="activity-inline-controls">
-                                    <label for="activity-filter-action" class="activity-inline-label">Action</label>
-                                    <select id="activity-filter-action" class="activity-select">
-                                        <option value="all" selected>All</option>
-                                    </select>
-                                </div>
-                                <div class="activity-inline-controls">
-                                    <label for="activity-filter-search" class="activity-inline-label">Search</label>
-                                    <input type="text" id="activity-filter-search" class="activity-filter-input" placeholder="Message, action, type, or item ID">
-                                </div>
-                            </div>
-                            <div class="activity-toolbar-right">
-                                <div class="activity-inline-controls activity-filter-date-wrap" id="activity-filter-date-from-wrap">
-                                    <label for="activity-filter-date-from" class="activity-inline-label">From</label>
-                                    <div class="activity-filter-date-input-wrap">
-                                        <input type="text" id="activity-filter-date-from" class="activity-filter-date-input" placeholder="YYYY-MM-DD" readonly>
-                                        <button class="activity-date-icon-btn activity-inline-date-btn" id="activity-filter-date-from-toggle" title="Choose from date" type="button">
-                                            <i class="ph ph-calendar"></i>
-                                        </button>
-                                        <div class="activity-calendar-popover glass-panel activity-inline-calendar-popover" id="activity-filter-date-from-popover">
-                                            <div class="activity-calendar-head">
-                                                <button class="activity-calendar-nav-btn" id="activity-filter-date-from-prev" title="Previous month" type="button"><i class="ph ph-caret-left"></i></button>
-                                                <div id="activity-filter-date-from-month-label">Month Year</div>
-                                                <button class="activity-calendar-nav-btn" id="activity-filter-date-from-next" title="Next month" type="button"><i class="ph ph-caret-right"></i></button>
-                                            </div>
-                                            <div class="activity-calendar-weekdays">
-                                                <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
-                                            </div>
-                                            <div class="activity-calendar-grid" id="activity-filter-date-from-grid"></div>
-                                            <div class="activity-calendar-footer">
-                                                <button class="btn-glass" id="activity-filter-date-from-clear" type="button">Clear</button>
-                                                <button class="btn-glass" id="activity-filter-date-from-today" type="button">Today</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="activity-inline-controls activity-filter-date-wrap" id="activity-filter-date-to-wrap">
-                                    <label for="activity-filter-date-to" class="activity-inline-label">To</label>
-                                    <div class="activity-filter-date-input-wrap">
-                                        <input type="text" id="activity-filter-date-to" class="activity-filter-date-input" placeholder="YYYY-MM-DD" readonly>
-                                        <button class="activity-date-icon-btn activity-inline-date-btn" id="activity-filter-date-to-toggle" title="Choose to date" type="button">
-                                            <i class="ph ph-calendar"></i>
-                                        </button>
-                                        <div class="activity-calendar-popover glass-panel activity-inline-calendar-popover" id="activity-filter-date-to-popover">
-                                            <div class="activity-calendar-head">
-                                                <button class="activity-calendar-nav-btn" id="activity-filter-date-to-prev" title="Previous month" type="button"><i class="ph ph-caret-left"></i></button>
-                                                <div id="activity-filter-date-to-month-label">Month Year</div>
-                                                <button class="activity-calendar-nav-btn" id="activity-filter-date-to-next" title="Next month" type="button"><i class="ph ph-caret-right"></i></button>
-                                            </div>
-                                            <div class="activity-calendar-weekdays">
-                                                <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
-                                            </div>
-                                            <div class="activity-calendar-grid" id="activity-filter-date-to-grid"></div>
-                                            <div class="activity-calendar-footer">
-                                                <button class="btn-glass" id="activity-filter-date-to-clear" type="button">Clear</button>
-                                                <button class="btn-glass" id="activity-filter-date-to-today" type="button">Today</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button class="btn-glass" id="btn-activity-filters-reset">
-                                    <i class="ph ph-funnel"></i>
-                                    <span>Reset Filters</span>
-                                </button>
-                            </div>
-                        </div>
                         <div class="activity-log-stage">
-                            <button class="activity-date-icon-btn" id="activity-date-picker-toggle" title="Filter by date" type="button">
-                                <i class="ph ph-calendar-blank"></i>
-                            </button>
-                            <div class="activity-calendar-popover glass-panel" id="activity-calendar-popover">
-                                <div class="activity-calendar-head">
-                                    <button class="activity-calendar-nav-btn" id="activity-calendar-prev" title="Previous month" type="button"><i class="ph ph-caret-left"></i></button>
-                                    <div id="activity-calendar-month-label">Month Year</div>
-                                    <button class="activity-calendar-nav-btn" id="activity-calendar-next" title="Next month" type="button"><i class="ph ph-caret-right"></i></button>
-                                </div>
-                                <div class="activity-calendar-weekdays">
-                                    <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
-                                </div>
-                                <div class="activity-calendar-grid" id="activity-calendar-grid"></div>
-                                <div class="activity-calendar-footer">
-                                    <button class="btn-glass" id="activity-calendar-clear" type="button">Clear</button>
-                                    <button class="btn-glass" id="activity-calendar-today" type="button">Today</button>
-                                </div>
-                            </div>
                             <div class="activity-log-container" id="activity-log-container">
                                 <!-- Activity entries injected here -->
                             </div>
@@ -1173,17 +1204,38 @@
                                     <p id="pen-photo-text">Click to upload photo</p>
                                     <img id="upload-pen-preview" src="">
 
-                                    <!-- Control Overlay (Visible on Hover) -->
                                     <div class="photo-controls" id="pen-photo-controls">
-                                        <button id="btn-rotate-pen" class="photo-control-btn rotate" title="Rotate Image"
+                                        <button id="btn-pen-photo-menu" class="photo-control-btn menu" title="Photo Actions"
                                             type="button">
-                                            <i class="ph ph-arrow-clockwise"></i>
+                                            <i class="ph ph-list"></i>
                                         </button>
-                                        <button id="btn-remove-pen-photo" class="photo-control-btn remove"
-                                            title="Remove Photo" type="button">
-                                            <i class="ph ph-trash"></i>
-                                        </button>
+                                        <div class="photo-action-menu" id="pen-photo-action-menu">
+                                            <button id="btn-add-pen-photo" class="photo-action-menu-item" type="button">
+                                                <i class="ph ph-image-square"></i>
+                                                <span>Add photo</span>
+                                            </button>
+                                            <button id="btn-primary-pen-photo" class="photo-action-menu-item" type="button">
+                                                <i class="ph ph-star"></i>
+                                                <span>Make primary</span>
+                                            </button>
+                                            <button id="btn-rotate-pen" class="photo-action-menu-item" type="button">
+                                                <i class="ph ph-arrow-clockwise"></i>
+                                                <span>Rotate</span>
+                                            </button>
+                                            <button id="btn-remove-pen-photo" class="photo-action-menu-item danger" type="button">
+                                                <i class="ph ph-trash"></i>
+                                                <span>Remove photo</span>
+                                            </button>
+                                        </div>
                                     </div>
+                                    <button id="btn-prev-pen-photo" class="photo-nav-btn prev" title="Previous Photo"
+                                        type="button">
+                                        <i class="ph ph-caret-left"></i>
+                                    </button>
+                                    <button id="btn-next-pen-photo" class="photo-nav-btn next" title="Next Photo"
+                                        type="button">
+                                        <i class="ph ph-caret-right"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1388,6 +1440,30 @@
                             <p id="swatch-preview-error-text">Could not load image.</p>
                         </div>
                         <img id="swatch-preview-image" src="" style="display: none;">
+                        <div class="photo-controls swatch-photo-controls" id="swatch-photo-controls">
+                            <button id="btn-swatch-photo-menu" class="photo-control-btn menu" title="Image Actions"
+                                type="button">
+                                <i class="ph ph-list"></i>
+                            </button>
+                            <div class="photo-action-menu" id="swatch-photo-action-menu">
+                                <button id="btn-add-swatch-photo" class="photo-action-menu-item" type="button">
+                                    <i class="ph ph-image-square"></i>
+                                    <span>Add image</span>
+                                </button>
+                                <button id="btn-primary-swatch-photo" class="photo-action-menu-item" type="button">
+                                    <i class="ph ph-star"></i>
+                                    <span>Make primary</span>
+                                </button>
+                            </div>
+                        </div>
+                        <button id="btn-prev-swatch-photo" class="photo-nav-btn prev" title="Previous Image"
+                            type="button">
+                            <i class="ph ph-caret-left"></i>
+                        </button>
+                        <button id="btn-next-swatch-photo" class="photo-nav-btn next" title="Next Image"
+                            type="button">
+                            <i class="ph ph-caret-right"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -1615,10 +1691,11 @@
     <datalist id="pen-filling-system-list"></datalist>
     <datalist id="pen-color-list"></datalist>
 
-    <script src="renderer/render-scheduler.js"></script>
-    <script src="renderer/modal-lifecycle.js"></script>
-    <script src="tauri-api.js"></script>
-    <script src="renderer.js"></script>
+	    <script src="renderer/render-scheduler.js"></script>
+	    <script src="renderer/modal-lifecycle.js"></script>
+	    <script src="renderer/data-schema.js"></script>
+	    <script src="tauri-api.js"></script>
+	    <script src="renderer.js"></script>
 </body>
 
 </html>

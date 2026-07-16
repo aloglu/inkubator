@@ -27,6 +27,20 @@ npm start
 
 This launches the Tauri desktop app in development mode.
 
+The desktop development app uses the same operating-system app data location as a normal Inkubator install unless you override it. To test this working tree without touching an installed copy, use an isolated data directory:
+
+```bash
+npm run start:isolated
+```
+
+This is equivalent to:
+
+```bash
+INKUBATOR_DATA_DIR=/tmp/inkubator-desktop-dev npm start
+```
+
+With this override, `data.json`, preferences, images, thumbnails, replaced images, and backups are stored under `/tmp/inkubator-desktop-dev`.
+
 ## Showcase Preview
 
 ```bash

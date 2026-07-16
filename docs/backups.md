@@ -15,6 +15,8 @@ Inkubator keeps these files and folders in its data directory:
 
 Manual full backups are ZIP files. They include `data.json`, `preferences.json`, `manifest.json`, current referenced images, and `replaced-images/` when replaced-photo retention is enabled.
 
+Thumbnails are derived cache files and are not stored in full backups. Inkubator regenerates them from the restored images during import so the first collection view does not need to download or decode every full-resolution image.
+
 ## Desktop Data Location
 
 The desktop app uses the app data directory for the app identifier `com.aloglu.inkubator`.
@@ -104,11 +106,14 @@ The flow is:
 1. Inkubator warns that the import will overwrite current data.
 2. Choose **Import** to continue, or **Cancel** to stop.
 3. Select the backup ZIP.
-4. Inkubator creates an automated restore snapshot before import.
-5. Inkubator restores the selected ZIP.
-6. Inkubator creates an automated restore snapshot after import.
+4. Inkubator validates and restores the selected ZIP.
+5. Inkubator regenerates image thumbnails.
 
 If the ZIP is invalid or fails validation, Inkubator reports an error instead of treating it as a successful restore.
+
+The desktop app restores the collection first and regenerates missing thumbnails in the background. Grid cards temporarily fall back to their full managed images, so thumbnail work does not block the import result or the next app launch.
+
+Docker mode stages the complete import and only replaces active data after validation and thumbnail generation succeed. It also creates automated restore snapshots immediately before and after a successful replacement. Invalid Docker imports and commit failures restore the previous collection.
 
 ## Automated Backups
 
@@ -121,15 +126,15 @@ Desktop app behavior:
 - Frequency options: Off, Daily, Weekly, Monthly.
 - Retention range: 1 to 365 snapshots.
 - Save-triggered automated backups follow the selected frequency.
-- Import restore snapshots are created before and after import even if save-triggered automated backups are off.
 - Older automated backups are pruned according to the retention setting.
 
 Docker behavior:
 
-- Automated backups are created by the server on save and before/after imports.
+- Save-triggered automated backups follow the selected frequency.
+- Forced restore snapshots are created before and after imports even when frequency is Off.
+- The configured retention count is applied to both scheduled and restore snapshots.
 - They are stored in `/data/backups/auto/`.
 - Docker automated backups are not downloaded automatically.
-- The current Docker server does not apply the desktop frequency and retention settings to automated backup creation or pruning.
 
 ## Replaced Images
 

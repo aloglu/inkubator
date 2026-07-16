@@ -1,8 +1,8 @@
 # Maintainer: Abdullah Aloğlu <contact@alog.lu>
 
 pkgname=inkubator
-pkgver=2.0.0
-pkgrel=2
+pkgver=2.1.0
+pkgrel=1
 pkgdesc='Local-first fountain pen and ink collection manager'
 arch=('x86_64')
 url='https://github.com/aloglu/inkubator'

@@ -4,9 +4,10 @@ These steps are for development, local testing, or building your own copy of Ink
 
 ## Prerequisites
 
-- Node.js 18 or newer
-- npm 9 or newer
-- Rust and Cargo
+- Node.js 24.18.0 LTS
+- npm (included with Node.js)
+- Rust 1.97.1 and Cargo
+- Chromium or a Chromium-based browser for renderer verification
 - Tauri system dependencies for your operating system
 
 For Linux, install the Tauri prerequisites that match your distribution before building.
@@ -16,7 +17,7 @@ For Linux, install the Tauri prerequisites that match your distribution before b
 ```bash
 git clone https://github.com/aloglu/inkubator.git
 cd inkubator
-npm install
+npm ci
 ```
 
 ## Desktop Development
@@ -41,14 +42,6 @@ INKUBATOR_DATA_DIR=/tmp/inkubator-desktop-dev npm start
 
 With this override, `data.json`, preferences, images, thumbnails, replaced images, and backups are stored under `/tmp/inkubator-desktop-dev`.
 
-## Showcase Preview
-
-```bash
-npm run showcase
-```
-
-This serves the app folder locally so you can preview the read-only showcase surface.
-
 ## Desktop Build
 
 ```bash
@@ -67,21 +60,39 @@ npm run build:linux
 
 ```bash
 npm run docker:build
+read -rsp "Inkubator admin password: " INKUBATOR_ADMIN_PASSWORD
+echo
+export INKUBATOR_ADMIN_PASSWORD
 docker run \
   --name inkubator-local \
   --rm \
-  -p 8080:8080 \
+  -p 127.0.0.1:8080:8080 \
   -e INKUBATOR_ADMIN_USER='admin' \
-  -e INKUBATOR_ADMIN_PASSWORD='change-this-password' \
+  -e INKUBATOR_ADMIN_PASSWORD \
   -v "$PWD/inkubator-data:/data" \
   inkubator:local
 ```
 
-Open `http://localhost:8080` or `http://YOUR-SERVER-IP:8080`.
+Open `http://localhost:8080`. See [Docker Deployment](docker.md) before exposing the port to a LAN or the internet.
 
-## Tests
+## Verification
+
+```bash
+npm run verify
+```
+
+This runs the Node version, JavaScript syntax, release-version consistency, Node, renderer, Rust formatting, Cargo check, Clippy, and Rust test checks. It does not install dependencies or modify collection data.
+
+The active Node version must match `.nvmrc`. With `nvm`, run `nvm use` first. If the Chromium executable is not named `chromium`, provide its path:
+
+```bash
+INKUBATOR_CHROMIUM_BIN=/path/to/chromium npm run verify
+```
+
+Individual test suites remain available:
 
 ```bash
 npm test
-cargo test --manifest-path src-tauri/Cargo.toml
+npm run test:renderer
+cargo test --locked --manifest-path src-tauri/Cargo.toml
 ```

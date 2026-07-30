@@ -508,7 +508,8 @@ body.theme-dark .custom-option {
     color: #d8e1eb;
 }
 
-body.theme-dark .custom-option:hover::before {
+body.theme-dark .custom-option:hover::before,
+body.theme-dark .custom-option.keyboard-active::before {
     background: rgba(255, 255, 255, 0.1);
 }
 
@@ -1326,6 +1327,22 @@ body.theme-dark .inked-card {
     width: 100%;
     /* Gradient handled inline for demo */
     opacity: 1;
+}
+
+.ink-swatch-bg.image-unavailable,
+.pen-card-visual.image-unavailable {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-image-fallback-icon {
+    font-size: 40px;
+    color: rgba(0, 0, 0, 0.22);
+}
+
+body.theme-dark .card-image-fallback-icon {
+    color: rgba(255, 255, 255, 0.3);
 }
 
 .card-content {
@@ -4137,13 +4154,62 @@ body.theme-dark .ink-price-input-wrap .ink-price-prefix {
 }
 
 .multiselect-options input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
     width: 18px;
     height: 18px;
     margin: 0;
     padding: 0;
+    border: 1px solid rgba(44, 62, 80, 0.38);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.98);
     cursor: pointer;
-    accent-color: var(--color-accent-2);
     flex-shrink: 0;
+    transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.multiselect-options input[type="checkbox"]:checked {
+    border-color: var(--color-input-focus-border);
+    background: var(--color-input-focus-border);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M1.25 5.25L3.9 7.75L8.75 2.25' fill='none' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 10px 10px;
+}
+
+.multiselect-options input[type="checkbox"]:focus,
+.multiselect-options input[type="checkbox"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.multiselect-options label:hover input[type="checkbox"]:not(:checked) {
+    border-color: rgba(44, 62, 80, 0.58);
+}
+
+body.theme-dark .multiselect-options input[type="checkbox"] {
+    border-color: rgba(255, 255, 255, 0.34);
+    background: rgba(22, 28, 35, 0.96);
+}
+
+body.theme-dark .multiselect-options input[type="checkbox"]:checked {
+    border-color: #9ec1e6;
+    background: #9ec1e6;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M1.25 5.25L3.9 7.75L8.75 2.25' fill='none' stroke='%2315202b' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 10px 10px;
+}
+
+body.theme-dark .multiselect-options label:hover input[type="checkbox"]:not(:checked) {
+    border-color: rgba(255, 255, 255, 0.56);
+}
+
+@media (forced-colors: active) {
+    .multiselect-options input[type="checkbox"] {
+        appearance: auto;
+        -webkit-appearance: checkbox;
+    }
 }
 
 .modal-header {
@@ -4824,11 +4890,13 @@ input[type="number"] {
     transition: background 0.2s ease;
 }
 
-.custom-option:hover::before {
+.custom-option:hover::before,
+.custom-option.keyboard-active::before {
     background: #f5f5f5;
 }
 
-.custom-option:hover {
+.custom-option:hover,
+.custom-option.keyboard-active {
     color: var(--color-text-main);
 }
 
@@ -5271,6 +5339,9 @@ body.theme-dark .pen-card-horizontal:hover {
     height: 100%;
     position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     container-type: size;
     flex-shrink: 0;
     background: #f9f9f9;

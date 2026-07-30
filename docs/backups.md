@@ -15,7 +15,7 @@ Inkubator keeps these files and folders in its data directory:
 
 Manual full backups are ZIP files. They include `data.json`, `preferences.json`, `manifest.json`, current referenced images, and `replaced-images/` when replaced-photo retention is enabled.
 
-Thumbnails are derived cache files and are not stored in full backups. Inkubator regenerates them from the restored images during import so the first collection view does not need to download or decode every full-resolution image.
+Thumbnails are derived cache files and are not stored in full backups. Inkubator regenerates them from the restored images. Docker completes this work before replacing the active collection; desktop regeneration continues in the background after a successful restore.
 
 ## Desktop Data Location
 
@@ -111,9 +111,15 @@ The flow is:
 
 If the ZIP is invalid or fails validation, Inkubator reports an error instead of treating it as a successful restore.
 
-The desktop app restores the collection first and regenerates missing thumbnails in the background. Grid cards temporarily fall back to their full managed images, so thumbnail work does not block the import result or the next app launch.
+The desktop app validates and stages the collection, preferences, and managed images before replacing the active files. Desktop imports accept at most 1 GiB of compressed ZIP data, 2 GiB after extraction, and 20,000 archive entries. If validation or replacement fails, the previous collection and images are restored. If rollback itself cannot finish, Inkubator reports the recovery-folder location and leaves the recoverable files there. Missing thumbnails are regenerated in the background after a successful import.
 
 Docker mode stages the complete import and only replaces active data after validation and thumbnail generation succeed. It also creates automated restore snapshots immediately before and after a successful replacement. Invalid Docker imports and commit failures restore the previous collection.
+
+## Concurrent Windows
+
+Inkubator saves complete collection snapshots. Saves within one window are processed in order.
+
+If another Docker tab or desktop app process saves a newer snapshot first, Inkubator rejects the stale save or backup import instead of overwriting the newer collection. The stale window keeps its unsaved changes visible and shows a message asking you to preserve anything needed and reload.
 
 ## Automated Backups
 
@@ -162,6 +168,6 @@ For the desktop app, copy the automated backup folder from the app data director
 
 ## Showcase Export Is Not A Backup
 
-Desktop **Export Showcase** creates a static website folder named `showcase`. It includes public website files, display data, and current referenced images. It does not include restore snapshots, replaced-image archives, or backup metadata intended for restoring the app.
+Desktop **Export Showcase** creates a static website folder named `showcase`. It includes public website files plus a filtered copy of the display data and images required by the enabled showcase views. Hidden data and unreferenced private media are not copied. Hiding inks also omits their linked swatches, current-ink relationships, and related activity from the public copy. The export does not include restore snapshots, replaced-image archives, or backup metadata intended for restoring the app.
 
-Docker does not export a separate showcase folder. The public showcase is served directly at `/` and updates when the collection is saved.
+Docker does not export a separate showcase folder. The public showcase is served directly at `/`, applies the same public-data filtering, and updates when the collection is saved.

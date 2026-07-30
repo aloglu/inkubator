@@ -29,17 +29,23 @@ See [Desktop Install](docs/desktop-install.md) for more detail.
 Docker mode serves the public showcase at `/` and the authenticated admin interface at `/admin/`.
 
 ```bash
+read -rsp "Inkubator admin password: " INKUBATOR_ADMIN_PASSWORD
+echo
+export INKUBATOR_ADMIN_PASSWORD
+```
+
+```bash
 docker run \
   --name inkubator \
   --restart unless-stopped \
-  -p 8080:8080 \
+  -p 127.0.0.1:8080:8080 \
   -e INKUBATOR_ADMIN_USER='admin' \
-  -e INKUBATOR_ADMIN_PASSWORD='change-this-password' \
+  -e INKUBATOR_ADMIN_PASSWORD \
   -v "$PWD/inkubator-data:/data" \
   ghcr.io/aloglu/inkubator:latest
 ```
 
-Open `http://localhost:8080` or `http://YOUR-SERVER-IP:8080`.
+Open `http://localhost:8080`. See the Docker guide before exposing the port to a LAN or the internet.
 
 See [Docker Deployment](docs/docker.md) for configuration, reverse proxy examples, and update instructions.
 

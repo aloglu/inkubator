@@ -2,60 +2,100 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const os = require('node:os');
 const path = require('node:path');
+const nativeFs = require('node:fs/promises');
 const fs = require('fs-extra');
 const {
+  atomicWriteJson,
   collectReferencedImageRelativePaths,
   copyReferencedImages,
+  createSerializedExecutor,
   disposeManagedImage,
-  runSavePostCommitSteps,
   replaceImagesWithStaging
 } = require('../lib/critical-persistence');
 
-test('runSavePostCommitSteps returns success when all post-commit steps pass', async () => {
-  const result = await runSavePostCommitSteps({
-    committed: true,
-    requestedPreferences: { x: 1 },
-    combined: { y: 2 },
-    savePreferencesToDisk: async () => {},
-    enforceAutoBackupRetention: async () => {},
-    createAutoBackupSnapshot: async () => {}
-  });
+test('atomicWriteJson replaces JSON without leaving temporary files', async (t) => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'inkubator-critical-'));
+  const target = path.join(tempRoot, 'nested', 'data.json');
+  t.after(() => fs.remove(tempRoot));
 
-  assert.deepEqual(result, { success: true });
+  await atomicWriteJson(target, { version: 1 });
+  await atomicWriteJson(target, { version: 2, values: ['pen', 'ink'] });
+
+  assert.deepEqual(await fs.readJson(target), { version: 2, values: ['pen', 'ink'] });
+  assert.deepEqual(
+    (await fs.readdir(path.dirname(target))).filter((name) => name.endsWith('.tmp')),
+    []
+  );
 });
 
-test('runSavePostCommitSteps returns warning when preferences save fails after commit', async () => {
-  const result = await runSavePostCommitSteps({
-    committed: true,
-    requestedPreferences: {},
-    combined: {},
-    savePreferencesToDisk: async () => {
-      throw new Error('prefs failed');
-    },
-    enforceAutoBackupRetention: async () => {},
-    createAutoBackupSnapshot: async () => {}
-  });
+test('atomicWriteJson propagates a real directory sync failure', async (t) => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'inkubator-critical-sync-'));
+  const directory = path.join(tempRoot, 'nested');
+  const target = path.join(directory, 'data.json');
+  let directorySyncAttempted = false;
+  t.after(() => fs.remove(tempRoot));
 
-  assert.equal(result.success, true);
-  assert.equal(result.warning, true);
-  assert.match(result.message, /preferences could not be saved/i);
+  const fileSystem = {
+    mkdir: (...args) => nativeFs.mkdir(...args),
+    open: async (targetPath, flags) => {
+      if (targetPath === directory && flags === 'r') {
+        return {
+          sync: async () => {
+            directorySyncAttempted = true;
+            throw Object.assign(new Error('injected directory sync failure'), { code: 'EIO' });
+          },
+          close: async () => {}
+        };
+      }
+      return nativeFs.open(targetPath, flags);
+    },
+    rename: (...args) => nativeFs.rename(...args),
+    rm: (...args) => nativeFs.rm(...args)
+  };
+
+  await assert.rejects(
+    atomicWriteJson(target, { version: 1 }, fileSystem),
+    (error) => error.code === 'EIO' && /directory sync failure/i.test(error.message)
+  );
+  assert.equal(directorySyncAttempted, true);
+  assert.deepEqual(await fs.readJson(target), { version: 1 });
+  assert.deepEqual(
+    (await fs.readdir(directory)).filter((name) => name.endsWith('.tmp')),
+    []
+  );
 });
 
-test('runSavePostCommitSteps returns warning when backup step fails after commit', async () => {
-  const result = await runSavePostCommitSteps({
-    committed: true,
-    requestedPreferences: {},
-    combined: {},
-    savePreferencesToDisk: async () => {},
-    enforceAutoBackupRetention: async () => {
-      throw new Error('retention failed');
-    },
-    createAutoBackupSnapshot: async () => {}
+test('createSerializedExecutor runs operations in order and recovers after failure', async () => {
+  const runSerialized = createSerializedExecutor();
+  const events = [];
+  let releaseFirst;
+  const firstGate = new Promise((resolve) => {
+    releaseFirst = resolve;
   });
 
-  assert.equal(result.success, true);
-  assert.equal(result.warning, true);
-  assert.match(result.message, /backup step failed/i);
+  const first = runSerialized(async () => {
+    events.push('first:start');
+    await firstGate;
+    events.push('first:end');
+    return 'first';
+  });
+  const failed = runSerialized(async () => {
+    events.push('failed:start');
+    throw new Error('expected failure');
+  });
+  const last = runSerialized(async () => {
+    events.push('last:start');
+    return 'last';
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(events, ['first:start']);
+  releaseFirst();
+
+  assert.equal(await first, 'first');
+  await assert.rejects(failed, /expected failure/);
+  assert.equal(await last, 'last');
+  assert.deepEqual(events, ['first:start', 'first:end', 'failed:start', 'last:start']);
 });
 
 test('collectReferencedImageRelativePaths keeps only active managed image references', () => {
@@ -126,17 +166,22 @@ test('disposeManagedImage deletes the active file when archive retention is off'
 
   await fs.ensureDir(path.join(imagesRoot, 'pens'));
   await fs.writeFile(path.join(imagesRoot, 'pens', 'old.webp'), 'old', 'utf8');
+  const syncedDirectories = [];
 
   const result = await disposeManagedImage({
     fs,
     imagesRoot,
     archiveRoot,
     imagePath: 'pens/old.webp',
-    keepArchived: false
+    keepArchived: false,
+    syncDirectory: async (directory) => {
+      syncedDirectories.push(directory);
+    }
   });
 
   assert.equal(result.success, true);
   assert.equal(result.action, 'deleted');
+  assert.deepEqual(syncedDirectories, [path.join(imagesRoot, 'pens')]);
   assert.equal(await fs.pathExists(path.join(imagesRoot, 'pens', 'old.webp')), false);
   assert.equal(await fs.pathExists(path.join(archiveRoot, 'pens', 'old.webp')), false);
 
@@ -152,17 +197,31 @@ test('disposeManagedImage archives replaced files without touching the live imag
   await fs.ensureDir(path.join(archiveRoot, 'swatches'));
   await fs.writeFile(path.join(imagesRoot, 'swatches', 'old.webp'), 'old', 'utf8');
   await fs.writeFile(path.join(archiveRoot, 'swatches', 'old.webp'), 'existing', 'utf8');
+  const syncedDirectories = [];
+  let ensuredArchiveDirectory = '';
 
   const result = await disposeManagedImage({
     fs,
     imagesRoot,
     archiveRoot,
     imagePath: 'swatches/old.webp',
-    keepArchived: true
+    keepArchived: true,
+    ensureArchiveDirectory: async (directory) => {
+      ensuredArchiveDirectory = directory;
+      await fs.ensureDir(directory);
+    },
+    syncDirectory: async (directory) => {
+      syncedDirectories.push(directory);
+    }
   });
 
   assert.equal(result.success, true);
   assert.equal(result.action, 'archived');
+  assert.equal(ensuredArchiveDirectory, path.join(archiveRoot, 'swatches'));
+  assert.deepEqual(syncedDirectories, [
+    path.join(imagesRoot, 'swatches'),
+    path.join(archiveRoot, 'swatches')
+  ]);
   assert.equal(await fs.pathExists(path.join(imagesRoot, 'swatches', 'old.webp')), false);
   assert.equal(await fs.pathExists(path.join(archiveRoot, 'swatches', 'old.webp')), true);
   assert.equal(await fs.pathExists(path.join(archiveRoot, 'swatches', 'old-2.webp')), true);

@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 const fs = require('node:fs/promises');
+const dns = require('node:dns/promises');
 const http = require('node:http');
+const https = require('node:https');
+const net = require('node:net');
 const path = require('node:path');
 const { createHash, randomBytes, randomUUID } = require('node:crypto');
 const { pipeline } = require('node:stream/promises');
@@ -9,20 +12,35 @@ const yazl = require('yazl');
 
 const { normalizeAppData } = require('../lib/data-schema');
 const {
-  collectReferencedImageRelativePaths,
-  copyReferencedImages,
+  atomicWriteJson,
+  createSerializedExecutor,
   disposeManagedImage,
   normalizeManagedRelativeImagePath
 } = require('../lib/critical-persistence');
 const {
   backupError,
+  collectManagedRasterReferencePaths,
   commitStagedImport,
   extractBackupZip,
+  imageReferenceValues,
+  normalizeSafeManagedRasterPath,
+  readDirectoryIfExists,
   receiveRequestToFile,
-  regenerateThumbnails
+  recoverInterruptedTransaction,
+  regenerateThumbnails,
+  requireManagedRasterFiles,
+  resolveManagedDirectory,
+  resolveManagedRasterFile,
+  syncDirectory,
+  syncFile,
+  syncTree,
+  validateManagedRasterReferences,
+  validateRasterImageBuffer,
+  validateRasterImageFile
 } = require('../lib/backup-archive');
 const {
   backupPolicy,
+  completeBackupDirectories,
   pruneBackupDirectories,
   shouldCreateBackup
 } = require('../lib/backup-schedule');
@@ -30,11 +48,11 @@ const {
   getReleaseVersionState,
   resolveReleaseVersion
 } = require('../lib/release-version');
+const { projectPublicData } = require('../lib/public-data');
 
 const ROOT = path.resolve(__dirname, '..');
 const APP_DIR = path.join(ROOT, 'app');
 const DATA_DIR = path.resolve(process.env.INKUBATOR_DATA_DIR || process.env.DATA_DIR || '/data');
-const EXPORT_DIR = path.resolve(process.env.INKUBATOR_EXPORT_DIR || path.join(DATA_DIR, 'exports'));
 const PORT = Number(process.env.PORT || process.env.INKUBATOR_PORT || 8080);
 const ADMIN_USER = process.env.INKUBATOR_ADMIN_USER || 'admin';
 const ADMIN_PASSWORD = process.env.INKUBATOR_ADMIN_PASSWORD || '';
@@ -43,6 +61,8 @@ const MAX_BACKUP_BYTES = Number(process.env.INKUBATOR_MAX_BACKUP_BYTES || 1024 *
 const MAX_BACKUP_EXPANDED_BYTES = Number(process.env.INKUBATOR_MAX_BACKUP_EXPANDED_BYTES || 2 * 1024 * 1024 * 1024);
 const MAX_BACKUP_ENTRIES = Number(process.env.INKUBATOR_MAX_BACKUP_ENTRIES || 20000);
 const MAX_REMOTE_IMAGE_BYTES = 25 * 1024 * 1024;
+const MAX_REMOTE_IMAGE_REDIRECTS = 5;
+const REMOTE_IMAGE_TIMEOUT_MS = 15000;
 const VERSION = require('../package.json').version;
 const RELEASE_TAG = process.env.INKUBATOR_RELEASE_TAG || `v${VERSION}`;
 const GITHUB_RELEASES_URL = 'https://github.com/aloglu/inkubator/releases';
@@ -50,13 +70,92 @@ const GITHUB_CONTAINER_URL = 'https://github.com/aloglu/inkubator/pkgs/container
 const DOCKER_IMAGE = process.env.INKUBATOR_IMAGE || `ghcr.io/aloglu/inkubator:${VERSION}`;
 const SESSION_COOKIE = 'inkubator_session';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const STORAGE_REVISION_KEY = '_inkubator_storage_revision';
 const sessions = new Map();
 const assetFingerprintCache = new Map();
+const serializeLiveStateOperation = createSerializedExecutor();
+let storageTransactionsRecovered = false;
 
-if (require.main === module && !ADMIN_PASSWORD && process.env.INKUBATOR_ALLOW_INSECURE !== '1') {
-  console.error('INKUBATOR_ADMIN_PASSWORD is required for Docker admin mode.');
-  console.error('Set INKUBATOR_ALLOW_INSECURE=1 only for local throwaway testing.');
-  process.exit(1);
+async function ensureStorageTransactionsRecovered() {
+  if (storageTransactionsRecovered) return;
+  try {
+    await recoverInterruptedStorageTransactions();
+    storageTransactionsRecovered = true;
+  } catch (cause) {
+    const error = requestError(
+      `Storage recovery must complete before collection data can be used: ${cause.message}`,
+      503
+    );
+    error.cause = cause;
+    throw error;
+  }
+}
+
+function runLiveStateOperation(operation) {
+  return serializeLiveStateOperation(async () => {
+    await ensureStorageTransactionsRecovered();
+    return operation();
+  });
+}
+
+async function commitLiveStorageTransaction(options) {
+  try {
+    const result = await commitStagedImport(options);
+    if (result && result.recoveryRequired) storageTransactionsRecovered = false;
+    return result;
+  } catch (error) {
+    if (error && error.rollbackRoot) storageTransactionsRecovered = false;
+    throw error;
+  }
+}
+
+const REMOTE_IMAGE_MIME_EXTENSIONS = new Map([
+  ['image/jpeg', '.jpg'],
+  ['image/jpg', '.jpg'],
+  ['image/png', '.png'],
+  ['image/webp', '.webp'],
+  ['image/avif', '.avif'],
+  ['image/heic', '.heic'],
+  ['image/heif', '.heif']
+]);
+const REMOTE_ADDRESS_BLOCKLIST = new net.BlockList();
+for (const [network, prefix] of [
+  ['0.0.0.0', 8],
+  ['10.0.0.0', 8],
+  ['100.64.0.0', 10],
+  ['127.0.0.0', 8],
+  ['169.254.0.0', 16],
+  ['172.16.0.0', 12],
+  ['192.168.0.0', 16],
+  ['224.0.0.0', 4],
+  ['240.0.0.0', 4]
+]) {
+  REMOTE_ADDRESS_BLOCKLIST.addSubnet(network, prefix, 'ipv4');
+}
+for (const [network, prefix] of [
+  ['::', 128],
+  ['::1', 128],
+  ['100::', 64],
+  ['fc00::', 7],
+  ['fe80::', 10],
+  ['fec0::', 10],
+  ['ff00::', 8]
+]) {
+  REMOTE_ADDRESS_BLOCKLIST.addSubnet(network, prefix, 'ipv6');
+}
+
+function isRejectedAdminPassword(password) {
+  const normalized = String(password || '').trim().toLowerCase();
+  return !normalized || normalized === 'change-this-password';
+}
+
+if (require.main === module) {
+  const insecureLocalMode = process.env.INKUBATOR_ALLOW_INSECURE === '1' && !ADMIN_PASSWORD;
+  if (!insecureLocalMode && isRejectedAdminPassword(ADMIN_PASSWORD)) {
+    console.error('INKUBATOR_ADMIN_PASSWORD is required and must not use the published placeholder.');
+    console.error('Set INKUBATOR_ALLOW_INSECURE=1 only for local throwaway testing without a password.');
+    process.exit(1);
+  }
 }
 
 const paths = {
@@ -65,8 +164,7 @@ const paths = {
   images: path.join(DATA_DIR, 'images'),
   thumbnails: path.join(DATA_DIR, 'images', '.thumbs'),
   replacedImages: path.join(DATA_DIR, 'replaced-images'),
-  backups: path.join(DATA_DIR, 'backups'),
-  exports: EXPORT_DIR
+  backups: path.join(DATA_DIR, 'backups')
 };
 
 function defaultPreferences() {
@@ -89,8 +187,26 @@ function stripPreferences(data) {
   return clone;
 }
 
+function stripStorageMetadata(preferences) {
+  const clone = {
+    ...(preferences && typeof preferences === 'object' ? preferences : defaultPreferences())
+  };
+  delete clone[STORAGE_REVISION_KEY];
+  return clone;
+}
+
+function preferencesWithNewStorageRevision(preferences) {
+  return {
+    ...stripStorageMetadata(preferences),
+    [STORAGE_REVISION_KEY]: randomUUID()
+  };
+}
+
 function combine(collection, preferences) {
-  return { ...(collection || defaultCollectionData()), preferences: preferences || defaultPreferences() };
+  return {
+    ...(collection || defaultCollectionData()),
+    preferences: stripStorageMetadata(preferences)
+  };
 }
 
 async function ensureDir(dir) {
@@ -101,22 +217,33 @@ async function pathExists(target) {
   try {
     await fs.access(target);
     return true;
-  } catch (_) {
-    return false;
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+async function lstatPathExists(target) {
+  try {
+    await fs.lstat(target);
+    return true;
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return false;
+    throw error;
   }
 }
 
 async function readJson(file, fallback) {
   try {
     return JSON.parse(await fs.readFile(file, 'utf8'));
-  } catch (_) {
-    return fallback;
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return fallback;
+    throw error;
   }
 }
 
 async function writeJson(file, value) {
-  await ensureDir(path.dirname(file));
-  await fs.writeFile(file, `${JSON.stringify(value, null, 2)}\n`);
+  await atomicWriteJson(file, value);
 }
 
 function sanitizeSlug(value) {
@@ -133,6 +260,16 @@ function metadataString(metadata, key, fallback) {
   return value || fallback;
 }
 
+function boundedImageStem(parts, maxLength = 160) {
+  const stem = parts.map(sanitizeSlug).join('-');
+  if (stem.length <= maxLength) return stem;
+  const digest = createHash('sha256').update(stem).digest('hex').slice(0, 10);
+  const prefix = stem
+    .slice(0, Math.max(1, maxLength - digest.length - 1))
+    .replace(/[-_]+$/g, '');
+  return `${prefix}-${digest}`;
+}
+
 async function nextNumberedFilename(dir, stem) {
   let next = 1;
   while (true) {
@@ -144,27 +281,59 @@ async function nextNumberedFilename(dir, stem) {
 
 async function imageFilename(imageType, metadata, dir) {
   if (imageType === 'pen') {
-    const stem = [
+    const stem = boundedImageStem([
       metadataString(metadata, 'brand', 'unknown'),
       metadataString(metadata, 'model', 'pen'),
       metadataString(metadata, 'nib', 'standard'),
       metadataString(metadata, 'color', 'standard')
-    ].map(sanitizeSlug).join('-');
+    ]);
     return nextNumberedFilename(dir, stem);
   }
   if (imageType === 'swatch') {
-    const brand = sanitizeSlug(metadataString(metadata, 'brand', 'unknown'));
-    const model = sanitizeSlug(metadataString(metadata, 'model', 'swatch'));
-    return `${brand}-${model}-${Date.now()}-${randomUUID().replace(/-/g, '')}.webp`;
+    const stem = boundedImageStem([
+      metadataString(metadata, 'brand', 'unknown'),
+      metadataString(metadata, 'model', 'swatch')
+    ]);
+    return `${stem}-${Date.now()}-${randomUUID().replace(/-/g, '')}.webp`;
   }
-  const brand = sanitizeSlug(metadataString(metadata, 'brand', 'unknown'));
-  const model = sanitizeSlug(metadataString(metadata, 'model', 'ink'));
-  const stem = `${brand}-${model}`;
+  const stem = boundedImageStem([
+    metadataString(metadata, 'brand', 'unknown'),
+    metadataString(metadata, 'model', 'ink')
+  ]);
   if (!(await pathExists(path.join(dir, `${stem}.webp`)))) return `${stem}.webp`;
   let next = 2;
   while (true) {
     const filename = `${stem}-${next}.webp`;
     if (!(await pathExists(path.join(dir, filename)))) return filename;
+    next += 1;
+  }
+}
+
+async function uniqueAvailableFilename(dir, proposedName) {
+  if (!(await pathExists(path.join(dir, proposedName)))) return proposedName;
+  const parsed = path.parse(proposedName);
+  let next = 2;
+  while (true) {
+    const candidate = `${parsed.name}-${next}${parsed.ext}`;
+    if (!(await pathExists(path.join(dir, candidate)))) return candidate;
+    next += 1;
+  }
+}
+
+async function uniqueAvailableFilenameAcross(directories, proposedName) {
+  const isAvailable = async (filename) => {
+    for (const directory of directories) {
+      if (await lstatPathExists(path.join(directory, filename))) return false;
+    }
+    return true;
+  };
+  if (await isAvailable(proposedName)) return proposedName;
+
+  const parsed = path.parse(proposedName);
+  let next = 2;
+  while (true) {
+    const candidate = `${parsed.name}-${next}${parsed.ext}`;
+    if (await isAvailable(candidate)) return candidate;
     next += 1;
   }
 }
@@ -181,10 +350,40 @@ function isInside(parent, candidate) {
 }
 
 function safeImagePath(relativePath) {
-  const normalized = normalizeManagedRelativeImagePath(relativePath);
+  const normalized = normalizeSafeManagedRasterPath(relativePath);
   const target = path.normalize(path.join(paths.images, normalized));
-  if (!normalized || !isInside(paths.images, target)) throw new Error('Invalid image path.');
+  if (!normalized || !isInside(paths.images, target)) {
+    throw requestError('Invalid or unsupported image path.', 400);
+  }
   return { normalized, target };
+}
+
+async function resolveExistingManagedImage(root, relativePath, statusCode = 400) {
+  return resolveManagedRasterFile({
+    imagesRoot: root,
+    relativePath,
+    missingStatusCode: statusCode
+  });
+}
+
+async function ensureManagedArchiveDirectory(directory) {
+  const relative = path.relative(paths.replacedImages, directory);
+  if (!isInside(paths.replacedImages, directory)) {
+    throw requestError('Invalid replaced-image archive path.', 400);
+  }
+  return resolveManagedDirectory({
+    root: paths.replacedImages,
+    relativePath: relative.split(path.sep).join('/'),
+    create: true,
+    statusCode: 400
+  });
+}
+
+async function removeResolvedManagedFile(resolved) {
+  if (!resolved) return false;
+  await fs.rm(resolved.target, { force: true });
+  await syncDirectory(fs, path.dirname(resolved.target));
+  return true;
 }
 
 function thumbnailPathFor(normalized) {
@@ -199,6 +398,8 @@ function mimeFor(file) {
   if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
   if (ext === '.webp') return 'image/webp';
   if (ext === '.avif') return 'image/avif';
+  if (ext === '.heic') return 'image/heic';
+  if (ext === '.heif') return 'image/heif';
   if (ext === '.svg') return 'image/svg+xml';
   if (ext === '.css') return 'text/css; charset=utf-8';
   if (ext === '.js') return 'text/javascript; charset=utf-8';
@@ -428,8 +629,68 @@ function sendPlain(res, status, body) {
   res.end(text);
 }
 
+function requestError(message, statusCode) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+function firstForwardedValue(value) {
+  return String(Array.isArray(value) ? value[0] : value || '')
+    .split(',')[0]
+    .trim();
+}
+
+function requestUsesHttps(req) {
+  const forwardedProtocol = firstForwardedValue(req.headers['x-forwarded-proto']).toLowerCase();
+  return forwardedProtocol
+    ? forwardedProtocol === 'https'
+    : !!(req.socket && req.socket.encrypted);
+}
+
+function expectedRequestOrigin(req) {
+  const host = firstForwardedValue(req.headers['x-forwarded-host'])
+    || firstForwardedValue(req.headers.host);
+  if (!host) return '';
+  const protocol = firstForwardedValue(req.headers['x-forwarded-proto']).toLowerCase()
+    || (requestUsesHttps(req) ? 'https' : 'http');
+  try {
+    return new URL(`${protocol}://${host}`).origin;
+  } catch (_) {
+    return '';
+  }
+}
+
+function enforceBrowserMutationRequest(req) {
+  const fetchSite = firstForwardedValue(req.headers['sec-fetch-site']).toLowerCase();
+  if (fetchSite && fetchSite !== 'same-origin') {
+    throw requestError('Cross-origin browser requests are not allowed.', 403);
+  }
+
+  const origin = firstForwardedValue(req.headers.origin);
+  if (!origin) return;
+  let normalizedOrigin = '';
+  try {
+    normalizedOrigin = new URL(origin).origin;
+  } catch (_) {
+    throw requestError('Invalid request origin.', 403);
+  }
+  const expectedOrigin = expectedRequestOrigin(req);
+  if (!expectedOrigin || normalizedOrigin !== expectedOrigin) {
+    throw requestError('Cross-origin browser requests are not allowed.', 403);
+  }
+}
+
+function applySecurityHeaders(res) {
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+}
+
 function cookieHeader(name, value, options = {}) {
   const parts = [`${name}=${value}`, 'Path=/', 'HttpOnly', 'SameSite=Lax'];
+  if (options.secure) parts.push('Secure');
   if (options.maxAge !== undefined) parts.push(`Max-Age=${options.maxAge}`);
   return parts.join('; ');
 }
@@ -454,17 +715,23 @@ function cleanupSessions() {
   }
 }
 
-function createSession(res) {
+function createSession(req, res) {
   cleanupSessions();
   const token = randomBytes(32).toString('base64url');
   sessions.set(token, { createdAt: Date.now() });
-  res.setHeader('Set-Cookie', cookieHeader(SESSION_COOKIE, encodeURIComponent(token), { maxAge: Math.floor(SESSION_TTL_MS / 1000) }));
+  res.setHeader('Set-Cookie', cookieHeader(SESSION_COOKIE, encodeURIComponent(token), {
+    maxAge: Math.floor(SESSION_TTL_MS / 1000),
+    secure: requestUsesHttps(req)
+  }));
 }
 
 function clearSession(req, res) {
   const token = parseCookies(req)[SESSION_COOKIE];
   if (token) sessions.delete(token);
-  res.setHeader('Set-Cookie', cookieHeader(SESSION_COOKIE, '', { maxAge: 0 }));
+  res.setHeader('Set-Cookie', cookieHeader(SESSION_COOKIE, '', {
+    maxAge: 0,
+    secure: requestUsesHttps(req)
+  }));
 }
 
 function unauthorized(req, res) {
@@ -496,47 +763,112 @@ function isValidLogin(username, password) {
   return username === ADMIN_USER && password === ADMIN_PASSWORD;
 }
 
-async function readBody(req) {
+function requestContentType(req) {
+  return String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+}
+
+async function readBody(req, maxBytes = MAX_BODY_BYTES) {
+  const declaredSize = Number(req.headers['content-length'] || 0);
+  if (Number.isFinite(declaredSize) && declaredSize > maxBytes) {
+    throw requestError('Request body is too large.', 413);
+  }
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) throw new Error('Request body is too large.');
+    if (size > maxBytes) throw requestError('Request body is too large.', 413);
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
 }
 
 async function readJsonBody(req) {
+  if (requestContentType(req) !== 'application/json') {
+    throw requestError('Request body must use application/json.', 415);
+  }
   const body = await readBody(req);
   if (!body.length) return {};
-  return JSON.parse(body.toString('utf8'));
-}
-
-async function copyDir(source, destination) {
-  if (!(await pathExists(source))) return;
-  await fs.cp(source, destination, { recursive: true, force: true });
+  try {
+    return JSON.parse(body.toString('utf8'));
+  } catch (_) {
+    throw requestError('Request body must contain valid JSON.', 400);
+  }
 }
 
 async function removeIfExists(target) {
   await fs.rm(target, { recursive: true, force: true });
 }
 
-async function pruneShowcaseOnlyAssets(root) {
-  for (const relative of [
-    'assets/brand/inkubator-logo-background-source.png',
-    'assets/brand/inkubator-logo-transparent-source.png',
-    'assets/icons/ink-drop-white.source.png'
-  ]) {
-    await removeIfExists(path.join(root, relative));
+async function removeIfExistsBestEffort(target, context) {
+  try {
+    await removeIfExists(target);
+    return null;
+  } catch (error) {
+    console.warn(`${context}: ${target}`, error);
+    return error;
   }
 }
 
 async function writeThumbnailFor(normalized, thumbnailBase64) {
   if (!thumbnailBase64) return;
-  const target = thumbnailPathFor(normalized);
-  await ensureDir(path.dirname(target));
-  await fs.writeFile(target, Buffer.from(String(thumbnailBase64 || ''), 'base64'));
+  const directory = await resolveManagedDirectory({
+    root: paths.thumbnails,
+    relativePath: path.posix.dirname(normalized),
+    statusCode: 400
+  });
+  const target = path.join(directory, path.posix.basename(normalized));
+  await fs.writeFile(
+    target,
+    Buffer.from(String(thumbnailBase64 || ''), 'base64'),
+    { flag: 'wx' }
+  );
+  await syncFile(fs, target);
+  await syncDirectory(fs, directory);
+}
+
+async function removeFailedImageArtifacts(imageTarget, thumbnailTarget) {
+  const failures = [];
+  for (const target of [imageTarget, thumbnailTarget]) {
+    try {
+      await fs.rm(target, { force: true });
+      await syncDirectory(fs, path.dirname(target));
+    } catch (error) {
+      failures.push(`${target}: ${error.message}`);
+    }
+  }
+  if (failures.length) {
+    throw new Error(`Could not clean up failed image save: ${failures.join('; ')}`);
+  }
+}
+
+async function writeImageWithThumbnail(
+  imageTarget,
+  relativePath,
+  imageBytes,
+  thumbnailBase64,
+  writeThumbnail = writeThumbnailFor,
+  fileSystem = fs
+) {
+  const thumbnailTarget = thumbnailPathFor(relativePath);
+  let imageCreated = false;
+  try {
+    await fileSystem.writeFile(imageTarget, imageBytes, { flag: 'wx' });
+    imageCreated = true;
+    await syncFile(fileSystem, imageTarget);
+    await syncDirectory(fileSystem, path.dirname(imageTarget));
+    await writeThumbnail(relativePath, thumbnailBase64);
+  } catch (error) {
+    if (!imageCreated && error && error.code === 'EEXIST') throw error;
+    try {
+      await removeFailedImageArtifacts(imageTarget, thumbnailTarget);
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        `Thumbnail save failed and image cleanup was incomplete: ${error.message}`
+      );
+    }
+    throw error;
+  }
 }
 
 async function createAutoBackup(reason, options = {}) {
@@ -554,17 +886,24 @@ async function createAutoBackup(reason, options = {}) {
     return { created: false, reason: 'not-due' };
   }
 
-  const folder = path.join(dir, `auto-${Date.now()}-${reason}-${randomUUID()}`);
+  const token = `${Date.now()}-${reason}-${randomUUID()}`;
+  const folder = path.join(dir, `auto-${token}`);
+  const staging = path.join(dir, `.auto-stage-${token}`);
+  let promoted = false;
   try {
-    await createBackupFolder(folder, collection, preferences, {
+    await createBackupFolder(staging, collection, preferences, {
       type: 'inkubator-auto-backup',
       reason,
       includeReplacedImages: policy.keepReplacedImages
     });
+    await syncTree(fs, staging);
+    await fs.rename(staging, folder);
+    await syncDirectory(fs, dir);
+    promoted = true;
     await pruneBackupDirectories({ fs, root: dir, retention: policy.retention });
     return { created: true, path: folder };
   } catch (error) {
-    await removeIfExists(folder);
+    if (!promoted) await removeIfExists(staging);
     throw error;
   }
 }
@@ -576,81 +915,464 @@ async function loadCombinedData() {
   );
 }
 
+async function loadPublicData() {
+  return projectPublicData(await loadCombinedData());
+}
+
+async function loadRevisionedData() {
+  const collection = await readJson(paths.data, defaultCollectionData());
+  const storedPreferences = await readJson(paths.preferences, defaultPreferences());
+  const data = combine(collection, storedPreferences);
+  return {
+    data,
+    revision: contentFingerprint(Buffer.from(JSON.stringify({
+      collection,
+      preferences: storedPreferences
+    })))
+  };
+}
+
+function dataConflict(revision) {
+  return {
+    success: false,
+    code: 'DATA_CONFLICT',
+    conflict: true,
+    revision,
+    message: 'Collection data changed since it was loaded. Reload before saving again.'
+  };
+}
+
 async function saveCombinedData(data) {
   const normalized = normalizeAppData(data);
-  await writeJson(paths.data, stripPreferences(normalized));
-  await writeJson(paths.preferences, normalized.preferences);
-  await createAutoBackup('save-data');
+  const collection = stripPreferences(normalized);
+  validateManagedRasterReferences(imageReferenceValues(collection), { strict: true });
+  await requireManagedRasterFiles({
+    imagesRoot: paths.images,
+    relativePaths: collectManagedRasterReferencePaths(collection, { strict: true })
+  });
+  const storedPreferences = preferencesWithNewStorageRevision(normalized.preferences);
+  const suffix = `${Date.now()}-${randomUUID()}`;
+  const stage = path.join(DATA_DIR, `.collection-save-stage-${suffix}`);
+  const rollback = path.join(DATA_DIR, `.collection-save-rollback-${suffix}`);
+  const stagedData = path.join(stage, 'data.json');
+  const stagedPreferences = path.join(stage, 'preferences.json');
+  const warnings = [];
+  await ensureDir(stage);
+  try {
+    await writeJson(stagedData, collection);
+    await writeJson(stagedPreferences, storedPreferences);
+    const commitResult = await commitLiveStorageTransaction({
+      stagedRoot: stage,
+      rollbackRoot: rollback,
+      targets: [
+        { kind: 'file', name: 'data.json', staged: stagedData, target: paths.data },
+        {
+          kind: 'file',
+          name: 'preferences.json',
+          staged: stagedPreferences,
+          target: paths.preferences
+        }
+      ]
+    });
+    if (commitResult.cleanupErrors.length > 0) {
+      warnings.push('transaction staging cleanup was incomplete');
+    }
+  } finally {
+    await removeIfExistsBestEffort(stage, 'Collection-save staging cleanup failed');
+  }
+
+  try {
+    await createAutoBackup('save-data');
+  } catch (backupError) {
+    warnings.push(`a backup step failed: ${backupError.message}`);
+  }
+  if (warnings.length > 0) {
+    return {
+      success: true,
+      warning: true,
+      message: `Data and preferences saved, but ${warnings.join('; ')}.`
+    };
+  }
   return { success: true };
 }
 
+async function saveCombinedDataIfCurrent(data, expectedRevision) {
+  const current = await loadRevisionedData();
+  if (String(expectedRevision || '') !== current.revision) {
+    return dataConflict(current.revision);
+  }
+
+  const result = await saveCombinedData(data);
+  const saved = await loadRevisionedData();
+  return { ...result, revision: saved.revision };
+}
+
 async function saveImageBytes(payload) {
+  const imageBytes = Buffer.from(String(payload.bytesBase64 || ''), 'base64');
+  try {
+    await validateRasterImageBuffer(imageBytes, 'upload.webp');
+  } catch (cause) {
+    throw requestError(`Image upload is not a valid WebP image: ${cause.message}`, 415);
+  }
+  if (payload.thumbnailBase64) {
+    try {
+      await validateRasterImageBuffer(
+        Buffer.from(String(payload.thumbnailBase64), 'base64'),
+        'thumbnail.webp'
+      );
+    } catch (cause) {
+      throw requestError(`Image thumbnail is not a valid WebP image: ${cause.message}`, 415);
+    }
+  }
   const imageType = payload.imageType || 'ink';
   const folder = imageFolder(imageType);
-  const dir = path.join(paths.images, folder);
-  await ensureDir(dir);
-  const filename = await imageFilename(imageType, payload.metadata || {}, dir);
+  const dir = await resolveManagedDirectory({
+    root: paths.images,
+    relativePath: folder,
+    statusCode: 400
+  });
+  const thumbnailDir = await resolveManagedDirectory({
+    root: paths.thumbnails,
+    relativePath: folder,
+    statusCode: 400
+  });
+  const proposedName = await imageFilename(imageType, payload.metadata || {}, dir);
+  const filename = await uniqueAvailableFilenameAcross([dir, thumbnailDir], proposedName);
   const relative = `${folder}/${filename}`;
-  await fs.writeFile(path.join(dir, filename), Buffer.from(String(payload.bytesBase64 || ''), 'base64'));
-  await writeThumbnailFor(relative, payload.thumbnailBase64);
+  await writeImageWithThumbnail(
+    path.join(dir, filename),
+    relative,
+    imageBytes,
+    payload.thumbnailBase64
+  );
   return relative;
 }
 
-async function saveRemoteImage(payload) {
-  const url = new URL(payload.url);
-  if (url.protocol !== 'https:') throw new Error('Only https URLs are allowed for remote images.');
-  const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (bytes.length > MAX_REMOTE_IMAGE_BYTES) throw new Error('Remote image is too large.');
+function normalizedRemoteHostname(url) {
+  const hostname = String(url.hostname || '');
+  return hostname.startsWith('[') && hostname.endsWith(']')
+    ? hostname.slice(1, -1)
+    : hostname;
+}
+
+function validateRemoteImageUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch (_) {
+    throw requestError('Remote image URL is invalid.', 400);
+  }
+  if (url.protocol !== 'https:') {
+    throw requestError('Only https URLs are allowed for remote images.', 400);
+  }
+  if (url.username || url.password) {
+    throw requestError('Remote image URLs cannot contain credentials.', 400);
+  }
+  return url;
+}
+
+function isBlockedRemoteAddress(address) {
+  const family = net.isIP(address);
+  if (family === 4) return REMOTE_ADDRESS_BLOCKLIST.check(address, 'ipv4');
+  if (family === 6) {
+    if (String(address).toLowerCase().startsWith('::ffff:')) return true;
+    return REMOTE_ADDRESS_BLOCKLIST.check(address, 'ipv6');
+  }
+  return true;
+}
+
+async function lookupRemoteAddresses(hostname, lookup = dns.lookup) {
+  const family = net.isIP(hostname);
+  if (family) return [{ address: hostname, family }];
+  let addresses;
+  try {
+    addresses = await lookup(hostname, { all: true, verbatim: true });
+  } catch (_) {
+    throw requestError('Remote image host could not be resolved.', 400);
+  }
+  if (!Array.isArray(addresses) || addresses.length === 0) {
+    throw requestError('Remote image host could not be resolved.', 400);
+  }
+  return addresses;
+}
+
+async function resolveAllowedRemoteAddress(url, lookup) {
+  const hostname = normalizedRemoteHostname(url);
+  const addresses = await lookupRemoteAddresses(hostname, lookup);
+  for (const item of addresses) {
+    const address = String(item && item.address || '');
+    if (!net.isIP(address) || isBlockedRemoteAddress(address)) {
+      throw requestError('Remote image URLs cannot use private or local network addresses.', 400);
+    }
+  }
+  return {
+    address: String(addresses[0].address),
+    family: Number(addresses[0].family) || net.isIP(addresses[0].address)
+  };
+}
+
+function requestRemoteImageResponse(url, resolvedAddress, signal) {
+  return new Promise((resolve, reject) => {
+    const request = https.request(url, {
+      family: resolvedAddress.family,
+      headers: {
+        Accept: [...REMOTE_IMAGE_MIME_EXTENSIONS.keys()].join(', '),
+        'User-Agent': `inkubator/${VERSION}`
+      },
+      lookup(_hostname, _options, callback) {
+        callback(null, resolvedAddress.address, resolvedAddress.family);
+      },
+      method: 'GET',
+      signal
+    }, resolve);
+    request.once('error', reject);
+    request.end();
+  });
+}
+
+function remoteImageMimeType(response) {
+  return String(response.headers['content-type'] || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+}
+
+async function readRemoteResponseBytes(response, maxBytes) {
+  const contentLength = String(response.headers['content-length'] || '').trim();
+  if (/^\d+$/.test(contentLength) && Number(contentLength) > maxBytes) {
+    response.destroy();
+    throw requestError('Remote image is too large.', 413);
+  }
+
+  const chunks = [];
+  let size = 0;
+  try {
+    for await (const chunk of response) {
+      size += chunk.length;
+      if (size > maxBytes) {
+        throw requestError('Remote image is too large.', 413);
+      }
+      chunks.push(chunk);
+    }
+  } catch (error) {
+    response.destroy();
+    throw error;
+  }
+  return Buffer.concat(chunks);
+}
+
+async function downloadRemoteImage(value, options = {}) {
+  const maxBytes = Number(options.maxBytes || MAX_REMOTE_IMAGE_BYTES);
+  const maxRedirects = Number(options.maxRedirects ?? MAX_REMOTE_IMAGE_REDIRECTS);
+  const lookup = options.lookup || dns.lookup;
+  const requestResponse = options.requestResponse || requestRemoteImageResponse;
+  const signal = options.signal || AbortSignal.timeout(REMOTE_IMAGE_TIMEOUT_MS);
+  let url = validateRemoteImageUrl(value);
+
+  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+    const resolvedAddress = await resolveAllowedRemoteAddress(url, lookup);
+    let response;
+    try {
+      response = await requestResponse(url, resolvedAddress, signal);
+    } catch (error) {
+      if (signal.aborted || error?.name === 'AbortError') {
+        throw requestError('Remote image request timed out.', 504);
+      }
+      throw requestError('Remote image request failed.', 502);
+    }
+
+    const status = Number(response.statusCode || 0);
+    if ([301, 302, 303, 307, 308].includes(status)) {
+      const location = String(response.headers.location || '');
+      response.destroy();
+      if (!location) throw requestError('Remote image redirect is missing its destination.', 502);
+      if (redirectCount >= maxRedirects) {
+        throw requestError('Remote image has too many redirects.', 400);
+      }
+      try {
+        url = validateRemoteImageUrl(new URL(location, url).href);
+      } catch (error) {
+        if (error && error.statusCode) throw error;
+        throw requestError('Remote image redirect is invalid.', 502);
+      }
+      continue;
+    }
+    if (status < 200 || status >= 300) {
+      response.destroy();
+      throw requestError(`Failed to fetch image: ${status || 'unknown response'}`, 502);
+    }
+
+    const mimeType = remoteImageMimeType(response);
+    if (!REMOTE_IMAGE_MIME_EXTENSIONS.has(mimeType)) {
+      response.destroy();
+      throw requestError('Remote URL did not return a supported raster image.', 415);
+    }
+    let bytes;
+    try {
+      bytes = await readRemoteResponseBytes(response, maxBytes);
+    } catch (error) {
+      if (signal.aborted || error?.name === 'AbortError') {
+        throw requestError('Remote image request timed out.', 504);
+      }
+      if (error && error.statusCode) throw error;
+      throw requestError('Remote image request failed while reading its response.', 502);
+    }
+    if (bytes.length === 0) {
+      throw requestError('Remote image response was empty.', 502);
+    }
+    return {
+      bytes,
+      mimeType,
+      sourceUrl: url.href,
+      sourceHint: url.pathname
+    };
+  }
+  throw requestError('Remote image has too many redirects.', 400);
+}
+
+async function saveRemoteImage(payload, download = downloadRemoteImage) {
+  const remote = await download(payload.url);
   const imageType = payload.imageType || 'swatch';
   const folder = imageFolder(imageType);
-  const dir = path.join(paths.images, folder);
-  await ensureDir(dir);
-  const ext = path.extname(url.pathname).toLowerCase().replace(/[^a-z0-9.]/g, '') || '.jpg';
-  const name = (await imageFilename(imageType, payload.metadata || {}, dir)).replace(/\.webp$/, ext);
+  const ext = REMOTE_IMAGE_MIME_EXTENSIONS.get(remote.mimeType);
+  if (!ext) throw requestError('Remote image type is unsupported.', 415);
+  try {
+    await validateRasterImageBuffer(remote.bytes, `remote${ext}`);
+  } catch (cause) {
+    throw requestError(`Remote image contents do not match ${remote.mimeType}: ${cause.message}`, 415);
+  }
+  if (payload.thumbnailBase64) {
+    try {
+      await validateRasterImageBuffer(
+        Buffer.from(String(payload.thumbnailBase64), 'base64'),
+        'thumbnail.webp'
+      );
+    } catch (cause) {
+      throw requestError(`Image thumbnail is not a valid WebP image: ${cause.message}`, 415);
+    }
+  }
+  const dir = await resolveManagedDirectory({
+    root: paths.images,
+    relativePath: folder,
+    statusCode: 400
+  });
+  const thumbnailDir = await resolveManagedDirectory({
+    root: paths.thumbnails,
+    relativePath: folder,
+    statusCode: 400
+  });
+  const proposedName = (await imageFilename(imageType, payload.metadata || {}, dir))
+    .replace(/\.webp$/, ext);
+  const name = await uniqueAvailableFilenameAcross([dir, thumbnailDir], proposedName);
   const relative = `${folder}/${name}`;
-  await fs.writeFile(path.join(dir, name), bytes);
-  await writeThumbnailFor(relative, payload.thumbnailBase64);
+  await writeImageWithThumbnail(path.join(dir, name), relative, remote.bytes, payload.thumbnailBase64);
   return relative;
 }
 
 async function readRemoteImageBytes(payload) {
-  const url = new URL(payload.url);
-  if (url.protocol !== 'https:') throw new Error('Only https URLs are allowed for remote images.');
-  const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (bytes.length > MAX_REMOTE_IMAGE_BYTES) throw new Error('Remote image is too large.');
+  const remote = await downloadRemoteImage(payload.url);
   return {
     success: true,
-    base64: bytes.toString('base64'),
-    sourceUrl: url.href,
-    sourceHint: url.pathname,
-    mimeType: response.headers.get('content-type') || ''
+    base64: remote.bytes.toString('base64'),
+    sourceUrl: remote.sourceUrl,
+    sourceHint: remote.sourceHint,
+    mimeType: remote.mimeType
   };
+}
+
+async function liveCollectionReferencesImage(normalizedPath) {
+  const collection = await readJson(paths.data, defaultCollectionData());
+  return imageReferenceValues(collection).some(
+    (value) => normalizeManagedRelativeImagePath(value) === normalizedPath
+  );
+}
+
+async function copyValidatedReferencedImages(collection, destinationRoot) {
+  const relativePaths = collectManagedRasterReferencePaths(collection, { strict: true });
+  validateManagedRasterReferences(imageReferenceValues(collection), { strict: true });
+  const validatedPaths = await requireManagedRasterFiles({
+    imagesRoot: paths.images,
+    relativePaths,
+    validateContents: true,
+    missingStatusCode: 409
+  });
+  await ensureDir(destinationRoot);
+  for (const relativePath of validatedPaths) {
+    const resolved = await resolveExistingManagedImage(paths.images, relativePath, 409);
+    if (!resolved) {
+      throw backupError(`Referenced image disappeared during backup: images/${relativePath}`, 409);
+    }
+    const destination = path.join(destinationRoot, relativePath);
+    await ensureDir(path.dirname(destination));
+    await fs.copyFile(resolved.target, destination);
+  }
+}
+
+async function copyManagedFiles(relativePaths, sourceRoot, destinationRoot, options = {}) {
+  await ensureDir(destinationRoot);
+  for (const relativePath of relativePaths) {
+    const resolved = await resolveExistingManagedImage(sourceRoot, relativePath, 409);
+    if (!resolved) {
+      if (options.requireAll) {
+        throw backupError(`Referenced image is missing: ${relativePath}`, 409);
+      }
+      continue;
+    }
+    const destination = path.join(
+      destinationRoot,
+      `${relativePath}${options.destinationSuffix || ''}`
+    );
+    await ensureDir(path.dirname(destination));
+    await fs.copyFile(resolved.target, destination);
+  }
+}
+
+async function copyValidatedManagedMediaTree(sourceRoot, destinationRoot, relativeRoot = '') {
+  if (!(await lstatPathExists(sourceRoot))) return;
+  const currentRoot = await resolveManagedDirectory({
+    root: sourceRoot,
+    relativePath: relativeRoot,
+    statusCode: 409
+  });
+  const entries = await fs.readdir(currentRoot, { withFileTypes: true });
+  entries.sort((left, right) => left.name.localeCompare(right.name));
+  for (const entry of entries) {
+    const relativePath = relativeRoot ? `${relativeRoot}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      await copyValidatedManagedMediaTree(sourceRoot, destinationRoot, relativePath);
+      continue;
+    }
+    if (entry.isSymbolicLink()) {
+      throw backupError(`Replaced-image storage contains a symbolic link: ${relativePath}`, 409);
+    }
+    if (!entry.isFile()) continue;
+    const normalized = normalizeSafeManagedRasterPath(relativePath);
+    if (!normalized) continue;
+    const resolved = await resolveExistingManagedImage(sourceRoot, normalized, 409);
+    if (!resolved) {
+      throw backupError(`Replaced image disappeared during backup: ${normalized}`, 409);
+    }
+    await validateRasterImageFile(resolved.target, `replaced-images/${normalized}`);
+    const destination = path.join(destinationRoot, normalized);
+    await ensureDir(path.dirname(destination));
+    await fs.copyFile(resolved.target, destination);
+  }
 }
 
 async function createBackupFolder(folder, collection, preferences, manifestOptions = {}) {
   await ensureDir(folder);
   await writeJson(path.join(folder, 'data.json'), collection);
-  await writeJson(path.join(folder, 'preferences.json'), preferences);
+  await writeJson(path.join(folder, 'preferences.json'), stripStorageMetadata(preferences));
   const includeReplacedImages = typeof manifestOptions.includeReplacedImages === 'boolean'
     ? manifestOptions.includeReplacedImages
     : !!(preferences && preferences.backup && preferences.backup.keep_replaced_images);
-  await copyReferencedImages({
-    fs: {
-      ensureDir,
-      pathExists,
-      copy: fs.cp
-    },
-    sourceRoot: paths.images,
-    destinationRoot: path.join(folder, 'images'),
-    relativePaths: collectReferencedImageRelativePaths(collection)
-  });
+  await copyValidatedReferencedImages(collection, path.join(folder, 'images'));
   const hasReplacedImages = includeReplacedImages && await pathExists(paths.replacedImages);
   if (hasReplacedImages) {
-    await copyDir(paths.replacedImages, path.join(folder, 'replaced-images'));
+    await copyValidatedManagedMediaTree(
+      paths.replacedImages,
+      path.join(folder, 'replaced-images')
+    );
   }
   await writeJson(path.join(folder, 'manifest.json'), {
     type: manifestOptions.type || 'inkubator-backup',
@@ -686,24 +1408,48 @@ function zipJson(zip, name, value) {
 }
 
 async function addReferencedImagesToZip(zip, collection) {
-  for (const relativePath of collectReferencedImageRelativePaths(collection)) {
-    const normalized = normalizeManagedRelativeImagePath(relativePath);
-    if (!normalized) continue;
-    const source = path.normalize(path.join(paths.images, normalized));
-    if (!isInside(paths.images, source) || !(await pathExists(source))) continue;
-    zip.addFile(source, `images/${normalized}`, { compress: false });
+  const relativePaths = collectManagedRasterReferencePaths(collection, { strict: true });
+  validateManagedRasterReferences(imageReferenceValues(collection), { strict: true });
+  const validatedPaths = await requireManagedRasterFiles({
+    imagesRoot: paths.images,
+    relativePaths,
+    validateContents: true,
+    missingStatusCode: 409
+  });
+  for (const relativePath of validatedPaths) {
+    const resolved = await resolveExistingManagedImage(paths.images, relativePath, 409);
+    if (!resolved) {
+      throw backupError(`Referenced image disappeared during backup: images/${relativePath}`, 409);
+    }
+    zip.addFile(resolved.target, `images/${relativePath}`, { compress: false });
   }
 }
 
-async function addDirectoryToZip(zip, sourceRoot, archiveRoot) {
-  if (!(await pathExists(sourceRoot))) return;
-  const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
+async function addDirectoryToZip(zip, sourceRoot, archiveRoot, relativeRoot = '') {
+  if (!(await lstatPathExists(sourceRoot))) return;
+  const currentRoot = await resolveManagedDirectory({
+    root: sourceRoot,
+    relativePath: relativeRoot,
+    statusCode: 409
+  });
+  const entries = await fs.readdir(currentRoot, { withFileTypes: true });
   entries.sort((left, right) => left.name.localeCompare(right.name));
   for (const entry of entries) {
-    const source = path.join(sourceRoot, entry.name);
-    const archivePath = `${archiveRoot}/${entry.name}`.replace(/\\/g, '/');
-    if (entry.isDirectory()) await addDirectoryToZip(zip, source, archivePath);
-    else if (entry.isFile()) zip.addFile(source, archivePath, { compress: false });
+    const relativePath = relativeRoot ? `${relativeRoot}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      await addDirectoryToZip(zip, sourceRoot, archiveRoot, relativePath);
+    } else if (entry.isSymbolicLink()) {
+      throw backupError(`Replaced-image storage contains a symbolic link: ${relativePath}`, 409);
+    } else if (entry.isFile()) {
+      const normalized = normalizeSafeManagedRasterPath(relativePath);
+      if (!normalized) continue;
+      const resolved = await resolveExistingManagedImage(sourceRoot, normalized, 409);
+      if (!resolved) {
+        throw backupError(`Replaced image disappeared during backup: ${normalized}`, 409);
+      }
+      await validateRasterImageFile(resolved.target, `replaced-images/${normalized}`);
+      zip.addFile(resolved.target, `replaced-images/${normalized}`, { compress: false });
+    }
   }
 }
 
@@ -715,7 +1461,7 @@ async function streamBackupZip(res) {
   const manifest = backupManifest(preferences, { type: 'inkubator-backup' });
   const zip = new yazl.ZipFile();
   zipJson(zip, 'data.json', collection);
-  zipJson(zip, 'preferences.json', preferences);
+  zipJson(zip, 'preferences.json', stripStorageMetadata(preferences));
   zipJson(zip, 'manifest.json', manifest);
   await addReferencedImagesToZip(zip, collection);
   if (manifest.includes_replaced_images) {
@@ -735,17 +1481,24 @@ async function streamBackupZip(res) {
 async function latestValidLocalBackup() {
   const autoDir = path.join(paths.backups, 'auto');
   if (!(await pathExists(autoDir))) return null;
-  const entries = await fs.readdir(autoDir, { withFileTypes: true });
-  const candidates = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const folder = path.join(autoDir, entry.name);
-    if (!(await pathExists(path.join(folder, 'data.json'))) || !(await pathExists(path.join(folder, 'preferences.json')))) continue;
-    const stat = await fs.stat(folder);
-    candidates.push({ folder, name: entry.name, updated_at: stat.mtime.toISOString(), modified: stat.mtimeMs });
+  const candidates = await completeBackupDirectories({ fs, root: autoDir });
+  const latest = candidates[0];
+  if (!latest) return null;
+  return {
+    folder: latest.target,
+    name: path.basename(latest.target),
+    updated_at: new Date(latest.modified).toISOString(),
+    modified: latest.modified
+  };
+}
+
+async function readBackupJson(file, label) {
+  const contents = await fs.readFile(file, 'utf8');
+  try {
+    return JSON.parse(contents);
+  } catch (_) {
+    throw backupError(`Backup ${label} must contain valid JSON.`);
   }
-  candidates.sort((a, b) => b.modified - a.modified);
-  return candidates[0] || null;
 }
 
 async function importBackupFromZip(zipPath, options = {}) {
@@ -765,8 +1518,25 @@ async function importBackupFromZip(zipPath, options = {}) {
       return { success: false, message: 'Selected backup is not valid.' };
     }
 
-    const incomingCollection = JSON.parse(await fs.readFile(incomingDataPath, 'utf8'));
-    const incomingPreferences = JSON.parse(await fs.readFile(incomingPreferencesPath, 'utf8'));
+    const incomingCollection = await readBackupJson(incomingDataPath, 'data.json');
+    const incomingPreferences = await readBackupJson(
+      incomingPreferencesPath,
+      'preferences.json'
+    );
+    if (
+      !incomingCollection
+      || typeof incomingCollection !== 'object'
+      || Array.isArray(incomingCollection)
+      || !incomingPreferences
+      || typeof incomingPreferences !== 'object'
+      || Array.isArray(incomingPreferences)
+    ) {
+      return {
+        success: false,
+        message: 'Import validation failed: data and preferences must be JSON objects.'
+      };
+    }
+    validateManagedRasterReferences(imageReferenceValues(incomingCollection), { strict: true });
     if (options?.auto_validate_import !== false) {
       const valid = Array.isArray(incomingCollection.pens)
         && Array.isArray(incomingCollection.inks)
@@ -777,9 +1547,11 @@ async function importBackupFromZip(zipPath, options = {}) {
     }
     const normalized = normalizeAppData({ ...incomingCollection, preferences: incomingPreferences });
     const collection = stripPreferences(normalized);
-    const preferences = normalized.preferences;
+    const preferences = stripStorageMetadata(normalized.preferences);
+    const storedPreferences = preferencesWithNewStorageRevision(preferences);
+    validateManagedRasterReferences(imageReferenceValues(collection), { strict: true });
     await writeJson(incomingDataPath, collection);
-    await writeJson(incomingPreferencesPath, preferences);
+    await writeJson(incomingPreferencesPath, storedPreferences);
 
     const stagedImages = path.join(stage, 'images');
     const stagedThumbnails = path.join(stagedImages, '.thumbs');
@@ -787,32 +1559,54 @@ async function importBackupFromZip(zipPath, options = {}) {
     await ensureDir(stagedImages);
     await ensureDir(stagedReplacedImages);
     for (const dir of ['pens', 'inks', 'swatches']) await ensureDir(path.join(stagedImages, dir));
+    const referencedImages = collectManagedRasterReferencePaths(collection, { strict: true });
+    await requireManagedRasterFiles({
+      imagesRoot: stagedImages,
+      relativePaths: referencedImages
+    });
     const thumbnailResult = await regenerateThumbnails({
       imagesRoot: stagedImages,
       thumbnailsRoot: stagedThumbnails,
-      relativePaths: collectReferencedImageRelativePaths(collection),
+      relativePaths: referencedImages,
       concurrency: 4
     });
     for (const dir of ['pens', 'inks', 'swatches']) await ensureDir(path.join(stagedThumbnails, dir));
 
-    await createAutoBackup('pre-import-restore', { force: true });
-    await commitStagedImport({
+    const warnings = [];
+    try {
+      await createAutoBackup('pre-import-restore', { force: true });
+    } catch (error) {
+      warnings.push(`the pre-import restore snapshot failed: ${error.message}`);
+    }
+    const commitResult = await commitLiveStorageTransaction({
       stagedRoot: stage,
       rollbackRoot: rollback,
       targets: [
-        { name: 'data.json', staged: incomingDataPath, target: paths.data },
-        { name: 'preferences.json', staged: incomingPreferencesPath, target: paths.preferences },
-        { name: 'images', staged: stagedImages, target: paths.images },
-        { name: 'replaced-images', staged: stagedReplacedImages, target: paths.replacedImages }
+        { kind: 'file', name: 'data.json', staged: incomingDataPath, target: paths.data },
+        {
+          kind: 'file',
+          name: 'preferences.json',
+          staged: incomingPreferencesPath,
+          target: paths.preferences
+        },
+        { kind: 'directory', name: 'images', staged: stagedImages, target: paths.images },
+        {
+          kind: 'directory',
+          name: 'replaced-images',
+          staged: stagedReplacedImages,
+          target: paths.replacedImages
+        }
       ]
     });
+    if (commitResult.cleanupErrors.length > 0) {
+      warnings.push('transaction staging cleanup was incomplete');
+    }
 
     const result = {
       success: true,
       data: combine(collection, preferences),
       thumbnails: thumbnailResult
     };
-    const warnings = [];
     if (thumbnailResult.failed > 0) {
       warnings.push(`${thumbnailResult.failed} thumbnail${thumbnailResult.failed === 1 ? '' : 's'} could not be generated`);
     }
@@ -827,70 +1621,8 @@ async function importBackupFromZip(zipPath, options = {}) {
     }
     return result;
   } finally {
-    await removeIfExists(stage);
-    await removeIfExists(rollback);
+    await removeIfExistsBestEffort(stage, 'Backup-import staging cleanup failed');
   }
-}
-
-async function exportShowcase() {
-  const showcase = path.join(paths.exports, 'showcase');
-  const stage = path.join(paths.exports, `.showcase-${Date.now()}`);
-  await removeIfExists(stage);
-  await ensureDir(stage);
-  await copyDir(APP_DIR, stage);
-  await pruneShowcaseOnlyAssets(stage);
-  await removeIfExists(path.join(stage, 'docker-api.js'));
-  await removeIfExists(path.join(stage, 'docker-shell.js'));
-  await removeIfExists(path.join(stage, 'tauri-api.js'));
-  let html = await fs.readFile(path.join(stage, 'index.html'), 'utf8');
-  html = html.replace(/\s*<script src="tauri-api\.js"><\/script>\n?/g, '\n');
-  if (!html.includes('src="data.js"')) {
-    html = html.replace('<script src="renderer.js"></script>', '<script src="data.js"></script>\n    <script src="renderer.js"></script>');
-  }
-  const data = await loadCombinedData();
-  html = injectPublicColorMode(html, showcaseColorModeFromData(data));
-  html = await versionHtmlAssetReferences(html);
-  await fs.writeFile(path.join(stage, 'index.html'), html);
-  await writeJson(path.join(stage, 'data.json'), data);
-  await fs.writeFile(path.join(stage, 'data.js'), `window.__INKUBATOR_DATA__ = ${JSON.stringify(data)};\n`);
-  await copyReferencedImages({
-    fs: {
-      ensureDir,
-      pathExists,
-      copy: fs.cp
-    },
-    sourceRoot: paths.images,
-    destinationRoot: path.join(stage, 'images'),
-    relativePaths: collectReferencedImageRelativePaths(stripPreferences(data))
-  });
-  await copyReferencedImages({
-    fs: {
-      ensureDir,
-      pathExists,
-      copy: fs.cp
-    },
-    sourceRoot: paths.images,
-    destinationRoot: path.join(stage, 'thumbs'),
-    relativePaths: collectReferencedImageRelativePaths(stripPreferences(data))
-  });
-  await copyReferencedImages({
-    fs: {
-      ensureDir,
-      pathExists,
-      copy: fs.cp
-    },
-    sourceRoot: paths.thumbnails,
-    destinationRoot: path.join(stage, 'thumbs'),
-    relativePaths: collectReferencedImageRelativePaths(stripPreferences(data))
-  });
-  for (const route of ['dashboard', 'pens', 'inks', 'swatches', 'stats', 'activity', 'settings']) {
-    const routeDir = path.join(stage, route);
-    await ensureDir(routeDir);
-    await fs.writeFile(path.join(routeDir, 'index.html'), html.replace('<head>', '<head>\n    <base href="../">'));
-  }
-  await removeIfExists(showcase);
-  await fs.rename(stage, showcase);
-  return { success: true, path: showcase };
 }
 
 async function fetchInkSwatch(query) {
@@ -962,43 +1694,104 @@ function appInfo() {
 async function handleApi(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/health') return sendJson(req, res, 200, { success: true });
   if (req.method === 'GET' && pathname === '/api/app-info') return sendJson(req, res, 200, appInfo());
-  if (req.method === 'GET' && pathname === '/api/data') return sendJson(req, res, 200, await loadCombinedData());
-  if (req.method === 'POST' && pathname === '/api/data') return sendJson(req, res, 200, await saveCombinedData((await readJsonBody(req)).data));
-  if (req.method === 'POST' && pathname === '/api/save-image-bytes') return sendJson(req, res, 200, await saveImageBytes(await readJsonBody(req)));
+  if (req.method === 'GET' && pathname === '/api/data') {
+    const current = await runLiveStateOperation(loadRevisionedData);
+    return sendJson(req, res, 200, { success: true, ...current });
+  }
+  if (req.method === 'POST' && pathname === '/api/data') {
+    const { data, expectedRevision } = await readJsonBody(req);
+    const result = await runLiveStateOperation(() => saveCombinedDataIfCurrent(data, expectedRevision));
+    return sendJson(req, res, result.conflict ? 409 : 200, result);
+  }
+  if (req.method === 'POST' && pathname === '/api/save-image-bytes') {
+    const payload = await readJsonBody(req);
+    return sendJson(req, res, 200, await runLiveStateOperation(() => saveImageBytes(payload)));
+  }
   if (req.method === 'POST' && pathname === '/api/read-remote-image-bytes') return sendJson(req, res, 200, await readRemoteImageBytes(await readJsonBody(req)));
-  if (req.method === 'POST' && pathname === '/api/save-image-url') return sendJson(req, res, 200, { success: true, filename: await saveRemoteImage(await readJsonBody(req)) });
+  if (req.method === 'POST' && pathname === '/api/save-image-url') {
+    const payload = await readJsonBody(req);
+    const filename = await runLiveStateOperation(() => saveRemoteImage(payload));
+    return sendJson(req, res, 200, { success: true, filename });
+  }
   if (req.method === 'POST' && pathname === '/api/delete-image') {
     const { relativePath } = await readJsonBody(req);
-    const { normalized, target } = safeImagePath(relativePath);
-    await fs.rm(target, { force: true });
-    await fs.rm(thumbnailPathFor(normalized), { force: true });
-    return sendJson(req, res, 200, { success: true });
+    const result = await runLiveStateOperation(async () => {
+      const { normalized } = safeImagePath(relativePath);
+      if (await liveCollectionReferencesImage(normalized)) {
+        return {
+          success: true,
+          action: 'referenced',
+          relativePath: normalized
+        };
+      }
+      const image = await resolveExistingManagedImage(paths.images, normalized);
+      const thumbnail = await resolveExistingManagedImage(paths.thumbnails, normalized);
+      const imageDeleted = await removeResolvedManagedFile(image);
+      await removeResolvedManagedFile(thumbnail);
+      return {
+        success: true,
+        action: imageDeleted ? 'deleted' : 'missing',
+        relativePath: normalized
+      };
+    });
+    return sendJson(req, res, 200, result);
   }
   if (req.method === 'POST' && pathname === '/api/dispose-replaced-image') {
     const { relativePath } = await readJsonBody(req);
-    const { normalized } = safeImagePath(relativePath);
-    const result = await disposeManagedImage({
-      fs: { pathExists, remove: fs.rm, move: fs.rename, ensureDir },
-      imagesRoot: paths.images,
-      archiveRoot: paths.replacedImages,
-      imagePath: relativePath,
-      keepArchived: true
+    const result = await runLiveStateOperation(async () => {
+      const { normalized } = safeImagePath(relativePath);
+      if (await liveCollectionReferencesImage(normalized)) {
+        return {
+          success: true,
+          action: 'referenced',
+          relativePath: normalized
+        };
+      }
+      const preferences = await readJson(paths.preferences, defaultPreferences());
+      const keepArchived = !!(preferences && preferences.backup && preferences.backup.keep_replaced_images);
+      const image = await resolveExistingManagedImage(paths.images, normalized);
+      const thumbnail = await resolveExistingManagedImage(paths.thumbnails, normalized);
+      const disposed = await disposeManagedImage({
+        fs: {
+          lstat: fs.lstat,
+          pathExists: lstatPathExists,
+          remove: fs.rm,
+          move: fs.rename
+        },
+        imagesRoot: paths.images,
+        archiveRoot: paths.replacedImages,
+        imagePath: normalized,
+        keepArchived,
+        ensureArchiveDirectory: ensureManagedArchiveDirectory,
+        syncDirectory: (directory) => syncDirectory(fs, directory)
+      });
+      if (image && disposed.action === 'missing') {
+        throw requestError('Managed image changed while it was being archived.', 409);
+      }
+      await removeResolvedManagedFile(thumbnail);
+      return disposed;
     });
-    await fs.rm(thumbnailPathFor(normalized), { force: true });
     return sendJson(req, res, 200, result);
   }
   if (req.method === 'GET' && pathname === '/api/backup-status') {
-    const autoDir = path.join(paths.backups, 'auto');
-    const entries = (await pathExists(autoDir)) ? await fs.readdir(autoDir, { withFileTypes: true }) : [];
-    const latest = await latestValidLocalBackup();
-    return sendJson(req, res, 200, {
-      success: true,
-      count: entries.filter((entry) => entry.isDirectory()).length,
-      latest: latest ? { name: latest.name, path: latest.folder, updated_at: latest.updated_at } : null
+    const status = await runLiveStateOperation(async () => {
+      const autoDir = path.join(paths.backups, 'auto');
+      const backups = (await pathExists(autoDir))
+        ? await completeBackupDirectories({ fs, root: autoDir })
+        : [];
+      const latest = await latestValidLocalBackup();
+      return {
+        success: true,
+        count: backups.length,
+        latest: latest
+          ? { name: latest.name, path: latest.folder, updated_at: latest.updated_at }
+          : null
+      };
     });
+    return sendJson(req, res, 200, status);
   }
   if (req.method === 'POST' && pathname === '/api/export-backup') {
-    await streamBackupZip(res);
+    await runLiveStateOperation(() => streamBackupZip(res));
     return true;
   }
   if (req.method === 'POST' && pathname === '/api/import-backup') {
@@ -1008,16 +1801,26 @@ async function handleApi(req, res, pathname) {
     }
     const manualRoot = path.join(paths.backups, 'manual');
     const uploadPath = path.join(manualRoot, `.upload-${Date.now()}-${randomUUID()}.zip`);
+    const expectedRevision = String(req.headers['x-inkubator-expected-revision'] || '');
     await ensureDir(manualRoot);
     try {
       await receiveRequestToFile(req, uploadPath, MAX_BACKUP_BYTES);
-      const result = await importBackupFromZip(uploadPath, {
-        auto_validate_import: String(req.headers['x-inkubator-auto-validate'] || '1') !== '0',
-        conflict_behavior: 'overwrite'
+      const result = await runLiveStateOperation(async () => {
+        const current = await loadRevisionedData();
+        if (expectedRevision !== current.revision) {
+          return dataConflict(current.revision);
+        }
+        const imported = await importBackupFromZip(uploadPath, {
+          auto_validate_import: String(req.headers['x-inkubator-auto-validate'] || '1') !== '0',
+          conflict_behavior: 'overwrite'
+        });
+        if (!imported.success) return imported;
+        const saved = await loadRevisionedData();
+        return { ...imported, revision: saved.revision };
       });
-      return sendJson(req, res, result.success ? 200 : 400, result);
+      return sendJson(req, res, result.conflict ? 409 : result.success ? 200 : 400, result);
     } finally {
-      await fs.rm(uploadPath, { force: true });
+      await removeIfExistsBestEffort(uploadPath, 'Backup-upload cleanup failed');
     }
   }
   if (req.method === 'POST' && pathname === '/api/export-showcase') {
@@ -1028,21 +1831,52 @@ async function handleApi(req, res, pathname) {
   return false;
 }
 
-async function serveManagedImage(req, res, relativePath) {
-  const { target } = safeImagePath(relativePath);
-  if (!(await pathExists(target))) return false;
-  await sendFile(req, res, target, { cacheControl: 'public, no-cache' });
+async function serveManagedImage(req, res, relativePath, options = {}) {
+  const { normalized } = safeImagePath(relativePath);
+  const resolved = await resolveExistingManagedImage(
+    paths.images,
+    normalized,
+    options.unsafeStatusCode || 400
+  );
+  if (!resolved) return false;
+  await sendFile(req, res, resolved.target, {
+    cacheControl: options.cacheControl || 'public, no-cache'
+  });
   return true;
 }
 
-async function serveManagedThumbnail(req, res, relativePath) {
-  const { normalized, target: imageTarget } = safeImagePath(relativePath);
-  if (!(await pathExists(imageTarget))) return false;
-  const thumbnailTarget = thumbnailPathFor(normalized);
-  await sendFile(req, res, (await pathExists(thumbnailTarget)) ? thumbnailTarget : imageTarget, {
-    cacheControl: 'public, no-cache'
+async function serveManagedThumbnail(req, res, relativePath, options = {}) {
+  const { normalized } = safeImagePath(relativePath);
+  const unsafeStatusCode = options.unsafeStatusCode || 400;
+  const image = await resolveExistingManagedImage(paths.images, normalized, unsafeStatusCode);
+  if (!image) return false;
+  const thumbnail = await resolveExistingManagedImage(
+    paths.thumbnails,
+    normalized,
+    unsafeStatusCode
+  );
+  await sendFile(req, res, thumbnail ? thumbnail.target : image.target, {
+    cacheControl: options.cacheControl || 'public, no-cache',
+    contentType: thumbnail ? 'image/webp' : undefined
   });
   return true;
+}
+
+async function isPublicManagedMedia(relativePath, publicData) {
+  const normalized = normalizeSafeManagedRasterPath(relativePath);
+  if (!normalized) return false;
+  const referenced = new Set(collectManagedRasterReferencePaths(publicData));
+  return referenced.has(normalized);
+}
+
+async function servePublicManagedMedia(req, res, relativePath, thumbnail = false) {
+  return runLiveStateOperation(async () => {
+    const publicData = await loadPublicData();
+    if (!(await isPublicManagedMedia(relativePath, publicData))) return false;
+    return thumbnail
+      ? serveManagedThumbnail(req, res, relativePath, { unsafeStatusCode: 404 })
+      : serveManagedImage(req, res, relativePath, { unsafeStatusCode: 404 });
+  });
 }
 
 function addHeadBase(html, href) {
@@ -1061,7 +1895,7 @@ function injectDockerShell(html) {
 }
 
 async function publicDataScript() {
-  const data = await loadCombinedData();
+  const data = await runLiveStateOperation(loadPublicData);
   return `window.__INKUBATOR_DATA__ = ${JSON.stringify(data)};\n`;
 }
 
@@ -1099,11 +1933,15 @@ function loginPageHtml() {
 async function serveAdminStatic(req, res, pathname) {
   if (pathname.startsWith('/api/images/')) {
     const relative = decodeURIComponent(pathname.slice('/api/images/'.length));
-    return serveManagedImage(req, res, relative);
+    return runLiveStateOperation(
+      () => serveManagedImage(req, res, relative, { cacheControl: 'private, no-cache' })
+    );
   }
   if (pathname.startsWith('/api/thumbs/')) {
     const relative = decodeURIComponent(pathname.slice('/api/thumbs/'.length));
-    return serveManagedThumbnail(req, res, relative);
+    return runLiveStateOperation(
+      () => serveManagedThumbnail(req, res, relative, { cacheControl: 'private, no-cache' })
+    );
   }
 
   let adminPath = pathname.startsWith('/admin') ? pathname.slice('/admin'.length) : pathname;
@@ -1135,14 +1973,20 @@ async function servePublicStatic(req, res, pathname) {
     return true;
   }
 
+  if (pathname === '/data.json') {
+    const data = await runLiveStateOperation(loadPublicData);
+    sendJson(req, res, 200, data);
+    return true;
+  }
+
   if (pathname.startsWith('/images/')) {
     const relative = decodeURIComponent(pathname.slice('/images/'.length));
-    return serveManagedImage(req, res, relative);
+    return servePublicManagedMedia(req, res, relative);
   }
 
   if (pathname.startsWith('/thumbs/')) {
     const relative = decodeURIComponent(pathname.slice('/thumbs/'.length));
-    return serveManagedThumbnail(req, res, relative);
+    return servePublicManagedMedia(req, res, relative, true);
   }
 
   let relative = decodeURIComponent(pathname.replace(/^\/+/, '')) || 'index.html';
@@ -1158,7 +2002,7 @@ async function servePublicStatic(req, res, pathname) {
 
   if (path.basename(target) === 'index.html') {
     let html = await fs.readFile(target, 'utf8');
-    const data = await loadCombinedData();
+    const data = await runLiveStateOperation(loadPublicData);
     html = html.replace(/\s*<script src="tauri-api\.js"><\/script>\n?/g, '\n');
     if (!html.includes('src="data.js"')) {
       html = html.replace('<script src="renderer.js"></script>', '<script src="data.js"></script>\n    <script src="renderer.js"></script>');
@@ -1174,26 +2018,221 @@ async function servePublicStatic(req, res, pathname) {
   return true;
 }
 
+async function validateStoredJsonObject(file) {
+  const stat = await fs.lstat(file);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error(`${file} must be a regular file and cannot be a symbolic link.`);
+  }
+  let value;
+  try {
+    value = await readJson(file, null);
+  } catch (error) {
+    throw new Error(`Could not load ${file}: ${error.message}`, { cause: error });
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${file} must contain a JSON object.`);
+  }
+}
+
+function collectionSaveTargets(stage) {
+  return [
+    {
+      kind: 'file',
+      name: 'data.json',
+      staged: path.join(stage, 'data.json'),
+      target: paths.data
+    },
+    {
+      kind: 'file',
+      name: 'preferences.json',
+      staged: path.join(stage, 'preferences.json'),
+      target: paths.preferences
+    }
+  ];
+}
+
+function backupImportTargets(stage) {
+  return [
+    {
+      kind: 'file',
+      name: 'data.json',
+      staged: path.join(stage, 'data.json'),
+      target: paths.data
+    },
+    {
+      kind: 'file',
+      name: 'preferences.json',
+      staged: path.join(stage, 'preferences.json'),
+      target: paths.preferences
+    },
+    {
+      kind: 'directory',
+      name: 'images',
+      staged: path.join(stage, 'images'),
+      target: paths.images
+    },
+    {
+      kind: 'directory',
+      name: 'replaced-images',
+      staged: path.join(stage, 'replaced-images'),
+      target: paths.replacedImages
+    }
+  ];
+}
+
+function storageTransactionSuffix(name) {
+  return String(name || '')
+    .replace(/^\.collection-save-(?:rollback|stage)-/, '')
+    .replace(/^\.import-(?:rollback|stage)-/, '');
+}
+
+function sortStorageTransactionEntries(entries) {
+  return [...entries].sort((left, right) => {
+    const bySuffix = storageTransactionSuffix(left.name)
+      .localeCompare(storageTransactionSuffix(right.name));
+    return bySuffix || left.name.localeCompare(right.name);
+  });
+}
+
+async function recoverInterruptedStorageTransactions() {
+  const rootEntries = sortStorageTransactionEntries(
+    await readDirectoryIfExists(fs, DATA_DIR, { withFileTypes: true })
+  );
+  for (const entry of rootEntries) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith('.collection-save-rollback-')) {
+      const suffix = entry.name.slice('.collection-save-rollback-'.length);
+      const stage = path.join(DATA_DIR, `.collection-save-stage-${suffix}`);
+      await recoverInterruptedTransaction({
+        stagedRoot: stage,
+        rollbackRoot: path.join(DATA_DIR, entry.name),
+        targets: collectionSaveTargets(stage)
+      });
+    } else if (entry.name.startsWith('.import-rollback-')) {
+      const suffix = entry.name.slice('.import-rollback-'.length);
+      const stage = path.join(paths.backups, 'manual', `.import-stage-${suffix}`);
+      await recoverInterruptedTransaction({
+        stagedRoot: stage,
+        rollbackRoot: path.join(DATA_DIR, entry.name),
+        targets: backupImportTargets(stage)
+      });
+    }
+  }
+
+  const remainingRootEntries = sortStorageTransactionEntries(
+    await readDirectoryIfExists(fs, DATA_DIR, { withFileTypes: true })
+  );
+  for (const entry of remainingRootEntries) {
+    if (!entry.isDirectory() || !entry.name.startsWith('.collection-save-stage-')) continue;
+    const suffix = entry.name.slice('.collection-save-stage-'.length);
+    const stage = path.join(DATA_DIR, entry.name);
+    await recoverInterruptedTransaction({
+      stagedRoot: stage,
+      rollbackRoot: path.join(DATA_DIR, `.collection-save-rollback-${suffix}`),
+      targets: collectionSaveTargets(stage)
+    });
+  }
+
+  const manualRoot = path.join(paths.backups, 'manual');
+  const manualEntries = sortStorageTransactionEntries(
+    await readDirectoryIfExists(fs, manualRoot, { withFileTypes: true })
+  );
+  for (const entry of manualEntries) {
+    if (entry.isDirectory() && entry.name.startsWith('.import-stage-')) {
+      const suffix = entry.name.slice('.import-stage-'.length);
+      const stage = path.join(manualRoot, entry.name);
+      await recoverInterruptedTransaction({
+        stagedRoot: stage,
+        rollbackRoot: path.join(DATA_DIR, `.import-rollback-${suffix}`),
+        targets: backupImportTargets(stage)
+      });
+    } else if (entry.isFile() && /^\.upload-.*\.zip$/.test(entry.name)) {
+      await removeIfExistsBestEffort(
+        path.join(manualRoot, entry.name),
+        'Abandoned backup upload cleanup failed'
+      );
+    }
+  }
+
+  const autoRoot = path.join(paths.backups, 'auto');
+  const autoEntries = await readDirectoryIfExists(fs, autoRoot, { withFileTypes: true });
+  for (const entry of autoEntries) {
+    if (entry.isDirectory() && entry.name.startsWith('.auto-stage-')) {
+      await removeIfExists(path.join(autoRoot, entry.name));
+    }
+  }
+
+  const retiredEntries = await readDirectoryIfExists(fs, DATA_DIR, { withFileTypes: true });
+  for (const entry of retiredEntries) {
+    if (entry.isDirectory() && entry.name.startsWith('.transaction-cleanup-')) {
+      await removeIfExistsBestEffort(
+        path.join(DATA_DIR, entry.name),
+        'Retired transaction cleanup failed'
+      );
+    }
+  }
+}
+
 async function initStorage() {
   await ensureDir(DATA_DIR);
-  await ensureDir(paths.images);
-  await ensureDir(paths.thumbnails);
-  for (const dir of ['pens', 'inks', 'swatches']) await ensureDir(path.join(paths.images, dir));
-  for (const dir of ['pens', 'inks', 'swatches']) await ensureDir(path.join(paths.thumbnails, dir));
-  await ensureDir(paths.exports);
-  if (!(await pathExists(paths.data))) await writeJson(paths.data, defaultCollectionData());
-  if (!(await pathExists(paths.preferences))) await writeJson(paths.preferences, defaultPreferences());
+  await serializeLiveStateOperation(async () => {
+    storageTransactionsRecovered = false;
+    await ensureStorageTransactionsRecovered();
+    await ensureDir(paths.images);
+    await resolveManagedDirectory({ root: paths.images, statusCode: 500 });
+    await ensureDir(paths.thumbnails);
+    await resolveManagedDirectory({ root: paths.thumbnails, statusCode: 500 });
+    await ensureDir(paths.replacedImages);
+    await resolveManagedDirectory({ root: paths.replacedImages, statusCode: 500 });
+    for (const dir of ['pens', 'inks', 'swatches']) {
+      await resolveManagedDirectory({
+        root: paths.images,
+        relativePath: dir,
+        create: true,
+        statusCode: 500
+      });
+      await resolveManagedDirectory({
+        root: paths.thumbnails,
+        relativePath: dir,
+        create: true,
+        statusCode: 500
+      });
+      await resolveManagedDirectory({
+        root: paths.replacedImages,
+        relativePath: dir,
+        create: true,
+        statusCode: 500
+      });
+    }
+    if (!(await lstatPathExists(paths.data))) {
+      await writeJson(paths.data, defaultCollectionData());
+    } else {
+      await validateStoredJsonObject(paths.data);
+    }
+    if (!(await lstatPathExists(paths.preferences))) {
+      await writeJson(paths.preferences, defaultPreferences());
+    } else {
+      await validateStoredJsonObject(paths.preferences);
+    }
+  });
 }
 
 const server = http.createServer(async (req, res) => {
+  applySecurityHeaders(res);
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    if (
+      req.method === 'POST'
+      && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/'))
+    ) {
+      enforceBrowserMutationRequest(req);
+    }
     if (url.pathname === '/auth/login' && req.method === 'POST') {
       const payload = await readJsonBody(req);
       if (!isValidLogin(String(payload.username || ''), String(payload.password || ''))) {
         return sendJson(req, res, 401, { success: false, message: 'Invalid username or password.' });
       }
-      createSession(res);
+      createSession(req, res);
       return sendJson(req, res, 200, { success: true });
     }
     if (url.pathname === '/auth/logout' && req.method === 'POST') {
@@ -1205,14 +2244,20 @@ const server = http.createServer(async (req, res) => {
       if (!isAuthorized(req)) return unauthorized(req, res);
       if (url.pathname.startsWith('/api/images/')) {
         const relative = decodeURIComponent(url.pathname.slice('/api/images/'.length));
-        if (!(await serveManagedImage(req, res, relative))) {
+        const served = await runLiveStateOperation(
+          () => serveManagedImage(req, res, relative, { cacheControl: 'private, no-cache' })
+        );
+        if (!served) {
           return sendJson(req, res, 404, { success: false, message: 'Image not found.' });
         }
         return;
       }
       if (url.pathname.startsWith('/api/thumbs/')) {
         const relative = decodeURIComponent(url.pathname.slice('/api/thumbs/'.length));
-        if (!(await serveManagedThumbnail(req, res, relative))) {
+        const served = await runLiveStateOperation(
+          () => serveManagedThumbnail(req, res, relative, { cacheControl: 'private, no-cache' })
+        );
+        if (!served) {
           return sendJson(req, res, 404, { success: false, message: 'Thumbnail not found.' });
         }
         return;
@@ -1245,12 +2290,13 @@ const server = http.createServer(async (req, res) => {
       sendPlain(res, 404, 'Not found.');
     }
   } catch (error) {
-    console.error(error);
+    const status = Number(error.statusCode) || 500;
+    if (status >= 500) console.error(error);
     if (res.headersSent) {
       res.destroy(error);
       return;
     }
-    sendJson(req, res, Number(error.statusCode) || 500, { success: false, message: error.message || 'Server error.' });
+    sendJson(req, res, status, { success: false, message: error.message || 'Server error.' });
   }
 });
 
@@ -1267,14 +2313,24 @@ if (require.main === module) {
 }
 
 module.exports = {
+  commitLiveStorageTransaction,
+  downloadRemoteImage,
   encodeBody,
   fileEtag,
   fileFingerprint,
+  initStorage,
+  isBlockedRemoteAddress,
   isCompressibleType,
+  isRejectedAdminPassword,
   requestHasFreshValidator,
+  saveRemoteImage,
   sendBuffer,
   sendFile,
   server,
+  sortStorageTransactionEntries,
+  validateRemoteImageUrl,
   versionAssetReference,
-  versionHtmlAssetReferences
+  versionHtmlAssetReferences,
+  uniqueAvailableFilename,
+  writeImageWithThumbnail
 };

@@ -128,6 +128,26 @@ test('normalizeAppData fills defaults while preserving existing values', () => {
     assert.equal(data.preferences.showcase.show_activity_filters, true);
 });
 
+test('normalizeAppData migrates legacy ink volume to canonical volume_ml without converting the value', () => {
+    const data = normalizeAppData({
+        inks: [
+            { id: 'legacy-string', name: 'Legacy String', cl: '50' },
+            { id: 'legacy-number', name: 'Legacy Number', cl: 30 },
+            { id: 'transitional', name: 'Transitional', ml: '20', cl: '99' },
+            { id: 'canonical', name: 'Canonical', volume_ml: '15', ml: '20', cl: '99' }
+        ]
+    });
+
+    assert.equal(data.inks[0].volume_ml, '50');
+    assert.equal(data.inks[1].volume_ml, 30);
+    assert.equal(data.inks[2].volume_ml, '20');
+    assert.equal(data.inks[3].volume_ml, '15');
+    data.inks.forEach((ink) => {
+        assert.equal(Object.prototype.hasOwnProperty.call(ink, 'cl'), false);
+        assert.equal(Object.prototype.hasOwnProperty.call(ink, 'ml'), false);
+    });
+});
+
 test('normalizeAppData migrates pen image fields into ordered primary image entries', () => {
     const data = normalizeAppData({
         pens: [{
@@ -164,8 +184,39 @@ test('normalizeAppData preserves one primary image from image arrays', () => {
 
     assert.equal(data.pens[0].images.length, 4);
     assert.equal(data.pens[0].images.filter((entry) => entry.primary).length, 1);
+    assert.deepEqual(data.pens[0].images.map((entry) => entry.path), [
+        'pens/front.webp',
+        'pens/side.webp',
+        'pens/detail.webp',
+        'pens/legacy.webp'
+    ]);
+    assert.deepEqual(data.pens[0].images.map((entry) => entry.primary), [true, false, false, false]);
     assert.equal(data.pens[0].image, 'pens/front.webp');
     assert.equal(data.pens[0].image_rotation, 180);
+});
+
+test('normalizeAppData moves a swatch primary image to the front', () => {
+    const data = normalizeAppData({
+        inks: [{ id: 'ink1', name: 'Blue' }],
+        swatches: [{
+            id: 'swatch1',
+            ink_id: 'ink1',
+            image: 'swatches/third.webp',
+            images: [
+                { id: 'img1', path: 'swatches/first.webp', primary: false },
+                { id: 'img2', path: 'swatches/second.webp', primary: false },
+                { id: 'img3', path: 'swatches/third.webp', primary: true }
+            ]
+        }]
+    });
+
+    assert.deepEqual(data.swatches[0].images.map((entry) => entry.path), [
+        'swatches/third.webp',
+        'swatches/first.webp',
+        'swatches/second.webp'
+    ]);
+    assert.deepEqual(data.swatches[0].images.map((entry) => entry.primary), [true, false, false]);
+    assert.equal(data.swatches[0].image, 'swatches/third.webp');
 });
 
 test('normalizeAppData promotes the remaining image when a primary image is removed', () => {
@@ -206,7 +257,7 @@ test('normalizeAppData sanitizes invalid showcase default sort values', () => {
     assert.equal(data.preferences.showcase.default_sort.swatches, 'newest');
 });
 
-test('normalizeAppData migrates legacy seeded defaults to blank user defaults', () => {
+test('normalizeAppData preserves explicitly selected user defaults', () => {
     const data = normalizeAppData({
         preferences: {
             defaults: {
@@ -218,10 +269,22 @@ test('normalizeAppData migrates legacy seeded defaults to blank user defaults', 
         }
     });
 
-    assert.equal(data.preferences.defaults.pen_nib, '');
-    assert.equal(data.preferences.defaults.pen_nib_material, '');
-    assert.equal(data.preferences.defaults.pen_status, '');
-    assert.equal(data.preferences.defaults.ink_type, '');
+    assert.equal(data.preferences.defaults.pen_nib, 'M');
+    assert.equal(data.preferences.defaults.pen_nib_material, 'Steel');
+    assert.equal(data.preferences.defaults.pen_status, 'clean');
+    assert.equal(data.preferences.defaults.ink_type, 'Bottle');
+});
+
+test('normalizeAppData accepts Other as a default ink type', () => {
+    const data = normalizeAppData({
+        preferences: {
+            defaults: {
+                ink_type: 'Other'
+            }
+        }
+    });
+
+    assert.equal(data.preferences.defaults.ink_type, 'Other');
 });
 
 test('normalizeAppData sanitizes non-array/non-object fields', () => {
@@ -249,6 +312,29 @@ test('normalizeAppData sanitizes non-array/non-object fields', () => {
     assert.equal(data.preferences.showcase.show_insights, true);
     assert.equal(data.preferences.showcase.show_charts, true);
     assert.equal(data.preferences.showcase.show_activity_filters, true);
+});
+
+test('normalizeAppData rejects imported color values that are not strict hex colors', () => {
+    const data = normalizeAppData({
+        pens: [{
+            id: 'pen-color',
+            hex_color: '#\"><img src=x onerror=alert(1)>',
+            hex_colors: ['#123456', '#abc', '#\"><script>bad</script>', 'red']
+        }],
+        inks: [{
+            id: 'ink-color',
+            color_base: '#\"><img src=x onerror=alert(1)>',
+            color_accent: 'rgb(1, 2, 3)',
+            hex_colors: ['#654321', '#DEF', 'url(https://tracker.invalid)']
+        }]
+    });
+
+    assert.equal(data.pens[0].hex_color, '#123456');
+    assert.deepEqual(data.pens[0].hex_colors, ['#123456', '#abc']);
+    assert.equal(data.inks[0].color_base, '#4a0e28');
+    assert.equal(data.inks[0].color_accent, '#4a0e28');
+    assert.deepEqual(data.inks[0].hex_colors, ['#654321', '#DEF']);
+    assert.doesNotMatch(JSON.stringify(data), /onerror|script|tracker\.invalid/);
 });
 
 test('normalizeAppData generates unique fallback IDs when IDs are missing', () => {

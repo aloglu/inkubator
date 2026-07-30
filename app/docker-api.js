@@ -5,6 +5,64 @@
     const backupUploads = new Map();
     let uploadCounter = 0;
     let backupUploadCounter = 0;
+    let dataRevision = null;
+    let dataGeneration = 0;
+    let dataWriteQueue = Promise.resolve();
+    let dataConflictError = null;
+
+    function createApiError(payload, status = 0, fallbackMessage = '') {
+        const message = (payload && payload.message)
+            || fallbackMessage
+            || (status ? `Request failed: ${status}` : 'Request failed.');
+        const error = new Error(message);
+        error.status = Number(status) || 0;
+        error.code = payload && payload.code ? String(payload.code) : '';
+        error.conflict = !!(payload && payload.conflict) || error.code === 'DATA_CONFLICT';
+        error.revision = payload && payload.revision != null ? String(payload.revision) : null;
+        error.payload = payload || null;
+        if (error.conflict) error.name = 'DataConflictError';
+        return error;
+    }
+
+    function isDataConflict(value) {
+        return !!value && (
+            value.conflict === true
+            || value.code === 'DATA_CONFLICT'
+        );
+    }
+
+    function rememberDataConflict(error) {
+        if (isDataConflict(error)) dataConflictError = error;
+        return error;
+    }
+
+    function snapshotReplacedError() {
+        return createApiError({
+            code: 'DATA_SNAPSHOT_REPLACED',
+            message: 'The collection was reloaded before this queued save could run.'
+        });
+    }
+
+    function captureRevision(payload, { replaceSnapshot = false } = {}) {
+        const hasRevision = !!payload
+            && typeof payload === 'object'
+            && Object.prototype.hasOwnProperty.call(payload, 'revision');
+        if (replaceSnapshot) {
+            dataRevision = hasRevision && payload.revision != null ? String(payload.revision) : null;
+            dataGeneration += 1;
+            dataConflictError = null;
+            return;
+        }
+        if (hasRevision && payload.revision != null) {
+            dataRevision = String(payload.revision);
+        }
+    }
+
+    function enqueueDataWrite(task) {
+        const operation = dataWriteQueue.then(task, task);
+        dataWriteQueue = operation.catch(() => {});
+        return operation;
+    }
 
     function apiFetch(path, options = {}) {
         return fetch(path, {
@@ -15,11 +73,65 @@
             }
         }).then(async (response) => {
             const text = await response.text();
-            const payload = text ? JSON.parse(text) : null;
+            let payload = null;
+            if (text) {
+                try {
+                    payload = JSON.parse(text);
+                } catch (error) {
+                    if (response.ok) throw error;
+                }
+            }
             if (!response.ok) {
-                throw new Error((payload && payload.message) || `Request failed: ${response.status}`);
+                throw createApiError(payload, response.status);
             }
             return payload;
+        });
+    }
+
+    async function loadData() {
+        const payload = await apiFetch('/api/data');
+        if (
+            payload
+            && payload.success === true
+            && Object.prototype.hasOwnProperty.call(payload, 'data')
+        ) {
+            captureRevision(payload, { replaceSnapshot: true });
+            return payload.data;
+        }
+        captureRevision(null, { replaceSnapshot: true });
+        return payload;
+    }
+
+    function saveData(data) {
+        let serializedData;
+        try {
+            serializedData = JSON.stringify(data);
+        } catch (error) {
+            return Promise.reject(error);
+        }
+        if (serializedData === undefined) {
+            return Promise.reject(new Error('Data snapshot is not serializable.'));
+        }
+        const generation = dataGeneration;
+
+        return enqueueDataWrite(async () => {
+            if (generation !== dataGeneration) throw snapshotReplacedError();
+            if (dataConflictError) throw dataConflictError;
+
+            const body = `{"data":${serializedData},"expectedRevision":${JSON.stringify(dataRevision)}}`;
+            try {
+                const result = await apiFetch('/api/data', {
+                    method: 'POST',
+                    body
+                });
+                if (isDataConflict(result)) {
+                    throw createApiError(result, 409);
+                }
+                if (result && result.success) captureRevision(result);
+                return result;
+            } catch (error) {
+                throw rememberDataConflict(error);
+            }
         });
     }
 
@@ -166,8 +278,8 @@
     }
 
     window.inkubatorAPI = {
-        loadData: () => apiFetch('/api/data'),
-        saveData: (data) => apiFetch('/api/data', { method: 'POST', body: JSON.stringify({ data }) }),
+        loadData,
+        saveData,
         saveImage: (path, type, metadata) => {
             if (String(path || '').startsWith('docker-upload:')) {
                 return saveUploadAsManagedImage(path, type, metadata);
@@ -217,20 +329,40 @@
             const file = backupUploads.get(token);
             backupUploads.delete(token);
             if (!file) throw new Error('Selected backup is no longer available.');
-            const response = await fetch('/api/import-backup', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/zip',
-                    'X-Inkubator-Auto-Validate': options?.auto_validate_import === false ? '0' : '1'
-                },
-                body: file
+            const generation = dataGeneration;
+            return enqueueDataWrite(async () => {
+                if (generation !== dataGeneration) throw snapshotReplacedError();
+                if (dataConflictError) throw dataConflictError;
+
+                const response = await fetch('/api/import-backup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/zip',
+                        'X-Inkubator-Auto-Validate': options?.auto_validate_import === false ? '0' : '1',
+                        ...(dataRevision ? { 'X-Inkubator-Expected-Revision': dataRevision } : {})
+                    },
+                    body: file
+                });
+                const text = await response.text();
+                let payload = null;
+                if (text) {
+                    try {
+                        payload = JSON.parse(text);
+                    } catch (error) {
+                        if (response.ok) throw error;
+                    }
+                }
+                if (!response.ok) {
+                    throw rememberDataConflict(createApiError(payload, response.status, `Backup import failed: ${response.status}`));
+                }
+                if (isDataConflict(payload)) {
+                    throw rememberDataConflict(createApiError(payload, 409));
+                }
+                if (payload && payload.success) {
+                    captureRevision(payload, { replaceSnapshot: true });
+                }
+                return payload;
             });
-            const text = await response.text();
-            const payload = text ? JSON.parse(text) : null;
-            if (!response.ok) {
-                throw new Error((payload && payload.message) || `Backup import failed: ${response.status}`);
-            }
-            return payload;
         },
         confirmDialog: async (options) => ({ success: true, confirmed: window.confirm(`${options?.message || 'Are you sure?'}${options?.detail ? `\n\n${options.detail}` : ''}`) }),
         focusWindow: async () => ({ success: true }),

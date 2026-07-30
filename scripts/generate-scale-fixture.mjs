@@ -107,7 +107,7 @@ for (let index = 0; index < 100; index += 1) {
     name: `Ink ${pad(index + 1)}`,
     brand: `Scale Ink Brand ${String(index % 10 + 1).padStart(2, '0')}`,
     type: 'Bottle',
-    cl: '50',
+    volume_ml: '50',
     amount: '1',
     price: String(12 + index),
     color_base: `hsl(${index * 37 % 360} 58% 42%)`,

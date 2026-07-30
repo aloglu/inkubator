@@ -1,4 +1,6 @@
 (function () {
+    window.__INKUBATOR_DOCKER_MODE__ = true;
+
     function inferMode() {
         if (document.getElementById('docker-login-root')) return 'login';
         if (window.location.pathname.replace(/\/+$/, '') === '/admin' || window.location.pathname.startsWith('/admin/')) return 'admin';

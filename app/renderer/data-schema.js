@@ -31,6 +31,19 @@
         return toArray(value).filter(v => typeof v === 'string');
     }
 
+    function normalizeHexColor(value, fallback = '') {
+        const normalized = toStringOr(value).trim();
+        return /^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/.test(normalized)
+            ? normalized
+            : fallback;
+    }
+
+    function normalizeHexColorArray(value) {
+        return toArray(value)
+            .map((color) => normalizeHexColor(color))
+            .filter(Boolean);
+    }
+
     function normalizeImageEntry(value, fallback = {}) {
         const input = typeof value === 'string' ? { path: value } : toObject(value);
         const path = toStringOr(input.path || input.image || input.url || fallback.path).trim();
@@ -76,6 +89,11 @@
                 entry.primary = false;
             });
         }
+        const primaryIndex = out.findIndex((entry) => entry.primary);
+        if (primaryIndex > 0) {
+            const [primary] = out.splice(primaryIndex, 1);
+            out.unshift(primary);
+        }
         return out;
     }
 
@@ -118,6 +136,11 @@
         const input = toObject(value);
         const images = normalizeImageEntries(input.images, input.image, input.image_rotation);
         const primary = primaryImageEntry(images);
+        const hexColors = normalizeHexColorArray(input.hex_colors);
+        const hexColor = normalizeHexColor(input.hex_color, hexColors[0] || '');
+        if (hexColors.length === 0 && hexColor) {
+            hexColors.push(hexColor);
+        }
         return {
             ...input,
             id: toStringOr(input.id, makeFallbackId('pen')),
@@ -128,8 +151,8 @@
             material: toStringOr(input.material, 'Standard'),
             filling_system: toStringOr(input.filling_system),
             color: toStringOr(input.color),
-            hex_color: toStringOr(input.hex_color),
-            hex_colors: normalizeStringArray(input.hex_colors),
+            hex_color: hexColor,
+            hex_colors: hexColors,
             image_rotation: primary ? toNumberOr(primary.rotation, 0) : toNumberOr(input.image_rotation, 0),
             price: typeof input.price === 'string' || typeof input.price === 'number' ? input.price : '',
             notes: toStringOr(input.notes),
@@ -140,6 +163,14 @@
 
     function normalizeInk(value) {
         const input = toObject(value);
+        // Version 2.0 stored milliliter values under `cl`; rename without scaling.
+        const volumeMl = typeof input.volume_ml === 'string' || typeof input.volume_ml === 'number'
+            ? input.volume_ml
+            : (typeof input.ml === 'string' || typeof input.ml === 'number'
+                ? input.ml
+                : (typeof input.cl === 'string' || typeof input.cl === 'number' ? input.cl : ''));
+        const colorBase = normalizeHexColor(input.color_base, '#4a0e28');
+        const colorAccent = normalizeHexColor(input.color_accent, colorBase);
         const normalized = {
             ...input,
             id: toStringOr(input.id, makeFallbackId('ink')),
@@ -147,12 +178,12 @@
             brand: toStringOr(input.brand),
             line: toStringOr(input.line),
             type: toStringOr(input.type, 'Bottled'),
-            cl: toStringOr(input.cl),
+            volume_ml: volumeMl,
             amount: typeof input.amount === 'string' || typeof input.amount === 'number' ? input.amount : '1',
             price: typeof input.price === 'string' || typeof input.price === 'number' ? input.price : '',
-            color_base: toStringOr(input.color_base, '#4a0e28'),
-            color_accent: toStringOr(input.color_accent, '#4a0e28'),
-            hex_colors: normalizeStringArray(input.hex_colors),
+            color_base: colorBase,
+            color_accent: colorAccent,
+            hex_colors: normalizeHexColorArray(input.hex_colors),
             shading: toStringOr(input.shading, 'None'),
             sheen: toStringOr(input.sheen, 'None'),
             shimmer: toStringOr(input.shimmer, 'None'),
@@ -165,6 +196,8 @@
             notes: toStringOr(input.notes),
             image: toStringOr(input.image),
         };
+        delete normalized.cl;
+        delete normalized.ml;
         delete normalized.swatch_paper;
         delete normalized.swatch_nib;
         delete normalized.swatch_date;
@@ -258,7 +291,7 @@
         const allowedVerbosity = ['minimal', 'normal', 'detailed'];
         const allowedCurrencies = ['USD', 'EUR', 'GBP', 'JPY', 'TRY'];
         const allowedDateFormats = ['system', 'us', 'eu', 'iso'];
-        const allowedInkTypes = ['', 'Bottle', 'Sample', 'Cartridge'];
+        const allowedInkTypes = ['', 'Bottle', 'Sample', 'Cartridge', 'Other'];
         const allowedPenStatus = ['', 'clean', 'inked'];
         const allowedConflict = ['skip', 'overwrite', 'merge'];
         const allowedAutoBackupFrequencies = ['off', 'daily', 'weekly', 'monthly'];
@@ -295,11 +328,6 @@
         const penStatusRaw = String(defaultsInput.pen_status || '').toLowerCase();
         const inkTypeRaw = String(defaultsInput.ink_type || '');
 
-        const penNib = penNibRaw === 'M' ? '' : penNibRaw;
-        const penNibMaterial = penNibMaterialRaw === 'Steel' ? '' : penNibMaterialRaw;
-        const penStatus = penStatusRaw === 'clean' ? '' : penStatusRaw;
-        const inkType = inkTypeRaw === 'Bottle' ? '' : inkTypeRaw;
-
         const conflictBehaviorRaw = String(importExportInput.conflict_behavior || '').toLowerCase();
         const backupFrequencyRaw = String(backupInput.auto_frequency || '').toLowerCase();
         const backupRetentionRaw = Number(backupInput.retention_count);
@@ -330,10 +358,10 @@
             defaults: {
                 currency: allowedCurrencies.includes(currencyRaw) ? currencyRaw : 'USD',
                 date_format: allowedDateFormats.includes(dateFormatRaw) ? dateFormatRaw : 'system',
-                pen_nib: penNib,
-                pen_nib_material: penNibMaterial,
-                pen_status: allowedPenStatus.includes(penStatus) ? penStatus : '',
-                ink_type: allowedInkTypes.includes(inkType) ? inkType : ''
+                pen_nib: penNibRaw,
+                pen_nib_material: penNibMaterialRaw,
+                pen_status: allowedPenStatus.includes(penStatusRaw) ? penStatusRaw : '',
+                ink_type: allowedInkTypes.includes(inkTypeRaw) ? inkTypeRaw : ''
             },
             import_export: {
                 auto_validate_import: toBool(importExportInput.auto_validate_import, true),

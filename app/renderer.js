@@ -164,6 +164,7 @@ let activityCalendarViewDate = new Date();
 let activityFilterDateFromCalendarViewDate = new Date();
 let activityFilterDateToCalendarViewDate = new Date();
 let swatchCalendarViewDate = new Date();
+let customSelectAccessibilityId = 0;
 const detailImageLightboxState = {
     open: false,
     scale: 1,
@@ -293,6 +294,7 @@ let searchSwatchesQuery = '';
 let currentSwatchDetailInkId = null;
 let currentSwatchDetailSwatchId = null;
 let currentSwatchDetailSourceView = 'swatches';
+let currentSwatchDetailImageIndex = 0;
 let currentPenDetailPenId = null;
 let currentPenDetailSourceView = 'pens';
 let currentPenDetailImageIndex = 0;
@@ -311,7 +313,7 @@ let autocompleteData = {
     'ink-brand-input': [],
     'ink-name-input': [],
     'ink-line-input': [],
-    'ink-cl-input': [],
+    'ink-volume-ml-input': [],
     'ink-dry-time': [],
     'pen-brand-input': [],
     'pen-model-input': [],
@@ -366,11 +368,26 @@ function collectUniqueFromCsv(items, key) {
     return [...out].sort();
 }
 
+function collectOrderedFilterValues(items, valueFn, preferredOrder = []) {
+    const values = new Set();
+    (items || []).forEach((item) => {
+        const value = String(valueFn(item) || '').trim();
+        if (value) values.add(value);
+    });
+    const preferred = preferredOrder.filter((value) => values.delete(value));
+    const remaining = [...values].sort((a, b) => a.localeCompare(b, undefined, {
+        numeric: true,
+        sensitivity: 'base'
+    }));
+    return [...preferred, ...remaining];
+}
+
 function isOrphanSwatchInk(ink) {
     return !!(ink && ink.is_orphan_swatch);
 }
 
 function getLibraryInks() {
+    if (shouldHideInksInShowcase()) return [];
     return (appData.inks || []).filter(ink => !isOrphanSwatchInk(ink));
 }
 
@@ -414,6 +431,19 @@ function normalizeShowcaseTitle(value) {
     return trimmed || DEFAULT_SHOWCASE_TITLE;
 }
 
+function normalizeFallbackHexColor(value, fallback = '') {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return /^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/.test(normalized)
+        ? normalized
+        : fallback;
+}
+
+function normalizeFallbackHexColorArray(value) {
+    return (Array.isArray(value) ? value : [])
+        .map((color) => normalizeFallbackHexColor(color))
+        .filter(Boolean);
+}
+
 function ensureAppDataDefaults(data) {
     const schema = (typeof window !== 'undefined' && window.InkubatorDataSchema)
         ? window.InkubatorDataSchema
@@ -428,8 +458,27 @@ function ensureAppDataDefaults(data) {
     }
 
     const safe = data && typeof data === 'object' ? data : {};
-    safe.pens = Array.isArray(safe.pens) ? safe.pens : [];
-    safe.inks = Array.isArray(safe.inks) ? safe.inks : [];
+    safe.pens = (Array.isArray(safe.pens) ? safe.pens : []).map((value) => {
+        const pen = value && typeof value === 'object' ? value : {};
+        const hexColors = normalizeFallbackHexColorArray(pen.hex_colors);
+        const hexColor = normalizeFallbackHexColor(pen.hex_color, hexColors[0] || '');
+        if (hexColors.length === 0 && hexColor) hexColors.push(hexColor);
+        return {
+            ...pen,
+            hex_color: hexColor,
+            hex_colors: hexColors
+        };
+    });
+    safe.inks = (Array.isArray(safe.inks) ? safe.inks : []).map((value) => {
+        const ink = value && typeof value === 'object' ? value : {};
+        const colorBase = normalizeFallbackHexColor(ink.color_base, '#4a0e28');
+        return {
+            ...ink,
+            color_base: colorBase,
+            color_accent: normalizeFallbackHexColor(ink.color_accent, colorBase),
+            hex_colors: normalizeFallbackHexColorArray(ink.hex_colors)
+        };
+    });
     safe.swatches = Array.isArray(safe.swatches) ? safe.swatches : [];
     if (safe.swatches.length === 0) {
         safe.swatches = safe.inks
@@ -470,18 +519,13 @@ function ensureAppDataDefaults(data) {
         : '';
     const incomingPenStatusRaw = String(incomingDefaults.pen_status || '').toLowerCase();
     const incomingInkTypeRaw = String(incomingDefaults.ink_type || '');
-    // Migrate legacy seeded defaults to empty so Settings starts blank unless user explicitly sets values.
-    const migratedPenNib = incomingPenNibRaw === 'M' ? '' : incomingPenNibRaw;
-    const migratedPenNibMaterial = incomingPenNibMaterialRaw === 'Steel' ? '' : incomingPenNibMaterialRaw;
-    const migratedPenStatus = incomingPenStatusRaw === 'clean' ? '' : incomingPenStatusRaw;
-    const migratedInkType = incomingInkTypeRaw === 'Bottle' ? '' : incomingInkTypeRaw;
     const allowedRetention = [0, 90, 180, 365];
     const incomingRetention = Number(incomingPrefs.activity_retention_days);
     const allowedColorModes = ['light', 'dark', 'auto'];
     const allowedVerbosity = ['minimal', 'normal', 'detailed'];
     const allowedCurrencies = ['USD', 'EUR', 'GBP', 'JPY', 'TRY'];
     const allowedDateFormats = ['system', 'us', 'eu', 'iso'];
-    const allowedInkTypes = ['', 'Bottle', 'Sample', 'Cartridge'];
+    const allowedInkTypes = ['', 'Bottle', 'Sample', 'Cartridge', 'Other'];
     const allowedPenStatus = ['', 'clean', 'inked'];
     const allowedConflict = ['skip', 'overwrite', 'merge'];
     const allowedAutoBackupFrequencies = ['off', 'daily', 'weekly', 'monthly'];
@@ -534,13 +578,13 @@ function ensureAppDataDefaults(data) {
             date_format: allowedDateFormats.includes(String(incomingDefaults.date_format || '').toLowerCase())
                 ? String(incomingDefaults.date_format).toLowerCase()
                 : 'system',
-            pen_nib: migratedPenNib,
-            pen_nib_material: migratedPenNibMaterial,
-            pen_status: allowedPenStatus.includes(migratedPenStatus)
-                ? migratedPenStatus
+            pen_nib: incomingPenNibRaw,
+            pen_nib_material: incomingPenNibMaterialRaw,
+            pen_status: allowedPenStatus.includes(incomingPenStatusRaw)
+                ? incomingPenStatusRaw
                 : '',
-            ink_type: allowedInkTypes.includes(migratedInkType)
-                ? migratedInkType
+            ink_type: allowedInkTypes.includes(incomingInkTypeRaw)
+                ? incomingInkTypeRaw
                 : ''
         },
         import_export: {
@@ -912,14 +956,55 @@ function resolveImageThumbnailSource(imagePath) {
     const normalized = imagePath.startsWith('images/')
         ? imagePath.slice('images/'.length)
         : imagePath.replace(/^\/+/, '');
-    if (isDockerMode) return `/api/thumbs/${normalized}`;
+    if (isDockerMode) {
+        return isManagerApp
+            ? `/api/thumbs/${normalized}`
+            : `/thumbs/${normalized}`;
+    }
     if (isManagerApp && managerImagesBaseUrl) {
         const base = managerImagesBaseUrl.replace(/[\\/]+$/, '');
         const assetUrl = `${base}/.thumbs/${normalized}`;
         const separator = assetUrl.includes('?') ? '&' : '?';
         return `${assetUrl}${separator}v=${imageAssetVersion}`;
     }
-    return `thumbs/${normalized}`;
+    return `thumbs/${normalized}.webp`;
+}
+
+function getImageSourceCandidates(imagePath) {
+    const candidates = [
+        resolveImageThumbnailSource(imagePath),
+        resolveImageSource(imagePath)
+    ].filter(Boolean);
+    return [...new Set(candidates)];
+}
+
+function loadImageElementWithFallback(imgEl, imagePath, handlers = {}) {
+    if (!imgEl) return;
+    const sources = getImageSourceCandidates(imagePath);
+    let sourceIndex = 0;
+
+    const cleanup = () => {
+        imgEl.removeEventListener('load', handleLoad);
+        imgEl.removeEventListener('error', handleError);
+    };
+    const handleLoad = () => {
+        cleanup();
+        if (typeof handlers.onLoad === 'function') handlers.onLoad(imgEl.src);
+    };
+    const handleError = () => {
+        if (sourceIndex < sources.length) {
+            imgEl.src = sources[sourceIndex];
+            sourceIndex += 1;
+            return;
+        }
+        cleanup();
+        imgEl.removeAttribute('src');
+        if (typeof handlers.onUnavailable === 'function') handlers.onUnavailable();
+    };
+
+    imgEl.addEventListener('load', handleLoad);
+    imgEl.addEventListener('error', handleError);
+    handleError();
 }
 
 function getImageEntries(item) {
@@ -1023,7 +1108,17 @@ function normalizeModalGallery(entries = []) {
         .filter(Boolean);
     if (gallery.length && !gallery.some((entry) => entry.primary)) gallery[0].primary = true;
     const primaryIndex = gallery.findIndex((entry) => entry.primary);
-    return gallery.map((entry, index) => ({ ...entry, primary: index === Math.max(0, primaryIndex) }));
+    const normalizedPrimaryIndex = Math.max(0, primaryIndex);
+    const normalized = gallery.map((entry, index) => ({
+        ...entry,
+        primary: index === normalizedPrimaryIndex
+    }));
+    if (normalizedPrimaryIndex === 0) return normalized;
+    return [
+        normalized[normalizedPrimaryIndex],
+        ...normalized.slice(0, normalizedPrimaryIndex),
+        ...normalized.slice(normalizedPrimaryIndex + 1)
+    ];
 }
 
 function getGalleryPrimaryIndex(gallery = []) {
@@ -1064,7 +1159,7 @@ function getGalleryEntryAt(gallery = [], index = 0) {
 
 function setGalleryCurrentPrimary(gallery = [], index = 0) {
     if (!gallery.length) return gallery;
-    return setGalleryPrimary(gallery, index);
+    return normalizeModalGallery(setGalleryPrimary(gallery, index));
 }
 
 function getMovedGalleryIndex(gallery = [], currentIndex = 0, delta = 0) {
@@ -1159,8 +1254,29 @@ async function convertHeicBytesForManagedImage(sourceBytes, sourceHint) {
     const convertedBytes = canConvertToWebp
         ? await window.inkubatorHeic.convertBytesToWebp(sourceBytes, { maxSize: 1200, quality: 0.88 })
         : await window.inkubatorHeic.convertBytesToPng(sourceBytes);
-    const outputType = canConvertToWebp ? 'image/webp' : 'image/png';
-    const outputExtension = canConvertToWebp ? 'webp' : 'png';
+    const isWebp = convertedBytes.length >= 12
+        && convertedBytes[0] === 0x52
+        && convertedBytes[1] === 0x49
+        && convertedBytes[2] === 0x46
+        && convertedBytes[3] === 0x46
+        && convertedBytes[8] === 0x57
+        && convertedBytes[9] === 0x45
+        && convertedBytes[10] === 0x42
+        && convertedBytes[11] === 0x50;
+    const isPng = convertedBytes.length >= 8
+        && convertedBytes[0] === 0x89
+        && convertedBytes[1] === 0x50
+        && convertedBytes[2] === 0x4e
+        && convertedBytes[3] === 0x47
+        && convertedBytes[4] === 0x0d
+        && convertedBytes[5] === 0x0a
+        && convertedBytes[6] === 0x1a
+        && convertedBytes[7] === 0x0a;
+    if (!isWebp && !isPng) {
+        throw new Error('HEIC/HEIF conversion returned an unsupported image format.');
+    }
+    const outputType = isWebp ? 'image/webp' : 'image/png';
+    const outputExtension = isWebp ? 'webp' : 'png';
     const blob = new Blob([convertedBytes], { type: outputType });
     return {
         bytesBase64: bytesToBase64(convertedBytes),
@@ -1221,13 +1337,6 @@ async function saveManagedImage(sourcePath, imageType, metadata) {
 }
 
 async function saveRemoteImageUrl(url, imageType, metadata) {
-    if (isDockerMode && desktopAPI && typeof desktopAPI.readRemoteImageBytes === 'function' && typeof desktopAPI.saveImageBytes === 'function') {
-        const remote = await desktopAPI.readRemoteImageBytes(url);
-        if (remote && remote.base64) {
-            const filename = await desktopAPI.saveImageBytes(remote.base64, imageType, metadata, remote.sourceHint || url);
-            return { success: !!filename, filename };
-        }
-    }
     if (isManagerApp && desktopAPI && isHeicImagePath(url)) {
         const converted = await getConvertedRemoteHeicImage(url);
         if (converted && typeof desktopAPI.saveImageBytes === 'function') {
@@ -1235,7 +1344,60 @@ async function saveRemoteImageUrl(url, imageType, metadata) {
             return { success: !!filename, filename };
         }
     }
+    if (isDockerMode && desktopAPI && typeof desktopAPI.readRemoteImageBytes === 'function' && typeof desktopAPI.saveImageBytes === 'function') {
+        const remote = await desktopAPI.readRemoteImageBytes(url);
+        if (remote && remote.base64) {
+            const filename = await desktopAPI.saveImageBytes(remote.base64, imageType, metadata, remote.sourceHint || url);
+            return { success: !!filename, filename };
+        }
+    }
     return desktopAPI.saveImageUrl(url, imageType, metadata);
+}
+
+function managedImageFolderForType(imageType) {
+    if (imageType === 'pen') return 'pens';
+    if (imageType === 'swatch') return 'swatches';
+    return 'inks';
+}
+
+function extractManagedImageSavePath(result) {
+    if (typeof result === 'string') return result;
+    if (result && result.success !== false && typeof result.filename === 'string') {
+        return result.filename;
+    }
+    return '';
+}
+
+function normalizeNewManagedImagePath(path, imageType) {
+    const normalized = sanitizeGalleryImagePath(path);
+    const folder = managedImageFolderForType(imageType);
+    const prefix = `${folder}/`;
+    if (!normalized.startsWith(prefix)) return '';
+    const filename = normalized.slice(prefix.length);
+    if (!filename || filename.includes('/') || filename.includes('\\')) return '';
+    return normalized;
+}
+
+async function deleteUncommittedManagedImages(paths = []) {
+    const uniquePaths = [...new Set((paths || []).filter((path) => isManagedGalleryImagePath(path)))];
+    if (!uniquePaths.length) return { success: true, failedPaths: [] };
+    if (!isManagerApp || !desktopAPI || typeof desktopAPI.deleteImage !== 'function') {
+        return { success: false, failedPaths: uniquePaths };
+    }
+
+    const failedPaths = [];
+    for (const imagePath of uniquePaths) {
+        try {
+            const result = await desktopAPI.deleteImage(imagePath);
+            if (result && typeof result === 'object' && result.success === false) {
+                throw new Error(result.message || 'Image deletion failed.');
+            }
+        } catch (error) {
+            failedPaths.push(imagePath);
+            console.warn(`Failed to clean up uncommitted image: ${imagePath}`, error);
+        }
+    }
+    return { success: failedPaths.length === 0, failedPaths };
 }
 
 function isPendingGalleryImagePath(path) {
@@ -1250,29 +1412,50 @@ function isPendingGalleryImagePath(path) {
 }
 
 async function savePendingGalleryImages(gallery = [], imageType, metadata) {
+    const normalizedGallery = normalizeModalGallery(gallery);
     const savedEntries = [];
-    for (const entry of normalizeModalGallery(gallery)) {
-        let nextPath = sanitizeGalleryImagePath(entry.path);
-        if (isPendingGalleryImagePath(entry.path)) {
-            if (String(entry.path).startsWith('https://')) {
-                const result = await saveRemoteImageUrl(entry.path, imageType, metadata);
-                nextPath = result && result.success ? result.filename : '';
-            } else if (String(entry.path).startsWith('http://')) {
-                nextPath = '';
-            } else {
-                nextPath = await saveManagedImage(entry.path, imageType, metadata);
+    const createdPaths = [];
+    try {
+        for (const entry of normalizedGallery) {
+            const pending = isPendingGalleryImagePath(entry.path);
+            let nextPath = sanitizeGalleryImagePath(entry.path);
+            if (pending) {
+                let result;
+                if (String(entry.path).startsWith('https://')) {
+                    result = await saveRemoteImageUrl(entry.path, imageType, metadata);
+                } else if (String(entry.path).startsWith('http://')) {
+                    throw new Error('Only https URLs are allowed for remote images.');
+                } else {
+                    result = await saveManagedImage(entry.path, imageType, metadata);
+                }
+                nextPath = normalizeNewManagedImagePath(extractManagedImageSavePath(result), imageType);
+                if (!nextPath) throw new Error('The image backend did not return a valid managed path.');
+                createdPaths.push(nextPath);
+            } else if (!isManagedGalleryImagePath(nextPath)) {
+                throw new Error('The gallery contains an unsupported image source.');
             }
+            if (!nextPath) throw new Error('The gallery contains an invalid image path.');
+            savedEntries.push({
+                id: entry.id || makeClientId('img'),
+                path: nextPath,
+                rotation: Number.isFinite(Number(entry.rotation)) ? Number(entry.rotation) : 0,
+                primary: !!entry.primary
+            });
         }
-        nextPath = sanitizeGalleryImagePath(nextPath);
-        if (!nextPath) continue;
-        savedEntries.push({
-            id: entry.id || makeClientId('img'),
-            path: nextPath,
-            rotation: Number.isFinite(Number(entry.rotation)) ? Number(entry.rotation) : 0,
-            primary: !!entry.primary
-        });
+        if (savedEntries.length !== normalizedGallery.length) {
+            throw new Error('Not every gallery image was saved.');
+        }
+        return {
+            images: serializeModalGallery(savedEntries),
+            createdPaths
+        };
+    } catch (error) {
+        const cleanup = await deleteUncommittedManagedImages(createdPaths);
+        const galleryError = new Error('One or more photos could not be saved. Nothing was changed.');
+        galleryError.cause = error;
+        galleryError.cleanupFailed = !cleanup.success;
+        throw galleryError;
     }
-    return serializeModalGallery(savedEntries);
 }
 
 async function getLocalImagePreviewSource(localPath) {
@@ -1451,15 +1634,58 @@ function isManagedImagePathForDeletion(imagePath) {
     return true;
 }
 
+function isManagedImagePathReferenced(imagePath) {
+    const normalizedPath = sanitizeGalleryImagePath(imagePath);
+    if (!normalizedPath) return false;
+    const collections = [
+        ...(appData.pens || []),
+        ...(appData.inks || []),
+        ...(appData.swatches || [])
+    ];
+    return collections.some((item) => {
+        if (sanitizeGalleryImagePath(item?.image) === normalizedPath) return true;
+        return (Array.isArray(item?.images) ? item.images : [])
+            .some((entry) => sanitizeGalleryImagePath(entry?.path) === normalizedPath);
+    });
+}
+
 async function disposeReplacedManagedImage(imagePath) {
     if (!isManagedImagePathForDeletion(imagePath)) return;
+    if (isManagedImagePathReferenced(imagePath)) return;
     if (!isManagerApp || !desktopAPI) return;
     if (typeof desktopAPI.disposeReplacedImage === 'function') {
-        await desktopAPI.disposeReplacedImage(imagePath);
-        return;
+        return await desktopAPI.disposeReplacedImage(imagePath);
     }
     if (typeof desktopAPI.deleteImage === 'function') {
-        await desktopAPI.deleteImage(imagePath);
+        return await desktopAPI.deleteImage(imagePath);
+    }
+}
+
+async function deleteManagedImageIfUnreferenced(imagePath) {
+    if (!isManagedImagePathForDeletion(imagePath)) return;
+    if (isManagedImagePathReferenced(imagePath)) return;
+    if (!isManagerApp || !desktopAPI || typeof desktopAPI.deleteImage !== 'function') return;
+    return await desktopAPI.deleteImage(imagePath);
+}
+
+async function runPostSaveCleanupTasks(tasks = []) {
+    const failures = [];
+    for (const task of tasks) {
+        if (typeof task !== 'function') continue;
+        try {
+            const result = await task();
+            if (result && typeof result === 'object' && result.success === false) {
+                throw new Error(result.message || 'Image cleanup failed.');
+            }
+        } catch (error) {
+            failures.push(error);
+            console.warn('Post-save image cleanup failed.', error);
+        }
+    }
+    if (failures.length) {
+        const error = new Error('One or more post-save image cleanup tasks failed.');
+        error.cause = failures[0];
+        throw error;
     }
 }
 
@@ -1482,7 +1708,7 @@ function findPenById(penId) {
 }
 
 function findInkById(inkId) {
-    return (appData.inks || []).find(i => i.id === inkId) || null;
+    return getInkById(inkId);
 }
 
 function formatPenName(pen) {
@@ -1916,6 +2142,10 @@ function cloneEntityForDiff(entity, arrayKeys = []) {
         clone[key] = Array.isArray(entity[key]) ? [...entity[key]] : [];
     });
     return clone;
+}
+
+function cloneCollectionArray(value) {
+    return JSON.parse(JSON.stringify(Array.isArray(value) ? value : []));
 }
 
 function normalizeDiffScalar(value) {
@@ -2374,11 +2604,31 @@ function scheduleUiRefresh(options = {}) {
     if (autocomplete) scheduleRender(updateAutocompleteLists);
 }
 
+function isDataConflictError(value) {
+    return !!value && (
+        value.conflict === true
+        || value.code === 'DATA_CONFLICT'
+    );
+}
+
+function persistenceErrorMessage(error, fallback) {
+    if (isDataConflictError(error)) {
+        return 'This collection changed in another tab or app window. Your changes were not saved. Preserve anything you need from this window, then reload before trying to save again.';
+    }
+    const base = String(fallback || 'Failed to save data').trim().replace(/[.!]+$/g, '');
+    const detail = error && error.message ? String(error.message).trim().replace(/[.!]+$/g, '') : '';
+    if (!detail || detail === base) return base;
+    return `${base}: ${detail}`;
+}
+
 async function persistDataAndRefresh(options = {}) {
     const {
         refresh = {},
         onSuccess = null,
-        onErrorMessage = 'Failed to save data!'
+        onWarning = null,
+        onErrorMessage = 'Failed to save data!',
+        dataSnapshot = null,
+        waitForSettings = true
     } = options;
 
     if (!isManagerApp) {
@@ -2386,10 +2636,27 @@ async function persistDataAndRefresh(options = {}) {
         return false;
     }
 
-    const result = await desktopAPI.saveData(appData);
+    if (waitForSettings) {
+        await settingsPersistQueue;
+    }
+
+    let result;
+    try {
+        result = await desktopAPI.saveData(dataSnapshot || appData);
+    } catch (error) {
+        console.error(onErrorMessage, error);
+        showAppNotice(
+            persistenceErrorMessage(error, onErrorMessage),
+            'error',
+            isDataConflictError(error) ? 12000 : 6000
+        );
+        return false;
+    }
+
     if (result && result.success) {
         if (result.warning) {
             showAppNotice(result.message || 'Saved with warnings.', 'warning');
+            if (typeof onWarning === 'function') onWarning(result);
         }
         if (typeof onSuccess === 'function') {
             try {
@@ -2407,7 +2674,11 @@ async function persistDataAndRefresh(options = {}) {
         return true;
     }
 
-    alert(onErrorMessage);
+    showAppNotice(
+        persistenceErrorMessage(result, onErrorMessage),
+        'error',
+        isDataConflictError(result) ? 12000 : 6000
+    );
     return false;
 }
 
@@ -2492,6 +2763,7 @@ async function init() {
             }
         } else {
             isManagerApp = false;
+            isDockerMode = window.__INKUBATOR_DOCKER_MODE__ === true;
             // Strictly hide all management UI in web mode
             const managerUI = [
                 document.getElementById('btn-add-pen-header'),
@@ -2527,7 +2799,9 @@ async function init() {
         const retentionPrunedOnLoad = applyActivityRetention();
         const seededDemoActivity = maybeSeedDemoActivityLogs();
         if ((seededDemoActivity || retentionPrunedOnLoad) && isManagerApp && desktopAPI && typeof desktopAPI.saveData === 'function') {
-            await desktopAPI.saveData(appData);
+            await persistDataAndRefresh({
+                onErrorMessage: 'Failed to save startup activity maintenance.'
+            });
         }
         bindSystemColorModeListener();
         applyShowcaseTitleUi();
@@ -3209,6 +3483,7 @@ function computeCollectionInsights() {
     const inks = getLibraryInks();
     const swatches = getAllSwatches();
     const active = appData.currently_inked || [];
+    const hidePrices = shouldHidePricesInShowcase();
     const inksPerPen = pens.length ? (inks.length / pens.length) : 0;
     const activeRatio = pens.length ? Math.round((active.length / pens.length) * 100) : 0;
     const last30Cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
@@ -3297,11 +3572,11 @@ function computeCollectionInsights() {
     const totalPenSpend = pricedPens.reduce((sum, item) => sum + item.price, 0);
     const totalInkSpend = pricedInks.reduce((sum, item) => sum + item.total, 0);
     const totalInkVolume = inks.reduce((sum, ink) => {
-        const volumeCl = parseAmountNumber(ink && ink.cl, 0);
+        const volumeMl = parseAmountNumber(ink && ink.volume_ml, 0);
         const amount = parseAmountNumber(ink && ink.amount, 1);
-        if (!Number.isFinite(volumeCl) || volumeCl <= 0) return sum;
+        if (!Number.isFinite(volumeMl) || volumeMl <= 0) return sum;
         if (!Number.isFinite(amount) || amount <= 0) return sum;
-        return sum + (volumeCl * amount);
+        return sum + (volumeMl * amount);
     }, 0);
     const totalSpend = totalPenSpend + totalInkSpend;
     const averagePenPrice = pricedPens.length ? (totalPenSpend / pricedPens.length) : 0;
@@ -3327,22 +3602,22 @@ function computeCollectionInsights() {
         { key: 'nib_material', mode: 'text', label: 'Pen Nib Material' },
         { key: 'material', mode: 'text', label: 'Pen Body Material' },
         { key: 'filling_system', mode: 'text', label: 'Pen Filling System' },
-        { key: 'color', mode: 'text', label: 'Pen Color' },
-        { key: 'price', mode: 'number', label: 'Pen Price' }
+        { key: 'color', mode: 'text', label: 'Pen Color' }
     ];
+    if (!hidePrices) penCompletenessFields.push({ key: 'price', mode: 'number', label: 'Pen Price' });
     const inkCompletenessFields = [
         { key: 'brand', mode: 'text', label: 'Ink Brand' },
         { key: 'name', mode: 'text', label: 'Ink Name' },
         { key: 'line', mode: 'text', label: 'Ink Line' },
         { key: 'type', mode: 'text', label: 'Ink Type' },
-        { key: 'cl', mode: 'number', label: 'Ink Volume (cl)' },
+        { key: 'volume_ml', mode: 'number', label: 'Ink Volume (ml)' },
         { key: 'amount', mode: 'number', label: 'Ink Amount' },
-        { key: 'price', mode: 'number', label: 'Ink Price' },
         { key: 'color_base', mode: 'text', label: 'Ink Base Color' },
         { key: 'flow', mode: 'text', label: 'Ink Flow' },
         { key: 'lubrication', mode: 'text', label: 'Ink Lubrication' },
         { key: 'permanence', mode: 'text', label: 'Ink Permanence' }
     ];
+    if (!hidePrices) inkCompletenessFields.push({ key: 'price', mode: 'number', label: 'Ink Price' });
     let expectedFields = 0;
     let filledFields = 0;
     const missingFieldCounts = Object.create(null);
@@ -3450,8 +3725,8 @@ function computeCollectionInsights() {
         { label: 'Top Ink Brand', value: topLabel(inkBrandCounts) },
         {
             label: 'Total Ink Volume',
-            value: `${Number.isInteger(totalInkVolume) ? totalInkVolume : totalInkVolume.toFixed(2)} cl`,
-            valueTooltip: `${(totalInkVolume / 100).toFixed(2)} L`
+            value: `${Number.isInteger(totalInkVolume) ? totalInkVolume : totalInkVolume.toFixed(2)} ml`,
+            valueTooltip: `${(totalInkVolume / 1000).toFixed(2)} L`
         },
         { label: 'Tracked Spend', value: formatMoney(totalSpend) },
         { label: 'Total Pen Spend', value: formatMoney(totalPenSpend) },
@@ -3609,7 +3884,7 @@ function renderInkedPens() {
 
         appData.currently_inked.forEach(item => {
             const pen = appData.pens.find(p => p.id === item.pen_id);
-            const ink = appData.inks.find(k => k.id === item.ink_id);
+            const ink = getInkById(item.ink_id);
 
             if (!pen) return; // Skip if pen record is missing
 
@@ -4190,20 +4465,28 @@ function renderActivityLogView() {
     renderActivityPagination(items.length);
 }
 
-function deleteActivityEntry(activityId) {
-    if (!activityId) return;
+async function deleteActivityEntry(activityId) {
+    if (!activityId) return false;
+    await settingsPersistQueue;
+    const activityLogBeforeDelete = cloneCollectionArray(appData.activity_log);
     appData.activity_log = (appData.activity_log || []).filter(entry => entry.id !== activityId);
-    persistDataAndRefresh({
+    const saved = await persistDataAndRefresh({
         refresh: {
             dashboard: true,
             activity: true
         },
         onErrorMessage: 'Failed to delete activity entry.'
     });
+    if (!saved) {
+        appData.activity_log = activityLogBeforeDelete;
+        renderDashboard();
+        renderActivityLogView();
+    }
+    return saved;
 }
 
 function persistActivityMaintenance(onErrorMessage) {
-    persistDataAndRefresh({
+    return persistDataAndRefresh({
         refresh: {
             dashboard: true,
             activity: true
@@ -4212,8 +4495,8 @@ function persistActivityMaintenance(onErrorMessage) {
     });
 }
 
-function applyShowcaseSettingsFromForm() {
-    const prefs = getPreferences();
+function buildShowcaseSettingsFromForm() {
+    const prefs = JSON.parse(JSON.stringify(getPreferences()));
     const showcase = prefs.showcase || {};
     showcase.show_prices = !!(toggleShowcasePricesVisible && toggleShowcasePricesVisible.checked);
     showcase.show_pens = !!(toggleShowcasePensVisible && toggleShowcasePensVisible.checked);
@@ -4232,6 +4515,12 @@ function applyShowcaseSettingsFromForm() {
     };
     const selectedMode = colorModeSelect ? String(colorModeSelect.value || '').toLowerCase().trim() : '';
     prefs.color_mode = ['light', 'dark', 'auto'].includes(selectedMode) ? selectedMode : 'auto';
+    prefs.show_activity_log = !!(toggleActivityVisible && toggleActivityVisible.checked);
+    prefs.show_recent_activity = !!(toggleRecentActivityVisible && toggleRecentActivityVisible.checked);
+    const selectedActivityRetention = activityRetentionSelect ? Number(activityRetentionSelect.value) : 365;
+    prefs.activity_retention_days = [0, 90, 180, 365].includes(selectedActivityRetention)
+        ? selectedActivityRetention
+        : 365;
     prefs.open_cards_in_edit_mode = !!(toggleOpenCardsEditMode && toggleOpenCardsEditMode.checked);
     prefs.confirm_destructive_actions = !!(toggleConfirmDestructive && toggleConfirmDestructive.checked);
     prefs.activity_log_verbosity = activityLogVerbositySelect ? String(activityLogVerbositySelect.value || 'normal') : 'normal';
@@ -4267,6 +4556,10 @@ function applyShowcaseSettingsFromForm() {
         keep_replaced_images: !!(toggleBackupKeepReplacedImages && toggleBackupKeepReplacedImages.checked)
     };
     prefs.showcase = showcase;
+    return prefs;
+}
+
+function applyShowcaseSettingsPreferences(prefs) {
     appData.preferences = prefs;
     updateInkPricePrefix();
     applyShowcaseTitleUi();
@@ -4287,10 +4580,24 @@ function applyShowcaseSettingsFromForm() {
     }
 }
 
-async function persistShowcaseSettingsNow({ force = false, notify = true } = {}) {
-    if (!isManagerApp) return false;
-    if (!force && (suppressSettingsPersist || showcaseExportInFlight)) return false;
-    applyShowcaseSettingsFromForm();
+let settingsPersistQueue = Promise.resolve();
+let settingsFormNeedsSync = false;
+
+function enqueueSettingsPersist(operation) {
+    const queued = settingsPersistQueue.then(operation, operation);
+    settingsPersistQueue = queued.catch(() => false);
+    return queued;
+}
+
+function syncSettingsFormAfterRollback() {
+    if (!settingsFormNeedsSync) return;
+    renderSettingsView();
+    settingsFormNeedsSync = false;
+}
+
+async function persistShowcaseSettingsOperation(requestedData, { notify = true } = {}) {
+    const requestedPreferences = requestedData.preferences;
+    let savedWithWarning = false;
     const saved = await persistDataAndRefresh({
         refresh: {
             dashboard: true,
@@ -4300,15 +4607,60 @@ async function persistShowcaseSettingsNow({ force = false, notify = true } = {})
             inks: true,
             swatches: true
         },
-        onErrorMessage: 'Failed to save showcase settings.'
+        onWarning: () => {
+            savedWithWarning = true;
+        },
+        onSuccess: () => {
+            applyShowcaseSettingsPreferences(requestedPreferences);
+            syncSettingsFormAfterRollback();
+        },
+        onErrorMessage: 'Failed to save showcase settings.',
+        dataSnapshot: requestedData,
+        waitForSettings: false
     });
-    if (saved && notify) {
+    if (!saved) {
+        settingsFormNeedsSync = true;
+        renderSettingsView();
+        applyShowcaseTitleUi();
+        scheduleUiRefresh({
+            dashboard: true,
+            stats: true,
+            activity: true,
+            pens: true,
+            inks: true,
+            swatches: true
+        });
+    }
+    if (saved && notify && !savedWithWarning) {
         showAppNotice('Settings saved', 'success');
     }
     return saved;
 }
 
+function persistShowcaseSettingsNow({ force = false, notify = true } = {}) {
+    if (!isManagerApp) return Promise.resolve(false);
+    if (!force && (suppressSettingsPersist || showcaseExportInFlight || backupImportInFlight)) {
+        return Promise.resolve(false);
+    }
+    if (force && settingsInputPersistTimer) {
+        clearTimeout(settingsInputPersistTimer);
+        settingsInputPersistTimer = null;
+    }
+    const requestedPreferences = buildShowcaseSettingsFromForm();
+    return enqueueSettingsPersist(
+        () => {
+            const requestedData = JSON.parse(JSON.stringify(appData));
+            requestedData.preferences = requestedPreferences;
+            return persistShowcaseSettingsOperation(requestedData, { notify });
+        }
+    );
+}
+
 function persistShowcaseSettings() {
+    if (settingsInputPersistTimer) {
+        clearTimeout(settingsInputPersistTimer);
+        settingsInputPersistTimer = null;
+    }
     void persistShowcaseSettingsNow();
 }
 
@@ -4394,10 +4746,10 @@ function renderPens() {
 
             let inkedStatusHTML = '';
             if (isInked) {
-                const ink = appData.inks.find(i => i.id === inkedData.ink_id);
+                const ink = getInkById(inkedData.ink_id);
                 // Use color_base as the property name for ink colors
                 const inkColor = ink ? (ink.color_base || '#888') : '#888';
-                const inkName = ink ? `${ink.brand} ${ink.name}` : 'Unknown Ink';
+                const inkName = escapeHtml(ink ? `${ink.brand} ${ink.name}` : 'Unknown Ink');
                 inkedStatusHTML = `
                     <div class="pen-card-inked-status">
                         <div class="pen-card-ink-dot" style="background: ${inkColor};"></div>
@@ -4433,11 +4785,9 @@ function renderPens() {
             const safeFillingSystem = escapeHtml(pen.filling_system || 'Standard');
             const safeNib = escapeHtml(pen.nib || '');
             const safeNibMaterial = escapeHtml(pen.nib_material || 'Steel');
-            const safeImagePath = imagePath ? escapeHtml(imagePath) : '';
-
             card.innerHTML = `
                 <div class="pen-card-visual" style="${backgroundStyle}">
-                    ${safeImagePath ? `<img src="${safeImagePath}" class="${imgClass}" style="${imgStyle}" loading="lazy" decoding="async">` : `<i class="ph ph-pen-nib" style="font-size: 40px; color: rgba(0,0,0,0.1);"></i>`}
+                    ${imagePath ? `<img class="${imgClass}" style="${imgStyle}" loading="lazy" decoding="async">` : `<i class="ph ph-pen-nib card-image-fallback-icon"></i>`}
                 </div>
 	                <div class="pen-card-info">
 	                    <div class="pen-card-brand">${safeBrand}</div>
@@ -4450,7 +4800,26 @@ function renderPens() {
 	                    ${inkedStatusHTML}
 	                </div>
 	            `;
-            syncPenCardImageOrientation(card.querySelector('.pen-card-visual img'), rotation);
+            const penVisual = card.querySelector('.pen-card-visual');
+            const penCardImage = penVisual?.querySelector('img');
+            if (penCardImage && primaryImage) {
+                syncPenCardImageOrientation(penCardImage, rotation);
+                loadImageElementWithFallback(penCardImage, primaryImage.path, {
+                    onUnavailable: () => {
+                        penVisual.classList.remove('is-landscape-image');
+                        penVisual.classList.add('image-unavailable');
+                        penVisual.setAttribute('aria-label', 'Image unavailable');
+                        penVisual.style.background = pen.hex_color
+                            ? pen.hex_color
+                            : 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)';
+                        penCardImage.remove();
+                        const fallbackIcon = document.createElement('i');
+                        fallbackIcon.className = 'ph ph-pen-nib card-image-fallback-icon';
+                        fallbackIcon.setAttribute('aria-hidden', 'true');
+                        penVisual.appendChild(fallbackIcon);
+                    }
+                });
+            }
             pensGrid.appendChild(card);
         });
     } catch (e) {
@@ -4508,7 +4877,19 @@ let currentPenRotation = 0;
 let currentPenGallery = [];
 let currentPenGalleryIndex = 0;
 let isSavingPen = false;
+let isSavingInk = false;
+let isSavingSwatch = false;
+let isDeletingCollectionItem = false;
+let pendingInkPhotoPromise = null;
 let pendingPenPhotoPromise = null;
+let pendingSwatchPhotoPromise = null;
+let inkModalSession = 0;
+let penModalSession = 0;
+let swatchModalSession = 0;
+let inkPhotoRequestId = 0;
+let penPhotoRequestId = 0;
+let swatchPhotoRequestId = 0;
+const PHOTO_PROCESSING_TIMEOUT_MS = 30000;
 const btnRotatePen = document.getElementById('btn-rotate-pen');
 const btnRemovePenPhoto = document.getElementById('btn-remove-pen-photo');
 
@@ -4520,6 +4901,12 @@ let currentSelectedImagePath = null;
 if (inkImageArea) {
     inkImageArea.addEventListener('click', async () => {
         if (!isManagerApp) return alert("Upload is only available in the Manager app.");
+        if (pendingInkPhotoPromise) {
+            showAppNotice('Please wait for the current image to finish processing.', 'warning');
+            return;
+        }
+        const modalSession = inkModalSession;
+        const requestId = ++inkPhotoRequestId;
         let filePath = null;
         try {
             filePath = await desktopAPI.selectImage();
@@ -4527,18 +4914,88 @@ if (inkImageArea) {
             alert(`Image selection failed: ${error && error.message ? error.message : error}`);
             return;
         }
-        if (filePath) {
-            currentSelectedImagePath = filePath;
-            const icon = inkImageArea.querySelector('i');
-            const label = inkImageArea.querySelector('p');
-            inkImageArea.classList.add('is-processing');
-            if (icon) {
-                icon.classList.remove('ph-image');
-                icon.classList.add('ph-circle-notch', 'is-loading');
+        if (!filePath || modalSession !== inkModalSession || !isModalVisible(modalInk)) return;
+
+        let resolvePendingPhoto = null;
+        const processingPromise = new Promise((resolve) => {
+            resolvePendingPhoto = resolve;
+        });
+        pendingInkPhotoPromise = processingPromise;
+        setFormModalBusy(modalInk, true);
+        let processingFinished = false;
+        let processingTimer = null;
+        const isCurrentRequest = () => (
+            modalSession === inkModalSession
+            && requestId === inkPhotoRequestId
+            && isModalVisible(modalInk)
+        );
+        const icon = inkImageArea.querySelector('i');
+        const label = inkImageArea.querySelector('p');
+        const finishProcessing = (ok) => {
+            if (processingFinished) return;
+            processingFinished = true;
+            if (processingTimer) clearTimeout(processingTimer);
+            if (pendingInkPhotoPromise === processingPromise) pendingInkPhotoPromise = null;
+            if (isCurrentRequest()) {
+                inkImageArea.classList.remove('is-processing');
+                if (icon) {
+                    icon.classList.remove('ph-circle-notch', 'is-loading');
+                    icon.classList.add('ph-image');
+                    if (!ok) icon.style.display = 'block';
+                }
+                if (label) {
+                    label.textContent = 'Click to upload image';
+                    if (!ok) label.style.display = 'block';
+                }
+                if (!ok) {
+                    currentSelectedImagePath = null;
+                    if (inkImagePreview) inkImagePreview.style.display = 'none';
+                    const validation = document.getElementById('ink-validation-msg');
+                    if (validation) {
+                        validation.textContent = 'The selected image could not be processed. Please choose it again.';
+                        validation.style.display = 'inline-block';
+                    }
+                }
+                if (!isSavingInk) setFormModalBusy(modalInk, false);
             }
-            if (label) label.textContent = isHeicImagePath(filePath) ? 'Processing image...' : 'Loading image...';
-            const previewSrc = await getLocalImagePreviewSource(filePath);
-            inkImagePreview.onload = () => {
+            if (resolvePendingPhoto) resolvePendingPhoto(!!ok);
+        };
+        processingTimer = setTimeout(() => {
+            if (!isCurrentRequest()) {
+                finishProcessing(false);
+                return;
+            }
+            inkImagePreview.onload = null;
+            inkImagePreview.onerror = null;
+            finishProcessing(false);
+            inkPhotoRequestId += 1;
+            currentSelectedImagePath = null;
+            showAppNotice('Image processing timed out. Please choose the image again.', 'warning');
+        }, PHOTO_PROCESSING_TIMEOUT_MS);
+
+        currentSelectedImagePath = filePath;
+        inkImageArea.classList.add('is-processing');
+        if (icon) {
+            icon.classList.remove('ph-image');
+            icon.classList.add('ph-circle-notch', 'is-loading');
+        }
+        if (label) label.textContent = isHeicImagePath(filePath) ? 'Processing image...' : 'Loading image...';
+
+        let previewSrc = '';
+        try {
+            previewSrc = await getLocalImagePreviewSource(filePath);
+        } catch (error) {
+            console.warn('Ink image preview failed.', error);
+            finishProcessing(false);
+            return;
+        }
+        if (!isCurrentRequest()) {
+            finishProcessing(false);
+            return;
+        }
+
+        inkImagePreview.onload = () => {
+            if (isCurrentRequest()) {
                 const colors = extractInkColors(inkImagePreview);
                 if (colors) {
                     currentInkColors = [];
@@ -4546,35 +5003,40 @@ if (inkImageArea) {
                     if (colors.accent && colors.accent !== colors.base) currentInkColors.push(colors.accent);
                     renderInkColorSlots();
                 }
-                inkImagePreview.onload = null;
-                inkImageArea.classList.remove('is-processing');
-                if (icon) {
-                    icon.classList.remove('ph-circle-notch', 'is-loading');
-                    icon.classList.add('ph-image');
-                }
-            };
-            inkImagePreview.src = previewSrc;
-            inkImagePreview.style.display = 'block';
-            if (icon) icon.style.display = 'none';
-            if (label) {
-                label.textContent = 'Click to upload image';
-                label.style.display = 'none';
             }
+            inkImagePreview.onload = null;
+            inkImagePreview.onerror = null;
+            finishProcessing(isCurrentRequest());
+        };
+        inkImagePreview.onerror = () => {
+            inkImagePreview.onload = null;
+            inkImagePreview.onerror = null;
+            finishProcessing(false);
+        };
+        inkImagePreview.src = previewSrc;
+        inkImagePreview.style.display = 'block';
+        if (icon) icon.style.display = 'none';
+        if (label) {
+            label.style.display = 'none';
         }
     });
 }
 
 async function openInkModal(inkId = null) {
     if (!(await requestCloseAllModals())) return;
+    inkModalSession += 1;
+    inkPhotoRequestId += 1;
+    pendingInkPhotoPromise = null;
     resetOverlayState();
 
     activateModal(modalInk);
     document.getElementById('ink-validation-msg').style.display = 'none';
     currentEditingId = inkId;
     currentSelectedImagePath = null;
-    if (uploadPenPreview) uploadPenPreview.onload = null;
 
     if (inkImagePreview) {
+        inkImagePreview.onload = null;
+        inkImagePreview.onerror = null;
         inkImagePreview.style.display = 'none';
         inkImagePreview.src = '';
     }
@@ -4602,7 +5064,7 @@ async function openInkModal(inkId = null) {
             // New fields
             if (document.getElementById('ink-line-input')) document.getElementById('ink-line-input').value = ink.line || '';
             setCustomSelectValue('ink-type-input', normalizeInkType(ink.type) || 'Bottle');
-            if (document.getElementById('ink-cl-input')) document.getElementById('ink-cl-input').value = ink.cl || '';
+            if (document.getElementById('ink-volume-ml-input')) document.getElementById('ink-volume-ml-input').value = ink.volume_ml || '';
             if (document.getElementById('ink-amount-input')) document.getElementById('ink-amount-input').value = ink.amount || '1';
             if (document.getElementById('ink-price-input')) document.getElementById('ink-price-input').value = ink.price || '';
 
@@ -4667,7 +5129,7 @@ async function openInkModal(inkId = null) {
         // Reset all new fields
         if (document.getElementById('ink-line-input')) document.getElementById('ink-line-input').value = '';
         setCustomSelectValue('ink-type-input', String(defaults.ink_type || ''));
-        if (document.getElementById('ink-cl-input')) document.getElementById('ink-cl-input').value = '';
+        if (document.getElementById('ink-volume-ml-input')) document.getElementById('ink-volume-ml-input').value = '';
         if (document.getElementById('ink-amount-input')) document.getElementById('ink-amount-input').value = '1';
         if (document.getElementById('ink-price-input')) document.getElementById('ink-price-input').value = '';
 
@@ -4704,28 +5166,133 @@ async function openInkModal(inkId = null) {
 }
 
 // Multiselect Logic
+function isMultiselectPopoverOpen(popover) {
+    return !!(popover && popover.matches(':popover-open'));
+}
+
+function getMultiselectTrigger(popover) {
+    if (!popover || !popover.id) return null;
+    return Array.from(document.querySelectorAll('.multiselect-header[popovertarget]'))
+        .find((trigger) => trigger.getAttribute('popovertarget') === popover.id) || null;
+}
+
+function getOpenMultiselectPopover() {
+    return Array.from(document.querySelectorAll('.multiselect-options[popover]'))
+        .find((popover) => isMultiselectPopoverOpen(popover)) || null;
+}
+
+function closeMultiselectPopover(popover, { restoreFocus = true } = {}) {
+    if (!popover) return false;
+    const trigger = getMultiselectTrigger(popover);
+    if (isMultiselectPopoverOpen(popover) && typeof popover.hidePopover === 'function') {
+        popover.hidePopover();
+    }
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    if (restoreFocus && trigger && typeof trigger.focus === 'function') {
+        trigger.focus({ preventScroll: true });
+    }
+    return true;
+}
+
+function getMultiselectCheckboxes(popover) {
+    return Array.from(popover?.querySelectorAll('input[type="checkbox"]:not(:disabled)') || []);
+}
+
+function handleMultiselectKeydown(event, popover) {
+    if (!isMultiselectPopoverOpen(popover)) return;
+    const checkboxes = getMultiselectCheckboxes(popover);
+
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMultiselectPopover(popover);
+        return;
+    }
+
+    if (!checkboxes.length) return;
+    const activeIndex = checkboxes.indexOf(document.activeElement);
+
+    if (event.key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
+        const nextIndex = event.shiftKey
+            ? (activeIndex <= 0 ? checkboxes.length - 1 : activeIndex - 1)
+            : (activeIndex < 0 || activeIndex >= checkboxes.length - 1 ? 0 : activeIndex + 1);
+        checkboxes[nextIndex].focus();
+        return;
+    }
+
+    const navigationKeys = ['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Home', 'End'];
+    if (!navigationKeys.includes(event.key)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    let nextIndex = activeIndex;
+    if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = checkboxes.length - 1;
+    else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+        nextIndex = activeIndex < 0 ? 0 : (activeIndex + 1) % checkboxes.length;
+    } else {
+        nextIndex = activeIndex < 0
+            ? checkboxes.length - 1
+            : (activeIndex - 1 + checkboxes.length) % checkboxes.length;
+    }
+    checkboxes[nextIndex].focus();
+}
+
 function setupMultiselectPopover(id) {
     const popover = document.getElementById(`${id}-popover`);
-    const btn = document.querySelector(`[popovertarget="${id}-popover"]`);
+    const trigger = document.querySelector(`[popovertarget="${id}-popover"]`);
+    if (!popover || !trigger || popover.dataset.multiselectReady === '1') return;
+    popover.dataset.multiselectReady = '1';
 
-    if (!popover || !btn) return;
+    const placeholder = trigger.querySelector('.placeholder');
+    if (placeholder && !placeholder.dataset.default) {
+        placeholder.dataset.default = placeholder.textContent;
+    }
+    if (placeholder && !placeholder.id) {
+        customSelectAccessibilityId += 1;
+        placeholder.id = `multiselect-value-${customSelectAccessibilityId}`;
+    }
 
-    // Positioning Logic
+    const fieldLabel = trigger.closest('.input-group')?.querySelector(':scope > label');
+    if (fieldLabel) {
+        if (!fieldLabel.id) {
+            customSelectAccessibilityId += 1;
+            fieldLabel.id = `multiselect-label-${customSelectAccessibilityId}`;
+        }
+        trigger.setAttribute(
+            'aria-labelledby',
+            placeholder ? `${fieldLabel.id} ${placeholder.id}` : fieldLabel.id
+        );
+        popover.setAttribute('aria-labelledby', fieldLabel.id);
+    } else if (placeholder) {
+        trigger.setAttribute('aria-labelledby', placeholder.id);
+    }
+    trigger.setAttribute('aria-controls', popover.id);
+    trigger.setAttribute('aria-expanded', isMultiselectPopoverOpen(popover) ? 'true' : 'false');
+    popover.setAttribute('role', 'group');
+
     const positionPopover = () => {
-        const rect = btn.getBoundingClientRect();
+        const rect = trigger.getBoundingClientRect();
         popover.style.top = `${rect.bottom + window.scrollY + 5}px`;
         popover.style.left = `${rect.left + window.scrollX}px`;
         popover.style.width = `${rect.width}px`;
     };
 
-    btn.addEventListener('click', () => {
+    trigger.addEventListener('click', () => {
         setTimeout(positionPopover, 0);
     });
-
-    // Update Header Text on Change
-    popover.querySelectorAll('input').forEach(input => {
-        input.addEventListener('change', () => updateMultiselectHeader(id));
+    trigger.addEventListener('keydown', (event) => handleMultiselectKeydown(event, popover));
+    popover.addEventListener('keydown', (event) => handleMultiselectKeydown(event, popover));
+    popover.addEventListener('change', () => updateMultiselectHeader(id));
+    popover.addEventListener('toggle', () => {
+        const open = isMultiselectPopoverOpen(popover);
+        trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) positionPopover();
     });
+
+    updateMultiselectHeader(id);
 }
 
 function updateMultiselectHeader(id) {
@@ -4745,12 +5312,6 @@ function updateMultiselectHeader(id) {
         placeholder.classList.add('has-value');
     }
 }
-
-// Global Multiselect Init
-document.addEventListener('DOMContentLoaded', () => {
-    setupMultiselectPopover('paper-compatibility');
-    setupMultiselectPopover('base-type');
-});
 
 // Ink Selection in Pen Modal
 const penInkSelect = document.getElementById('pen-ink-select');
@@ -4789,8 +5350,8 @@ function renderPenColorSlots() {
         });
 
         hexInput.addEventListener('input', (e) => {
-            let newHex = e.target.value;
-            if (newHex.startsWith('#') && (newHex.length === 4 || newHex.length === 7)) {
+            const newHex = e.target.value;
+            if (/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(newHex)) {
                 picker.value = newHex;
                 currentPenColors[index] = newHex;
             }
@@ -4894,8 +5455,8 @@ function renderInkColorSlots() {
         });
 
         hexInput.addEventListener('input', (e) => {
-            let newHex = e.target.value;
-            if (newHex.startsWith('#') && (newHex.length === 4 || newHex.length === 7)) {
+            const newHex = e.target.value;
+            if (/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(newHex)) {
                 picker.value = newHex;
                 currentInkColors[index] = newHex;
             }
@@ -4958,12 +5519,18 @@ function getInkColors() {
 
 async function openPenModal(penId = null) {
     if (!(await requestCloseAllModals())) return;
+    penModalSession += 1;
+    penPhotoRequestId += 1;
+    pendingPenPhotoPromise = null;
     resetOverlayState();
     activateModal(modalPen);
     document.getElementById('pen-validation-msg').style.display = 'none';
     currentEditingId = penId;
     penImageRemoved = false;
-    if (uploadPenPreview) uploadPenPreview.onload = null; // Prevent auto-extraction on load
+    if (uploadPenPreview) {
+        uploadPenPreview.onload = null;
+        uploadPenPreview.onerror = null;
+    }
 
     // Populate Ink Select
     // Populate Ink Select Custom Options
@@ -5119,7 +5686,7 @@ function getInkModalDraftState() {
         brand: inkBrandInput ? inkBrandInput.value : '',
         line: document.getElementById('ink-line-input')?.value || '',
         type: normalizeInkType(document.getElementById('ink-type-input')?.value) || 'Bottle',
-        cl: document.getElementById('ink-cl-input')?.value || '',
+        volume_ml: document.getElementById('ink-volume-ml-input')?.value || '',
         amount: document.getElementById('ink-amount-input')?.value || '1',
         price: document.getElementById('ink-price-input')?.value || '',
         shading: document.getElementById('ink-shading')?.value || 'None',
@@ -5157,6 +5724,7 @@ function getCurrentPenGalleryEntry() {
 function setPenGalleryCurrentPrimary() {
     if (!currentPenGallery.length) return;
     currentPenGallery = setGalleryCurrentPrimary(currentPenGallery, currentPenGalleryIndex);
+    currentPenGalleryIndex = 0;
     closePhotoActionMenus();
     renderPenModalGallery();
 }
@@ -5290,7 +5858,32 @@ function hasUnsavedFormChanges(key) {
     return false;
 }
 
+function isFormOperationInProgress() {
+    return isSavingInk
+        || isSavingPen
+        || isSavingSwatch
+        || isDeletingCollectionItem
+        || !!pendingInkPhotoPromise
+        || !!pendingPenPhotoPromise
+        || !!pendingSwatchPhotoPromise;
+}
+
+function setFormModalBusy(modal, busy) {
+    const panel = modal?.querySelector('.modal') || null;
+    if (!panel) return;
+    panel.inert = !!busy;
+    if (busy) {
+        panel.setAttribute('aria-busy', 'true');
+    } else {
+        panel.removeAttribute('aria-busy');
+    }
+}
+
 async function requestCloseAllModals() {
+    if (isFormOperationInProgress()) {
+        showAppNotice('Please wait for the current save or photo to finish.', 'warning');
+        return false;
+    }
     const openFormKey = getVisibleFormModalKey();
     if (openFormKey && hasUnsavedFormChanges(openFormKey)) {
         const confirmed = await confirmAction({
@@ -5312,11 +5905,25 @@ function closeAllModals() {
     const addSwatchModal = document.getElementById('modal-add-swatch');
     const lifecycle = getModalLifecycle();
     if (!lifecycle) return;
+    inkModalSession += 1;
+    penModalSession += 1;
+    swatchModalSession += 1;
+    inkPhotoRequestId += 1;
+    penPhotoRequestId += 1;
+    swatchPhotoRequestId += 1;
+    pendingInkPhotoPromise = null;
+    pendingPenPhotoPromise = null;
+    pendingSwatchPhotoPromise = null;
+    setFormModalBusy(modalInk, false);
+    setFormModalBusy(modalPen, false);
+    setFormModalBusy(addSwatchModal, false);
     closeDetailImageLightbox();
     closeSwatchCalendar();
+    closeMultiselectPopover(getOpenMultiselectPopover(), { restoreFocus: false });
     lifecycle.closeAllModals([modalInk, modalPen, modalSwatchDetail, modalPenDetail, addSwatchModal]);
     currentSwatchDetailInkId = null;
     currentSwatchDetailSwatchId = null;
+    currentSwatchDetailImageIndex = 0;
     currentPenDetailPenId = null;
     currentEditingId = null;
     currentEditingSwatchId = null;
@@ -5387,7 +5994,18 @@ let appNoticeEl = null;
 let appNoticeTimer = null;
 let suppressSettingsPersist = false;
 let showcaseExportInFlight = false;
+let backupImportInFlight = false;
 const SETTINGS_TOOLTIP_DELAY_MS = 500;
+
+function setSettingsOperationBusy(busy) {
+    if (!viewSettings) return;
+    viewSettings.inert = !!busy;
+    if (busy) {
+        viewSettings.setAttribute('aria-busy', 'true');
+    } else {
+        viewSettings.removeAttribute('aria-busy');
+    }
+}
 
 function ensureSettingsTooltipEl() {
     if (settingsTooltipEl) return settingsTooltipEl;
@@ -5569,7 +6187,26 @@ function ensureAppNoticeEl() {
     return appNoticeEl;
 }
 
-function showAppNotice(message, type = 'info') {
+function calculateAppNoticeDuration(message, type = 'info', minimumDurationMs = null) {
+    const characterCount = Array.from(String(message || '').trim()).length;
+    let typeMinimumMs = 3000;
+    let typeBonusMs = 0;
+    if (type === 'warning') {
+        typeMinimumMs = 4000;
+        typeBonusMs = 1000;
+    } else if (type === 'error') {
+        typeMinimumMs = 5000;
+        typeBonusMs = 2000;
+    }
+    const requestedMinimum = Number(minimumDurationMs);
+    const effectiveMinimum = Number.isFinite(requestedMinimum)
+        ? Math.max(typeMinimumMs, requestedMinimum)
+        : typeMinimumMs;
+    const calculated = 2000 + (characterCount * 50) + typeBonusMs;
+    return Math.min(12000, Math.max(effectiveMinimum, calculated));
+}
+
+function showAppNotice(message, type = 'info', minimumDurationMs = null) {
     const text = String(message || '').trim().replace(/[.。]+$/u, '');
     if (!text) return;
     const el = ensureAppNoticeEl();
@@ -5583,9 +6220,11 @@ function showAppNotice(message, type = 'info') {
     if (type === 'error') el.classList.add('is-error');
     if (type === 'warning') el.classList.add('is-warning');
     el.classList.add('is-visible');
+    const duration = calculateAppNoticeDuration(text, type, minimumDurationMs);
     appNoticeTimer = setTimeout(() => {
         el.classList.remove('is-visible');
-    }, 2600);
+        appNoticeTimer = null;
+    }, duration);
 }
 
 async function copyTextToClipboard(text) {
@@ -5663,6 +6302,7 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
     const swatch = isSwatchCardView ? getSwatchById(entityId) : getLatestSwatchForInk(entityId);
     const ink = isSwatchCardView ? getInkById(swatch && swatch.ink_id) : getInkById(entityId);
     if (!ink) return;
+    const previousSwatchDetailSwatchId = currentSwatchDetailSwatchId;
     currentSwatchDetailInkId = entityId;
     currentSwatchDetailSwatchId = swatch ? swatch.id : null;
     currentSwatchDetailSourceView = sourceView;
@@ -5692,6 +6332,7 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
         imageContainer.style.flex = '1.2';
         imageContainer.style.height = 'auto';
         imageContainer.style.minHeight = '400px';
+        imageContainer.querySelectorAll('.detail-photo-nav').forEach((el) => el.remove());
     }
 
     // 3. Populate basic data
@@ -5749,7 +6390,7 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
             metadataArea.innerHTML = `
                 ${createSection('Ink Line', ink.line || 'Not specified')}
                 ${createSection('Type', normalizeInkType(ink.type) || 'Bottle')}
-                ${createSection('Volume (cl)', ink.cl || 'Not specified')}
+                ${createSection('Volume (ml)', ink.volume_ml || 'Not specified')}
                 ${createSection('Amount', bottleAmountLabel)}
                 ${hidePrices ? '' : createSection('Price (Per Bottle)', unitPriceLabel)}
                 ${hidePrices ? '' : createSection('Total Price', totalPrice)}
@@ -5782,56 +6423,120 @@ function openSwatchDetailModal(entityId, sourceView = 'swatches') {
     }
 
     // 4. Handle Image and Layout Decision
-    const primaryImage = swatch ? getPrimaryImageEntry(swatch) : null;
-    if (primaryImage && primaryImage.path && img) {
-        const imagePath = resolveImageSource(primaryImage.path);
-        configureDetailImageLightboxTrigger(
-            img,
-            imagePath,
-            sourceView === 'inks' ? `${formatInkName(ink)} ink image` : `${formatInkName(ink)} swatch image`
-        );
+    const detailImages = swatch ? getImageEntries(swatch) : [];
+    const primaryIndex = getGalleryPrimaryIndex(detailImages);
+    const maxImageIndex = Math.max(0, detailImages.length - 1);
+    currentSwatchDetailImageIndex = previousSwatchDetailSwatchId === currentSwatchDetailSwatchId
+        ? Math.max(0, Math.min(currentSwatchDetailImageIndex, maxImageIndex))
+        : primaryIndex;
 
-        img.onload = () => {
-            const ratio = img.naturalWidth / img.naturalHeight;
-            if (ratio > 1.25) {
-                if (contentArea) contentArea.classList.remove('portrait-metadata-centered');
-                if (layout) layout.style.flexDirection = 'column';
-                if (container) container.style.width = '700px';
-                if (imageContainer) {
-                    imageContainer.style.flex = 'none';
-                    imageContainer.style.height = '350px';
-                    imageContainer.style.minHeight = 'auto';
+    const resetSwatchDetailImageLayout = () => {
+        if (contentArea) contentArea.classList.remove('portrait-metadata-centered');
+        if (layout) layout.style.flexDirection = 'row';
+        if (container) container.style.width = '900px';
+        if (imageContainer) {
+            imageContainer.style.display = 'block';
+            imageContainer.style.flex = '1.2';
+            imageContainer.style.height = 'auto';
+            imageContainer.style.minHeight = '400px';
+        }
+    };
+
+    const renderSwatchDetailImage = () => {
+        const currentImage = detailImages[currentSwatchDetailImageIndex] || detailImages[primaryIndex] || null;
+        resetSwatchDetailImageLayout();
+
+        if (currentImage && currentImage.path && img) {
+            const imagePath = resolveImageSource(currentImage.path);
+            img.style.display = 'block';
+            configureDetailImageLightboxTrigger(
+                img,
+                imagePath,
+                sourceView === 'inks' ? `${formatInkName(ink)} ink image` : `${formatInkName(ink)} swatch image`
+            );
+
+            img.onload = () => {
+                const ratio = img.naturalWidth / img.naturalHeight;
+                if (ratio > 1.25) {
+                    if (layout) layout.style.flexDirection = 'column';
+                    if (container) container.style.width = '700px';
+                    if (imageContainer) {
+                        imageContainer.style.flex = 'none';
+                        imageContainer.style.height = '350px';
+                        imageContainer.style.minHeight = 'auto';
+                    }
+                } else if (contentArea) {
+                    contentArea.classList.add('portrait-metadata-centered');
                 }
-            } else {
-                if (contentArea) contentArea.classList.add('portrait-metadata-centered');
-            }
-            modalSwatchDetail.style.display = 'flex';
-            requestAnimationFrame(updateInkDetailMetadataLayout);
-            img.onload = null;
-            img.onerror = null;
-        };
+                modalSwatchDetail.style.display = 'flex';
+                requestAnimationFrame(updateInkDetailMetadataLayout);
+                img.onload = null;
+                img.onerror = null;
+            };
 
-        img.onerror = () => {
-            // If image fails, hide image area but still show modal
-            if (contentArea) contentArea.classList.remove('portrait-metadata-centered');
+            img.onerror = () => {
+                img.onload = null;
+                img.onerror = null;
+                configureDetailImageLightboxTrigger(img, '', '');
+                img.removeAttribute('src');
+                img.style.display = 'none';
+                if (imageContainer) imageContainer.style.display = detailImages.length > 1 ? 'block' : 'none';
+                if (container && detailImages.length <= 1) container.style.width = '550px';
+                modalSwatchDetail.style.display = 'flex';
+                requestAnimationFrame(updateInkDetailMetadataLayout);
+            };
+
+            img.src = imagePath;
+        } else {
+            if (img) {
+                img.onload = null;
+                img.onerror = null;
+                configureDetailImageLightboxTrigger(img, '', '');
+                img.removeAttribute('src');
+                img.style.display = 'none';
+            }
             if (imageContainer) imageContainer.style.display = 'none';
             if (container) container.style.width = '550px';
             modalSwatchDetail.style.display = 'flex';
             requestAnimationFrame(updateInkDetailMetadataLayout);
-            img.onload = null;
-            img.onerror = null;
-        };
+        }
 
-        img.src = imagePath;
-    } else {
-        if (img) configureDetailImageLightboxTrigger(img, '', '');
-        if (contentArea) contentArea.classList.remove('portrait-metadata-centered');
-        if (img) img.src = '';
-        if (imageContainer) imageContainer.style.display = 'none';
-        if (container) container.style.width = '550px';
-        modalSwatchDetail.style.display = 'flex';
-        requestAnimationFrame(updateInkDetailMetadataLayout);
+        if (imageContainer) {
+            setGalleryNavAvailability(
+                imageContainer.querySelector('.detail-photo-nav.prev'),
+                imageContainer.querySelector('.detail-photo-nav.next'),
+                currentSwatchDetailImageIndex,
+                detailImages.length
+            );
+        }
+    };
+
+    if (imageContainer && detailImages.length > 1) {
+        const prev = document.createElement('button');
+        prev.type = 'button';
+        prev.className = 'detail-photo-nav prev';
+        prev.title = 'Previous photo';
+        prev.innerHTML = '<i class="ph ph-caret-left"></i>';
+        const next = document.createElement('button');
+        next.type = 'button';
+        next.className = 'detail-photo-nav next';
+        next.title = 'Next photo';
+        next.innerHTML = '<i class="ph ph-caret-right"></i>';
+        prev.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (currentSwatchDetailImageIndex <= 0) return;
+            currentSwatchDetailImageIndex -= 1;
+            renderSwatchDetailImage();
+        });
+        next.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (currentSwatchDetailImageIndex >= detailImages.length - 1) return;
+            currentSwatchDetailImageIndex += 1;
+            renderSwatchDetailImage();
+        });
+        imageContainer.append(prev, next);
     }
+    renderSwatchDetailImage();
 }
 
 function openPenDetailModal(penId, sourceView = 'pens') {
@@ -5908,14 +6613,14 @@ function openPenDetailModal(penId, sourceView = 'pens') {
     };
 
     const ci = (appData.currently_inked || []).find(item => item.pen_id === pen.id);
-    const linkedInk = ci ? appData.inks.find(i => i.id === ci.ink_id) : null;
+    const linkedInk = ci ? getInkById(ci.ink_id) : null;
     const isMobileDetail = !!(window.matchMedia && window.matchMedia('(max-width: 1024px)').matches);
 
     if (metadataArea) {
         const hidePrices = shouldHidePricesInShowcase();
-        const mobileCurrentInkName = linkedInk
+        const mobileCurrentInkName = escapeHtml(linkedInk
             ? `${linkedInk.brand ? `${linkedInk.brand} ` : ''}${linkedInk.name || ''}`.trim()
-            : 'Nothing (Clean)';
+            : 'Nothing (Clean)');
         const mobileCurrentInkColor = linkedInk ? (linkedInk.color_base || '#ccc') : '#d0d0d0';
         metadataArea.innerHTML = `
             ${createSection('Nib Size', pen.nib)}
@@ -6020,10 +6725,51 @@ function openPenDetailModal(penId, sourceView = 'pens') {
     currentPenDetailImageIndex = Math.max(0, Math.min(currentPenDetailImageIndex || primaryIndex, Math.max(0, detailImages.length - 1)));
     if (previousPenDetailPenId !== penId) currentPenDetailImageIndex = primaryIndex;
 
+    const showPenDetailImageFallback = () => {
+        if (penImg) {
+            penImg.onload = null;
+            penImg.onerror = null;
+            configureDetailImageLightboxTrigger(penImg, '', '');
+            penImg.removeAttribute('src');
+            penImg.className = '';
+            penImg.style.display = 'none';
+            penImg.style.width = '';
+            penImg.style.height = '';
+            penImg.style.position = '';
+            penImg.style.transform = 'rotate(0deg)';
+            penImg.style.objectFit = '';
+            penImg.style.top = '';
+            penImg.style.left = '';
+            penImg.style.removeProperty('--rot');
+            penImg.style.removeProperty('--p-width');
+            penImg.style.removeProperty('--p-height');
+        }
+        if (placeholderIcon) placeholderIcon.style.display = 'block';
+        if (layout) {
+            layout.style.flexDirection = 'row';
+            layout.classList.remove('pen-detail-layout-landscape');
+        }
+        if (container) {
+            container.style.width = '800px';
+            container.classList.remove('pen-detail-modal-landscape');
+        }
+        if (contentArea) contentArea.classList.remove('pen-detail-content-landscape');
+        if (visualContainer) {
+            visualContainer.style.background = pen.hex_color || getPenDetailDefaultVisualBackground();
+            visualContainer.style.flex = '1';
+            visualContainer.style.height = 'auto';
+            visualContainer.style.minHeight = '400px';
+            visualContainer.style.maxHeight = '';
+            visualContainer.classList.remove('is-landscape-image');
+        }
+        modalPenDetail.style.display = 'flex';
+    };
+
     const renderPenDetailImage = () => {
         const currentImage = detailImages[currentPenDetailImageIndex] || detailImages[primaryIndex] || null;
         if (currentImage && currentImage.path && penImg) {
             const imagePath = resolveImageSource(currentImage.path);
+            showPenDetailImageFallback();
             configureDetailImageLightboxTrigger(penImg, imagePath, `${formatPenName(pen)} image`);
 
 	            penImg.onload = () => {
@@ -6087,19 +6833,14 @@ function openPenDetailModal(penId, sourceView = 'pens') {
                 if (placeholderIcon) placeholderIcon.style.display = 'none';
                 modalPenDetail.style.display = 'flex';
                 penImg.onload = null;
+                penImg.onerror = null;
             };
-            penImg.src = '';
+            penImg.onerror = () => {
+                showPenDetailImageFallback();
+            };
             penImg.src = imagePath;
         } else {
-            if (penImg) configureDetailImageLightboxTrigger(penImg, '', '');
-            if (penImg) {
-                penImg.style.display = 'none';
-                penImg.style.transform = 'rotate(0deg)';
-            }
-            if (placeholderIcon) placeholderIcon.style.display = 'block';
-            if (layout) layout.style.flexDirection = 'row';
-            if (container) container.style.width = '800px';
-            modalPenDetail.style.display = 'flex';
+            showPenDetailImageFallback();
         }
         if (visualContainer) {
             setGalleryNavAvailability(
@@ -6140,183 +6881,260 @@ function openPenDetailModal(penId, sourceView = 'pens') {
 }
 
 async function saveNewInk() {
-    const name = inkNameInput.value;
-    const brand = inkBrandInput ? inkBrandInput.value : "Custom";
-    const wasEdit = !!currentEditingId;
-    const existingInk = wasEdit ? findInkById(currentEditingId) : null;
-    const existingInkSnapshot = wasEdit
-        ? cloneEntityForDiff(existingInk, ['hex_colors', 'base_type', 'paper_compatibility'])
-        : null;
-
+    if (isSavingInk) return false;
+    const editingInkId = currentEditingId;
+    isSavingInk = true;
     const validationMsg = document.getElementById('ink-validation-msg');
-    validationMsg.style.display = 'none';
-
-    if (!name) {
-        validationMsg.textContent = 'Please enter an ink name';
-        validationMsg.style.display = 'inline-block';
-        return;
+    let createdImagePaths = [];
+    let inkStateBeforeSave = null;
+    setFormModalBusy(modalInk, true);
+    if (btnSaveInk) {
+        btnSaveInk.disabled = true;
+        btnSaveInk.setAttribute('aria-busy', 'true');
     }
-
-    const previousImagePath = existingInk && existingInk.image ? existingInk.image : null;
-    let imageFilename = null;
-    if (currentSelectedImagePath && !currentSelectedImagePath.startsWith('images/')) {
-        imageFilename = await saveManagedImage(currentSelectedImagePath, 'ink', { brand, model: name });
-    }
-
-    const allColors = getInkColors();
-    const colorBase = allColors[0] || "#4a0e28";
-    const colorAccent = allColors[1] || colorBase;
-
-    if (currentEditingId) {
-        // Edit Mode
-        const index = appData.inks.findIndex(i => i.id === currentEditingId);
-        if (index !== -1) {
-            appData.inks[index].name = name;
-            appData.inks[index].brand = brand;
-            appData.inks[index].color_base = colorBase;
-            appData.inks[index].color_accent = colorAccent;
-            appData.inks[index].hex_colors = allColors;
-
-            if (imageFilename) {
-                appData.inks[index].image = imageFilename;
+    try {
+        if (pendingInkPhotoPromise && !(await pendingInkPhotoPromise)) {
+            if (validationMsg) {
+                validationMsg.textContent = 'The selected image could not be processed. Please choose it again.';
+                validationMsg.style.display = 'inline-block';
             }
-
-
-            // Technical Fields
-            appData.inks[index].line = document.getElementById('ink-line-input')?.value;
-            appData.inks[index].type = normalizeInkType(document.getElementById('ink-type-input')?.value) || 'Bottle';
-            appData.inks[index].cl = document.getElementById('ink-cl-input')?.value;
-            appData.inks[index].amount = document.getElementById('ink-amount-input')?.value;
-            appData.inks[index].price = document.getElementById('ink-price-input')?.value || '';
-
-            appData.inks[index].shading = document.getElementById('ink-shading')?.value;
-            appData.inks[index].sheen = document.getElementById('ink-sheen')?.value;
-            appData.inks[index].shimmer = document.getElementById('ink-shimmer')?.value;
-            appData.inks[index].flow = document.getElementById('ink-flow')?.value;
-            appData.inks[index].lubrication = document.getElementById('ink-lubrication')?.value;
-            appData.inks[index].dry_time = document.getElementById('ink-dry-time')?.value;
-            appData.inks[index].permanence = document.getElementById('ink-permanence')?.value;
-
-            // Multiselect for Base Type
-            const baseTypeCheckboxes = document.querySelectorAll('#base-type-popover input[type="checkbox"]');
-            appData.inks[index].base_type = Array.from(baseTypeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
-
-            // Multiselect for Paper Compatibility
-            const paperCheckboxes = document.querySelectorAll('#paper-compatibility-popover input[type="checkbox"]');
-            appData.inks[index].paper_compatibility = Array.from(paperCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
-
-            appData.inks[index].notes = document.getElementById('ink-notes')?.value;
+            return false;
         }
-    } else {
-        const paperCheckboxes = document.querySelectorAll('#paper-compatibility-popover input[type="checkbox"]');
-        const newInk = {
-            id: makeClientId('ink'),
-            name: name,
-            brand: brand,
-            line: document.getElementById('ink-line-input')?.value || '',
-            type: normalizeInkType(document.getElementById('ink-type-input')?.value) || 'Bottle',
-            cl: document.getElementById('ink-cl-input')?.value || '',
-            amount: document.getElementById('ink-amount-input')?.value || '1',
-            price: document.getElementById('ink-price-input')?.value || '',
-            color_base: colorBase,
-            color_accent: colorAccent,
-            hex_colors: allColors,
-            shading: document.getElementById('ink-shading')?.value || 'None',
-            sheen: document.getElementById('ink-sheen')?.value || 'None',
-            shimmer: document.getElementById('ink-shimmer')?.value || 'None',
-            flow: document.getElementById('ink-flow')?.value || 'Average',
-            lubrication: document.getElementById('ink-lubrication')?.value || 'None',
-            dry_time: document.getElementById('ink-dry-time')?.value || '',
-            base_type: Array.from(document.querySelectorAll('#base-type-popover input[type="checkbox"]')).filter(cb => cb.checked).map(cb => cb.value),
-            permanence: document.getElementById('ink-permanence')?.value || 'None',
-            paper_compatibility: Array.from(paperCheckboxes).filter(cb => cb.checked).map(cb => cb.value),
-            notes: document.getElementById('ink-notes')?.value || '',
-            image: imageFilename
-        };
-        appData.inks.push(newInk);
-        logActivity('created', 'ink', `Added ink: ${formatInkName(newInk)}.`, {
-            entityId: newInk.id,
-            metadata: buildInkActivityMetadata(newInk)
-        });
-    }
+        await settingsPersistQueue;
+        const name = inkNameInput.value;
+        const brand = inkBrandInput ? inkBrandInput.value : "Custom";
+        const wasEdit = !!editingInkId;
+        const existingInk = wasEdit ? findInkById(editingInkId) : null;
+        const existingInkSnapshot = wasEdit
+            ? cloneEntityForDiff(existingInk, ['hex_colors', 'base_type', 'paper_compatibility'])
+            : null;
 
-    if (wasEdit && existingInk) {
-        const updatedInk = findInkById(existingInk.id);
-        const changedLabels = getChangedFieldLabels(existingInkSnapshot, updatedInk, [
-            { key: 'name', label: 'Name' },
-            { key: 'brand', label: 'Brand' },
-            { key: 'line', label: 'Ink Line' },
-            { key: 'type', label: 'Type' },
-            { key: 'cl', label: 'Volume (cl)' },
-            { key: 'amount', label: 'Amount' },
-            { key: 'price', label: 'Price' },
-            { key: 'hex_colors', label: 'Colors', mode: 'array' },
-            { key: 'shading', label: 'Shading' },
-            { key: 'sheen', label: 'Sheen' },
-            { key: 'shimmer', label: 'Shimmer' },
-            { key: 'flow', label: 'Flow' },
-            { key: 'lubrication', label: 'Lubrication' },
-            { key: 'dry_time', label: 'Dry Time' },
-            { key: 'base_type', label: 'Base Type', mode: 'array' },
-            { key: 'permanence', label: 'Permanence' },
-            { key: 'paper_compatibility', label: 'Paper Compatibility', mode: 'array' },
-            { key: 'notes', label: 'Notes' },
-            { key: 'image', label: 'Image' }
-        ]);
-        const details = formatChangedFieldsCompact(changedLabels);
-        const message = details
-            ? `Updated ink: ${formatInkName(updatedInk)} (${details}).`
-            : `Updated ink: ${formatInkName(updatedInk)}.`;
-        logActivity('updated', 'ink', message, {
-            entityId: existingInk.id,
-            metadata: buildInkActivityMetadata(updatedInk)
-        });
-    }
+        if (validationMsg) validationMsg.style.display = 'none';
 
-    const nextImagePath = currentEditingId
-        ? ((appData.inks.find(i => i.id === currentEditingId) || {}).image || '')
-        : imageFilename;
-    const shouldDeletePreviousImage = wasEdit
-        && previousImagePath
-        && nextImagePath
-        && previousImagePath !== nextImagePath
-        && isManagedImagePathForDeletion(previousImagePath);
-
-    await persistDataAndRefresh({
-        refresh: {
-            dashboard: true,
-            inks: true,
-            swatches: true,
-            activity: true,
-            autocomplete: true
-        },
-        onSuccess: async () => {
-            if (shouldDeletePreviousImage) {
-                await disposeReplacedManagedImage(previousImagePath);
+        if (!name) {
+            if (validationMsg) {
+                validationMsg.textContent = 'Please enter an ink name';
+                validationMsg.style.display = 'inline-block';
             }
-            currentSelectedImagePath = null;
-            closeAllModals();
-        },
-        onErrorMessage: 'Failed to save data!'
-    });
+            return false;
+        }
+
+        inkStateBeforeSave = {
+            inks: cloneCollectionArray(appData.inks),
+            activityLog: cloneCollectionArray(appData.activity_log)
+        };
+
+        const previousImagePath = existingInk && existingInk.image ? existingInk.image : null;
+        let imageFilename = null;
+        if (currentSelectedImagePath && !currentSelectedImagePath.startsWith('images/')) {
+            const imageSaveResult = await saveManagedImage(currentSelectedImagePath, 'ink', { brand, model: name });
+            imageFilename = normalizeNewManagedImagePath(extractManagedImageSavePath(imageSaveResult), 'ink');
+            if (!imageFilename) {
+                throw new Error('The image save did not return a managed ink image path.');
+            }
+            createdImagePaths = [imageFilename];
+        }
+
+        const allColors = [...getInkColors()];
+        const colorBase = allColors[0] || "#4a0e28";
+        const colorAccent = allColors[1] || colorBase;
+
+        if (editingInkId) {
+            // Edit Mode
+            const index = appData.inks.findIndex(i => i.id === editingInkId);
+            if (index !== -1) {
+                appData.inks[index].name = name;
+                appData.inks[index].brand = brand;
+                appData.inks[index].color_base = colorBase;
+                appData.inks[index].color_accent = colorAccent;
+                appData.inks[index].hex_colors = allColors;
+
+                if (imageFilename) {
+                    appData.inks[index].image = imageFilename;
+                }
+
+                // Technical Fields
+                appData.inks[index].line = document.getElementById('ink-line-input')?.value;
+                appData.inks[index].type = normalizeInkType(document.getElementById('ink-type-input')?.value) || 'Bottle';
+                appData.inks[index].volume_ml = document.getElementById('ink-volume-ml-input')?.value;
+                appData.inks[index].amount = document.getElementById('ink-amount-input')?.value;
+                appData.inks[index].price = document.getElementById('ink-price-input')?.value || '';
+
+                appData.inks[index].shading = document.getElementById('ink-shading')?.value;
+                appData.inks[index].sheen = document.getElementById('ink-sheen')?.value;
+                appData.inks[index].shimmer = document.getElementById('ink-shimmer')?.value;
+                appData.inks[index].flow = document.getElementById('ink-flow')?.value;
+                appData.inks[index].lubrication = document.getElementById('ink-lubrication')?.value;
+                appData.inks[index].dry_time = document.getElementById('ink-dry-time')?.value;
+                appData.inks[index].permanence = document.getElementById('ink-permanence')?.value;
+
+                const baseTypeCheckboxes = document.querySelectorAll('#base-type-popover input[type="checkbox"]');
+                appData.inks[index].base_type = Array.from(baseTypeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+
+                const paperCheckboxes = document.querySelectorAll('#paper-compatibility-popover input[type="checkbox"]');
+                appData.inks[index].paper_compatibility = Array.from(paperCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+
+                appData.inks[index].notes = document.getElementById('ink-notes')?.value;
+            }
+        } else {
+            const paperCheckboxes = document.querySelectorAll('#paper-compatibility-popover input[type="checkbox"]');
+            const newInk = {
+                id: makeClientId('ink'),
+                name: name,
+                brand: brand,
+                line: document.getElementById('ink-line-input')?.value || '',
+                type: normalizeInkType(document.getElementById('ink-type-input')?.value) || 'Bottle',
+                volume_ml: document.getElementById('ink-volume-ml-input')?.value || '',
+                amount: document.getElementById('ink-amount-input')?.value || '1',
+                price: document.getElementById('ink-price-input')?.value || '',
+                color_base: colorBase,
+                color_accent: colorAccent,
+                hex_colors: allColors,
+                shading: document.getElementById('ink-shading')?.value || 'None',
+                sheen: document.getElementById('ink-sheen')?.value || 'None',
+                shimmer: document.getElementById('ink-shimmer')?.value || 'None',
+                flow: document.getElementById('ink-flow')?.value || 'Average',
+                lubrication: document.getElementById('ink-lubrication')?.value || 'None',
+                dry_time: document.getElementById('ink-dry-time')?.value || '',
+                base_type: Array.from(document.querySelectorAll('#base-type-popover input[type="checkbox"]')).filter(cb => cb.checked).map(cb => cb.value),
+                permanence: document.getElementById('ink-permanence')?.value || 'None',
+                paper_compatibility: Array.from(paperCheckboxes).filter(cb => cb.checked).map(cb => cb.value),
+                notes: document.getElementById('ink-notes')?.value || '',
+                image: imageFilename
+            };
+            appData.inks.push(newInk);
+            logActivity('created', 'ink', `Added ink: ${formatInkName(newInk)}.`, {
+                entityId: newInk.id,
+                metadata: buildInkActivityMetadata(newInk)
+            });
+        }
+
+        if (wasEdit && existingInk) {
+            const updatedInk = findInkById(existingInk.id);
+            const changedLabels = getChangedFieldLabels(existingInkSnapshot, updatedInk, [
+                { key: 'name', label: 'Name' },
+                { key: 'brand', label: 'Brand' },
+                { key: 'line', label: 'Ink Line' },
+                { key: 'type', label: 'Type' },
+                { key: 'volume_ml', label: 'Volume (ml)' },
+                { key: 'amount', label: 'Amount' },
+                { key: 'price', label: 'Price' },
+                { key: 'hex_colors', label: 'Colors', mode: 'array' },
+                { key: 'shading', label: 'Shading' },
+                { key: 'sheen', label: 'Sheen' },
+                { key: 'shimmer', label: 'Shimmer' },
+                { key: 'flow', label: 'Flow' },
+                { key: 'lubrication', label: 'Lubrication' },
+                { key: 'dry_time', label: 'Dry Time' },
+                { key: 'base_type', label: 'Base Type', mode: 'array' },
+                { key: 'permanence', label: 'Permanence' },
+                { key: 'paper_compatibility', label: 'Paper Compatibility', mode: 'array' },
+                { key: 'notes', label: 'Notes' },
+                { key: 'image', label: 'Image' }
+            ]);
+            const details = formatChangedFieldsCompact(changedLabels);
+            const message = details
+                ? `Updated ink: ${formatInkName(updatedInk)} (${details}).`
+                : `Updated ink: ${formatInkName(updatedInk)}.`;
+            logActivity('updated', 'ink', message, {
+                entityId: existingInk.id,
+                metadata: buildInkActivityMetadata(updatedInk)
+            });
+        }
+
+        const nextImagePath = editingInkId
+            ? ((appData.inks.find(i => i.id === editingInkId) || {}).image || '')
+            : imageFilename;
+        const shouldDeletePreviousImage = wasEdit
+            && previousImagePath
+            && nextImagePath
+            && previousImagePath !== nextImagePath
+            && isManagedImagePathForDeletion(previousImagePath);
+
+        const saved = await persistDataAndRefresh({
+            refresh: {
+                dashboard: true,
+                inks: true,
+                swatches: true,
+                activity: true,
+                autocomplete: true
+            },
+            onSuccess: async () => {
+                try {
+                    await runPostSaveCleanupTasks([
+                        shouldDeletePreviousImage
+                            ? () => disposeReplacedManagedImage(previousImagePath)
+                            : null
+                    ]);
+                } finally {
+                    currentSelectedImagePath = null;
+                    closeAllModals();
+                }
+            },
+            onErrorMessage: 'Failed to save data!'
+        });
+        if (!saved) {
+            appData.inks = inkStateBeforeSave.inks;
+            appData.activity_log = inkStateBeforeSave.activityLog;
+            const cleanup = await deleteUncommittedManagedImages(createdImagePaths);
+            if (validationMsg) {
+                validationMsg.textContent = cleanup.success
+                    ? 'The ink was not saved. Nothing was changed.'
+                    : 'The ink was not saved. Nothing was changed, but the temporary image file could not be removed.';
+                validationMsg.style.display = 'inline-block';
+            }
+        }
+        return saved;
+    } catch (error) {
+        if (inkStateBeforeSave) {
+            appData.inks = inkStateBeforeSave.inks;
+            appData.activity_log = inkStateBeforeSave.activityLog;
+        }
+        const cleanup = await deleteUncommittedManagedImages(createdImagePaths);
+        if (validationMsg) {
+            validationMsg.textContent = cleanup.success
+                ? 'The ink was not saved. Nothing was changed.'
+                : 'The ink was not saved. Nothing was changed, but the temporary image file could not be removed.';
+            validationMsg.style.display = 'inline-block';
+        }
+        console.warn('Ink save attempt failed.', error && error.cause ? error.cause : error);
+        return false;
+    } finally {
+        isSavingInk = false;
+        setFormModalBusy(modalInk, false);
+        if (btnSaveInk) {
+            btnSaveInk.disabled = false;
+            btnSaveInk.removeAttribute('aria-busy');
+        }
+    }
 }
 
 async function saveNewPen() {
     if (isSavingPen) return;
+    const editingPenId = currentEditingId;
     isSavingPen = true;
+    const validationMsg = document.getElementById('pen-validation-msg');
+    let createdImagePaths = [];
+    let penStateBeforeSave = null;
+    setFormModalBusy(modalPen, true);
     if (btnSavePen) {
         btnSavePen.disabled = true;
         btnSavePen.setAttribute('aria-busy', 'true');
     }
     try {
-    if (pendingPenPhotoPromise) await pendingPenPhotoPromise;
+    if (pendingPenPhotoPromise && !(await pendingPenPhotoPromise)) {
+        validationMsg.textContent = 'The selected photo could not be processed. Please choose it again.';
+        validationMsg.style.display = 'inline-block';
+        return false;
+    }
+    await settingsPersistQueue;
     const brand = penBrandInput.value;
     const model = penModelInput.value;
     const normalizedPenMaterial = normalizeCsvValues(penMaterialInput.value).join(', ');
     const normalizedFillingSystem = normalizeCsvValues(penFillingSystemInput.value).join(', ');
     const normalizedPenColor = normalizeCsvValues(penColorInput.value).join(', ');
-    const wasEdit = !!currentEditingId;
-    const existingPen = wasEdit ? findPenById(currentEditingId) : null;
+    const wasEdit = !!editingPenId;
+    const existingPen = wasEdit ? findPenById(editingPenId) : null;
     const existingPenSnapshot = wasEdit
         ? cloneEntityForDiff(existingPen, ['hex_colors'])
         : null;
@@ -6324,11 +7142,10 @@ async function saveNewPen() {
     const previousImagePaths = wasEdit && existingPen
         ? getImageEntries(existingPen).map((entry) => entry.path).filter(Boolean)
         : [];
-    const previousLink = wasEdit ? (appData.currently_inked || []).find(ci => ci.pen_id === currentEditingId) : null;
+    const previousLink = wasEdit ? (appData.currently_inked || []).find(ci => ci.pen_id === editingPenId) : null;
     const previousInkId = previousLink ? previousLink.ink_id : '';
 
-    const validationMsg = document.getElementById('pen-validation-msg');
-    validationMsg.style.display = 'none';
+	    validationMsg.style.display = 'none';
 
   if (!brand || !model) {
       validationMsg.textContent = 'Brand and Model are required.';
@@ -6336,13 +7153,18 @@ async function saveNewPen() {
       return;
   }
 
-  const allColors = getPenColors();
-  const hexColor = allColors[0] || '';
+	  const allColors = getPenColors();
+	  const hexColor = allColors[0] || '';
+      penStateBeforeSave = {
+          pens: cloneCollectionArray(appData.pens),
+          currentlyInked: cloneCollectionArray(appData.currently_inked),
+          activityLog: cloneCollectionArray(appData.activity_log)
+      };
 
-  let imageFilename = "default_pen.png";
+	  let imageFilename = "default_pen.png";
 
     // 1. Determine existing image if editing
-    if (currentEditingId) {
+    if (editingPenId) {
         if (existingPen && existingPen.image) {
             imageFilename = existingPen.image;
         }
@@ -6356,6 +7178,7 @@ async function saveNewPen() {
 	    if (currentPenGallery[currentPenGalleryIndex]) {
 	        currentPenGallery[currentPenGalleryIndex].rotation = currentPenRotation;
 	    }
+        const penGalleryForSave = normalizeModalGallery(currentPenGallery);
 	    const penImageMetadata = {
 	        brand,
 	        model,
@@ -6364,9 +7187,11 @@ async function saveNewPen() {
 	        hex_color: allColors[0] || '',
 	        hex_colors: allColors
 	    };
-	    let penImages = penImageRemoved
-	        ? []
-	        : await savePendingGalleryImages(currentPenGallery, 'pen', penImageMetadata);
+	    const penGallerySave = penImageRemoved
+	        ? { images: [], createdPaths: [] }
+	        : await savePendingGalleryImages(penGalleryForSave, 'pen', penImageMetadata);
+        let penImages = penGallerySave.images;
+        createdImagePaths = penGallerySave.createdPaths;
     if (!penImages.length && imageFilename !== 'default_pen.png') {
         penImages = singlePrimaryImageList(imageFilename, currentPenRotation);
     }
@@ -6374,11 +7199,11 @@ async function saveNewPen() {
     imageFilename = primaryPenImage ? primaryPenImage.path : 'default_pen.png';
     currentPenRotation = primaryPenImage ? primaryPenImage.rotation || 0 : 0;
 
-  let targetPenId = currentEditingId;
+  let targetPenId = editingPenId;
 
-    if (currentEditingId) {
+    if (editingPenId) {
         // Edit Mode
-        const index = appData.pens.findIndex(p => p.id === currentEditingId);
+        const index = appData.pens.findIndex(p => p.id === editingPenId);
         if (index !== -1) {
             appData.pens[index].brand = brand;
             appData.pens[index].model = model;
@@ -6522,26 +7347,55 @@ async function saveNewPen() {
         && !removedImagePaths.includes(previousImagePath)
         && isManagedImagePathForDeletion(previousImagePath);
 
-    await persistDataAndRefresh({
-        refresh: {
-            pens: true,
+	    const saved = await persistDataAndRefresh({
+	        refresh: {
+	            pens: true,
             dashboard: true,
             activity: true,
             autocomplete: true
         },
         onSuccess: async () => {
-            for (const removedImagePath of removedImagePaths) {
-                await disposeReplacedManagedImage(removedImagePath);
+            try {
+                await runPostSaveCleanupTasks([
+                    ...removedImagePaths.map((removedImagePath) => (
+                        () => disposeReplacedManagedImage(removedImagePath)
+                    )),
+                    shouldDeletePreviousImage
+                        ? () => disposeReplacedManagedImage(previousImagePath)
+                        : null
+                ]);
+            } finally {
+                closeAllModals();
             }
-            if (shouldDeletePreviousImage) {
-                await disposeReplacedManagedImage(previousImagePath);
-            }
-            closeAllModals();
-        },
-        onErrorMessage: 'Failed to save pen!'
-    });
-    } finally {
-        isSavingPen = false;
+	        },
+	        onErrorMessage: 'Failed to save pen!'
+	    });
+        if (!saved) {
+            appData.pens = penStateBeforeSave.pens;
+            appData.currently_inked = penStateBeforeSave.currentlyInked;
+            appData.activity_log = penStateBeforeSave.activityLog;
+            const cleanup = await deleteUncommittedManagedImages(createdImagePaths);
+            validationMsg.textContent = cleanup.success
+                ? 'The pen was not saved. Nothing was changed.'
+                : 'The pen was not saved. Nothing was changed, but some temporary photo files could not be removed.';
+            validationMsg.style.display = 'inline-block';
+        }
+    } catch (error) {
+        if (penStateBeforeSave) {
+            appData.pens = penStateBeforeSave.pens;
+            appData.currently_inked = penStateBeforeSave.currentlyInked;
+            appData.activity_log = penStateBeforeSave.activityLog;
+        }
+        const cleanup = await deleteUncommittedManagedImages(createdImagePaths);
+        const cleanupFailed = !!(error && error.cleanupFailed) || !cleanup.success;
+        validationMsg.textContent = cleanupFailed
+            ? 'One or more photos could not be saved. Nothing was changed, but some temporary photo files could not be removed.'
+            : 'One or more photos could not be saved. Nothing was changed.';
+        validationMsg.style.display = 'inline-block';
+        console.warn('Pen save attempt failed.', error && error.cause ? error.cause : error);
+	    } finally {
+	        isSavingPen = false;
+        setFormModalBusy(modalPen, false);
         if (btnSavePen) {
             btnSavePen.disabled = false;
             btnSavePen.removeAttribute('aria-busy');
@@ -6550,104 +7404,152 @@ async function saveNewPen() {
 }
 
 async function deleteInk() {
-    if (!currentEditingId) return;
-    if (!(await confirmAction({
-        title: 'Delete Ink',
-        message: 'Delete this ink and all its inking history?',
-        destructive: true,
-        buttons: ['Keep Ink', 'Delete Ink'],
-        defaultId: 0,
-        cancelId: 0,
-        confirmedIndex: 1
-    }))) return;
+    const deletingInkId = currentEditingId;
+    if (!deletingInkId || isDeletingCollectionItem || isSavingInk) return false;
+    isDeletingCollectionItem = true;
+    setFormModalBusy(modalInk, true);
+    try {
+        if (!(await confirmAction({
+            title: 'Delete Ink',
+            message: 'Delete this ink and all its inking history?',
+            destructive: true,
+            buttons: ['Keep Ink', 'Delete Ink'],
+            defaultId: 0,
+            cancelId: 0,
+            confirmedIndex: 1
+        }))) return false;
+        await settingsPersistQueue;
 
-    const inkToDelete = appData.inks.find(i => i.id === currentEditingId);
-    if (!inkToDelete) return;
-    const inkImagePath = inkToDelete.image || null;
-    const linkedSwatches = getSwatchesForInk(currentEditingId);
-    const linkedSwatchImages = linkedSwatches.flatMap((swatch) => getImageEntries(swatch).map((entry) => entry.path)).filter(Boolean);
-    appData.currently_inked = appData.currently_inked.filter(ci => ci.ink_id !== currentEditingId);
-    appData.swatches = getAllSwatches().filter((swatch) => swatch.ink_id !== currentEditingId);
-    appData.inks = appData.inks.filter(i => i.id !== currentEditingId);
-    logActivity('deleted', 'ink', `Deleted ink: ${formatInkName(inkToDelete)}.`, {
-        entityId: currentEditingId,
-        metadata: buildInkActivityMetadata(inkToDelete)
-    });
-    if (linkedSwatches.length > 0) {
-        logActivity('deleted', 'swatch', `Deleted ${linkedSwatches.length} swatch${linkedSwatches.length === 1 ? '' : 'es'} linked to ${formatInkName(inkToDelete)}.`, {
-            entityId: currentEditingId,
-            metadata: buildSwatchActivityMetadata(null, inkToDelete, {
-                swatch_count: linkedSwatches.length
-            })
+        const inkToDelete = appData.inks.find(i => i.id === deletingInkId);
+        if (!inkToDelete) return false;
+        const inkStateBeforeDelete = {
+            inks: cloneCollectionArray(appData.inks),
+            swatches: cloneCollectionArray(appData.swatches),
+            currentlyInked: cloneCollectionArray(appData.currently_inked),
+            activityLog: cloneCollectionArray(appData.activity_log)
+        };
+        const inkImagePath = inkToDelete.image || null;
+        const linkedSwatches = getSwatchesForInk(deletingInkId);
+        const linkedSwatchImages = linkedSwatches
+            .flatMap((swatch) => getImageEntries(swatch).map((entry) => entry.path))
+            .filter(Boolean);
+        appData.currently_inked = appData.currently_inked.filter(ci => ci.ink_id !== deletingInkId);
+        appData.swatches = getAllSwatches().filter((swatch) => swatch.ink_id !== deletingInkId);
+        appData.inks = appData.inks.filter(i => i.id !== deletingInkId);
+        logActivity('deleted', 'ink', `Deleted ink: ${formatInkName(inkToDelete)}.`, {
+            entityId: deletingInkId,
+            metadata: buildInkActivityMetadata(inkToDelete)
         });
-    }
+        if (linkedSwatches.length > 0) {
+            logActivity('deleted', 'swatch', `Deleted ${linkedSwatches.length} swatch${linkedSwatches.length === 1 ? '' : 'es'} linked to ${formatInkName(inkToDelete)}.`, {
+                entityId: deletingInkId,
+                metadata: buildSwatchActivityMetadata(null, inkToDelete, {
+                    swatch_count: linkedSwatches.length
+                })
+            });
+        }
 
-    await persistDataAndRefresh({
-        refresh: {
-            dashboard: true,
-            inks: true,
-            swatches: true,
-            activity: true,
-            autocomplete: true
-        },
-        onSuccess: async () => {
-            currentSelectedImagePath = null;
-            if (inkImagePath) {
-                await desktopAPI.deleteImage(inkImagePath);
-            }
-            for (const imagePath of linkedSwatchImages) {
-                await desktopAPI.deleteImage(imagePath);
-            }
-            closeAllModals();
-            currentEditingId = null;
-        },
-        onErrorMessage: 'Failed to delete ink!'
-    });
+        const saved = await persistDataAndRefresh({
+            refresh: {
+                dashboard: true,
+                inks: true,
+                swatches: true,
+                activity: true,
+                autocomplete: true
+            },
+            onSuccess: async () => {
+                try {
+                    await runPostSaveCleanupTasks([
+                        inkImagePath ? () => deleteManagedImageIfUnreferenced(inkImagePath) : null,
+                        ...linkedSwatchImages.map((imagePath) => (
+                            () => deleteManagedImageIfUnreferenced(imagePath)
+                        ))
+                    ]);
+                } finally {
+                    currentSelectedImagePath = null;
+                    closeAllModals();
+                    currentEditingId = null;
+                }
+            },
+            onErrorMessage: 'Failed to delete ink!'
+        });
+        if (!saved) {
+            appData.inks = inkStateBeforeDelete.inks;
+            appData.swatches = inkStateBeforeDelete.swatches;
+            appData.currently_inked = inkStateBeforeDelete.currentlyInked;
+            appData.activity_log = inkStateBeforeDelete.activityLog;
+        }
+        return saved;
+    } finally {
+        isDeletingCollectionItem = false;
+        setFormModalBusy(modalInk, false);
+    }
 }
 
 async function deletePen() {
-    if (!currentEditingId) return;
-    if (!(await confirmAction({
-        title: 'Delete Pen',
-        message: 'Delete this pen?',
-        destructive: true,
-        buttons: ['Keep Pen', 'Delete Pen'],
-        defaultId: 0,
-        cancelId: 0,
-        confirmedIndex: 1
-    }))) return;
+    const deletingPenId = currentEditingId;
+    if (!deletingPenId || isDeletingCollectionItem || isSavingPen) return false;
+    isDeletingCollectionItem = true;
+    setFormModalBusy(modalPen, true);
+    try {
+        if (!(await confirmAction({
+            title: 'Delete Pen',
+            message: 'Delete this pen?',
+            destructive: true,
+            buttons: ['Keep Pen', 'Delete Pen'],
+            defaultId: 0,
+            cancelId: 0,
+            confirmedIndex: 1
+        }))) return false;
+        await settingsPersistQueue;
 
-    // Get image path before deleting
-    const penToDelete = appData.pens.find(p => p.id === currentEditingId);
-    const penImagePaths = penToDelete ? getImageEntries(penToDelete).map((entry) => entry.path).filter(Boolean) : [];
-    const penActivityMetadata = penToDelete ? buildPenActivityMetadata(penToDelete) : {};
+        const penToDelete = appData.pens.find(p => p.id === deletingPenId);
+        if (!penToDelete) return false;
+        const penStateBeforeDelete = {
+            pens: cloneCollectionArray(appData.pens),
+            currentlyInked: cloneCollectionArray(appData.currently_inked),
+            activityLog: cloneCollectionArray(appData.activity_log)
+        };
+        const penImagePaths = getImageEntries(penToDelete).map((entry) => entry.path).filter(Boolean);
+        const penActivityMetadata = buildPenActivityMetadata(penToDelete);
 
-    // Remove from pens
-    appData.pens = appData.pens.filter(p => p.id !== currentEditingId);
-    // Remove from currently inked
-    appData.currently_inked = appData.currently_inked.filter(ci => ci.pen_id !== currentEditingId);
-    if (penToDelete) {
+        appData.pens = appData.pens.filter(p => p.id !== deletingPenId);
+        appData.currently_inked = appData.currently_inked.filter(ci => ci.pen_id !== deletingPenId);
         logActivity('deleted', 'pen', `Deleted pen: ${formatPenName(penToDelete)}.`, {
-            entityId: currentEditingId,
+            entityId: deletingPenId,
             metadata: penActivityMetadata
         });
-    }
 
-    await persistDataAndRefresh({
-        refresh: {
-            pens: true,
-            dashboard: true,
-            activity: true
-        },
-        onSuccess: async () => {
-            for (const penImagePath of penImagePaths) {
-                await desktopAPI.deleteImage(penImagePath);
-            }
-            closeAllModals();
-            currentEditingId = null;
-        },
-        onErrorMessage: 'Failed to delete pen!'
-    });
+        const saved = await persistDataAndRefresh({
+            refresh: {
+                pens: true,
+                dashboard: true,
+                activity: true
+            },
+            onSuccess: async () => {
+                try {
+                    await runPostSaveCleanupTasks(
+                        penImagePaths.map((penImagePath) => (
+                            () => deleteManagedImageIfUnreferenced(penImagePath)
+                        ))
+                    );
+                } finally {
+                    closeAllModals();
+                    currentEditingId = null;
+                }
+            },
+            onErrorMessage: 'Failed to delete pen!'
+        });
+        if (!saved) {
+            appData.pens = penStateBeforeDelete.pens;
+            appData.currently_inked = penStateBeforeDelete.currentlyInked;
+            appData.activity_log = penStateBeforeDelete.activityLog;
+        }
+        return saved;
+    } finally {
+        isDeletingCollectionItem = false;
+        setFormModalBusy(modalPen, false);
+    }
 }
 
 // Event Listeners Consolidated
@@ -6658,6 +7560,14 @@ window.addEventListener('click', async (e) => {
         await requestCloseAllModals();
     }
 });
+
+function isActiveModalFormField(target) {
+    if (!(target instanceof Element)) return false;
+    return target.matches(
+        'input:not([type="hidden"]), textarea, select, [contenteditable="true"], '
+        + '.custom-select-trigger, .multiselect-header'
+    );
+}
 
 document.addEventListener('keydown', async (e) => {
     const targetTag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
@@ -6671,9 +7581,20 @@ document.addEventListener('keydown', async (e) => {
             closeDetailImageLightbox();
             return;
         }
+        const openMultiselect = getOpenMultiselectPopover();
+        if (openMultiselect) {
+            e.preventDefault();
+            closeMultiselectPopover(openMultiselect);
+            return;
+        }
         if (detailOpen) {
             e.preventDefault();
             closeDetailModals();
+            return;
+        }
+        if (formModalOpen && isActiveModalFormField(e.target)) {
+            e.preventDefault();
+            e.target.blur();
             return;
         }
         if (formModalOpen) {
@@ -6706,6 +7627,7 @@ function closeDetailModals() {
     }
     currentSwatchDetailInkId = null;
     currentSwatchDetailSwatchId = null;
+    currentSwatchDetailImageIndex = 0;
     currentPenDetailPenId = null;
 }
 
@@ -6896,6 +7818,12 @@ setupDetailImageLightbox();
 
 async function selectPenPhoto({ append = false } = {}) {
     if (!isManagerApp) return alert("Upload is only available in the Manager app.");
+    if (pendingPenPhotoPromise) {
+        showAppNotice('Please wait for the current photo to finish processing.', 'warning');
+        return;
+    }
+    const modalSession = penModalSession;
+    const requestId = ++penPhotoRequestId;
     closePhotoActionMenus();
     let filePath = null;
     try {
@@ -6904,23 +7832,49 @@ async function selectPenPhoto({ append = false } = {}) {
         alert(`Image selection failed: ${error && error.message ? error.message : error}`);
         return;
     }
-    if (!filePath) return;
+    if (!filePath || modalSession !== penModalSession || !isModalVisible(modalPen)) return;
 
     let resolvePendingPhoto = null;
     const processingPromise = new Promise((resolve) => {
         resolvePendingPhoto = resolve;
     });
     pendingPenPhotoPromise = processingPromise;
+    setFormModalBusy(modalPen, true);
+    let processingFinished = false;
+    let processingTimer = null;
+    const isCurrentRequest = () => (
+        modalSession === penModalSession
+        && requestId === penPhotoRequestId
+        && isModalVisible(modalPen)
+    );
     const finishProcessing = (ok) => {
+        if (processingFinished) return;
+        processingFinished = true;
+        if (processingTimer) clearTimeout(processingTimer);
         if (pendingPenPhotoPromise === processingPromise) pendingPenPhotoPromise = null;
-        if (uploadPenPhotoArea) uploadPenPhotoArea.classList.remove('is-processing');
-        if (penPhotoIcon) {
-            penPhotoIcon.classList.remove('ph-circle-notch', 'is-loading');
-            penPhotoIcon.classList.add('ph-image');
+        if (isCurrentRequest()) {
+            if (uploadPenPhotoArea) uploadPenPhotoArea.classList.remove('is-processing');
+            if (penPhotoIcon) {
+                penPhotoIcon.classList.remove('ph-circle-notch', 'is-loading');
+                penPhotoIcon.classList.add('ph-image');
+            }
+            if (penPhotoText) penPhotoText.textContent = 'Click to upload photo';
+            if (!isSavingPen) setFormModalBusy(modalPen, false);
         }
-        if (penPhotoText) penPhotoText.textContent = 'Click to upload photo';
         if (resolvePendingPhoto) resolvePendingPhoto(!!ok);
     };
+    processingTimer = setTimeout(() => {
+        if (!isCurrentRequest()) {
+            finishProcessing(false);
+            return;
+        }
+        uploadPenPreview.onload = null;
+        uploadPenPreview.onerror = null;
+        finishProcessing(false);
+        penPhotoRequestId += 1;
+        renderPenModalGallery();
+        showAppNotice('Photo processing timed out. Please choose the photo again.', 'warning');
+    }, PHOTO_PROCESSING_TIMEOUT_MS);
     uploadPenPhotoArea.classList.add('is-processing');
     if (penPhotoIcon) {
         penPhotoIcon.style.display = 'block';
@@ -6941,8 +7895,16 @@ async function selectPenPhoto({ append = false } = {}) {
         alert(`Image preview failed: ${error && error.message ? error.message : error}`);
         return;
     }
+    if (!isCurrentRequest()) {
+        finishProcessing(false);
+        return;
+    }
     if (uploadPenPreview) {
         uploadPenPreview.onload = async () => {
+            if (!isCurrentRequest()) {
+                finishProcessing(false);
+                return;
+            }
             let colors = null;
             if (isManagerApp && desktopAPI && typeof desktopAPI.detectPenColors === 'function') {
                 try {
@@ -6951,6 +7913,10 @@ async function selectPenPhoto({ append = false } = {}) {
                 } catch (error) {
                     console.warn('Local ML pen color detection failed, using fallback.', error);
                 }
+            }
+            if (!isCurrentRequest()) {
+                finishProcessing(false);
+                return;
             }
             if (!colors) colors = extractPenColors(uploadPenPreview) || extractInkColors(uploadPenPreview);
             if (colors && colors.base) {
@@ -6984,13 +7950,24 @@ async function selectPenPhoto({ append = false } = {}) {
             updatePenPreviewStyle(currentPenRotation);
             renderPenModalGallery();
             finishProcessing(true);
-            uploadPenPreview.onload = null;
-            uploadPenPreview.onerror = null;
+            if (isCurrentRequest()) {
+                uploadPenPreview.onload = null;
+                uploadPenPreview.onerror = null;
+            }
         };
         uploadPenPreview.onerror = () => {
+            const isCurrent = isCurrentRequest();
+            if (isCurrent) {
+                uploadPenPreview.onload = null;
+                uploadPenPreview.onerror = null;
+                renderPenModalGallery();
+                const validation = document.getElementById('pen-validation-msg');
+                if (validation) {
+                    validation.textContent = 'The selected photo could not be processed. Please choose it again.';
+                    validation.style.display = 'inline-block';
+                }
+            }
             finishProcessing(false);
-            uploadPenPreview.onload = null;
-            uploadPenPreview.onerror = null;
         };
 
         if (penPhotoControls) penPhotoControls.style.display = 'flex';
@@ -7129,7 +8106,6 @@ if (btnImportBackup) {
             || !desktopAPI
             || typeof desktopAPI.selectBackup !== 'function'
             || typeof desktopAPI.importBackup !== 'function') return;
-        const importExportPrefs = getImportExportPreferences();
         const proceed = await confirmAction({
             title: 'Import Backup',
             message: 'Importing a backup will overwrite your current collection, preferences, and images with the selected ZIP. Continue?',
@@ -7140,74 +8116,94 @@ if (btnImportBackup) {
             confirmedIndex: 1
         });
         if (!proceed) return;
-        let selectedBackup = null;
-        try {
-            selectedBackup = await desktopAPI.selectBackup();
-        } catch (error) {
-            showAppNotice(`Backup selection failed: ${error && error.message ? error.message : error}`, 'error');
-            return;
+        backupImportInFlight = true;
+        setSettingsOperationBusy(true);
+        if (settingsInputPersistTimer) {
+            clearTimeout(settingsInputPersistTimer);
+            settingsInputPersistTimer = null;
         }
-        if (!selectedBackup) return;
-        const label = btnImportBackup.querySelector('span');
-        const originalLabel = label ? label.textContent : '';
-        btnImportBackup.disabled = true;
-        btnImportBackup.setAttribute('aria-busy', 'true');
-        if (label) label.textContent = 'Importing...';
-        showAppNotice('Importing backup. Large image collections may take a moment.', 'warning');
         try {
-            const importPrefs = getImportExportPreferences();
-            let result = null;
+            await settingsPersistQueue;
+            let selectedBackup = null;
             try {
-                result = await desktopAPI.importBackup(selectedBackup, {
-                    auto_validate_import: !!importPrefs.auto_validate_import,
-                    conflict_behavior: 'overwrite'
-                });
+                selectedBackup = await desktopAPI.selectBackup();
             } catch (error) {
-                showAppNotice(`Backup import failed: ${error && error.message ? error.message : error}`, 'error');
+                showAppNotice(`Backup selection failed: ${error && error.message ? error.message : error}`, 'error');
                 return;
             }
-            if (result && result.success) {
-                const reloaded = result.data || await desktopAPI.loadData();
-                if (reloaded) {
-                    if (importExportPrefs.auto_validate_import) {
-                        const basicValid = Array.isArray(reloaded.pens)
-                            && Array.isArray(reloaded.inks)
-                            && Array.isArray(reloaded.currently_inked)
-                            && Array.isArray(reloaded.activity_log);
-                        if (!basicValid) {
-                            showAppNotice('Imported backup validation failed. Data shape is unexpected', 'error');
-                            return;
+            if (!selectedBackup) return;
+            const label = btnImportBackup.querySelector('span');
+            const originalLabel = label ? label.textContent : '';
+            btnImportBackup.disabled = true;
+            btnImportBackup.setAttribute('aria-busy', 'true');
+            if (label) label.textContent = 'Importing...';
+            showAppNotice('Importing backup. Large image collections may take a moment.', 'warning');
+            const importPrefs = getImportExportPreferences();
+            try {
+                let result = null;
+                try {
+                    result = await desktopAPI.importBackup(selectedBackup, {
+                        auto_validate_import: !!importPrefs.auto_validate_import,
+                        conflict_behavior: 'overwrite'
+                    });
+                } catch (error) {
+                    showAppNotice(
+                        persistenceErrorMessage(error, 'Backup import failed'),
+                        'error',
+                        isDataConflictError(error) ? 12000 : 6000
+                    );
+                    return;
+                }
+                if (result && result.success) {
+                    const reloaded = result.data || await desktopAPI.loadData();
+                    if (reloaded) {
+                        if (importPrefs.auto_validate_import) {
+                            const basicValid = Array.isArray(reloaded.pens)
+                                && Array.isArray(reloaded.inks)
+                                && Array.isArray(reloaded.currently_inked)
+                                && Array.isArray(reloaded.activity_log);
+                            if (!basicValid) {
+                                showAppNotice('Imported backup validation failed. Data shape is unexpected', 'error');
+                                return;
+                            }
                         }
+                        appData = ensureAppDataDefaults(reloaded);
+                        imageAssetVersion = Date.now();
                     }
-                    appData = ensureAppDataDefaults(reloaded);
-                    imageAssetVersion = Date.now();
+                    applyShowcaseTitleUi();
+                    applyInterfacePreferences();
+                    applyShowcaseSortDefaults();
+                    applyShowcaseSectionVisibility();
+                    updateAutocompleteLists();
+                    renderDashboard();
+                    renderStatsPage();
+                    renderSettingsView();
+                    renderPens();
+                    renderInks();
+                    renderSwatches();
+                    renderActivityLogView();
+                    closeAllModals();
+                    refreshBackupStatus();
+                    if (result.warning) {
+                        showAppNotice(result.message || 'Backup imported with warnings. Please review your images and backups', 'warning');
+                    } else {
+                        showAppNotice('Backup imported successfully', 'success');
+                    }
+                } else if (!(result && result.canceled)) {
+                    showAppNotice(
+                        persistenceErrorMessage(result, 'Backup import failed'),
+                        'error',
+                        isDataConflictError(result) ? 12000 : 6000
+                    );
                 }
-                applyShowcaseTitleUi();
-                applyInterfacePreferences();
-                applyShowcaseSortDefaults();
-                applyShowcaseSectionVisibility();
-                updateAutocompleteLists();
-                renderDashboard();
-                renderStatsPage();
-                renderSettingsView();
-                renderPens();
-                renderInks();
-                renderSwatches();
-                renderActivityLogView();
-                closeAllModals();
-                refreshBackupStatus();
-                if (result.warning) {
-                    showAppNotice(result.message || 'Backup imported with warnings. Please review your images and backups', 'warning');
-                } else {
-                    showAppNotice('Backup imported successfully', 'success');
-                }
-            } else if (!(result && result.canceled)) {
-                showAppNotice(`Backup import failed: ${result && result.message ? result.message : 'Unknown error'}`, 'error');
+            } finally {
+                btnImportBackup.disabled = false;
+                btnImportBackup.removeAttribute('aria-busy');
+                if (label) label.textContent = originalLabel;
             }
         } finally {
-            btnImportBackup.disabled = false;
-            btnImportBackup.removeAttribute('aria-busy');
-            if (label) label.textContent = originalLabel;
+            backupImportInFlight = false;
+            setSettingsOperationBusy(false);
         }
     });
 }
@@ -7221,6 +8217,7 @@ if (btnExportShowcase) {
         }
         if (showcaseExportInFlight) return;
         showcaseExportInFlight = true;
+        setSettingsOperationBusy(true);
         try {
             hideSettingsTooltip();
             suppressSettingsPersist = true;
@@ -7228,7 +8225,8 @@ if (btnExportShowcase) {
                 document.activeElement.blur();
             }
             suppressSettingsPersist = false;
-            await persistShowcaseSettingsNow({ force: true, notify: false });
+            const settingsSaved = await persistShowcaseSettingsNow({ force: true, notify: false });
+            if (!settingsSaved) return;
 
             let result = null;
             try {
@@ -7250,6 +8248,7 @@ if (btnExportShowcase) {
         } finally {
             suppressSettingsPersist = false;
             showcaseExportInFlight = false;
+            setSettingsOperationBusy(false);
             hideSettingsTooltip();
             if (document.activeElement && typeof document.activeElement.blur === 'function') {
                 document.activeElement.blur();
@@ -7522,32 +8521,74 @@ if (navActivity) navActivity.addEventListener('click', (e) => {
 });
 if (toggleActivityVisible) {
     toggleActivityVisible.addEventListener('change', async () => {
-        appData.preferences.show_activity_log = !!toggleActivityVisible.checked;
-        if (shouldHideActivityInShowcase() && localStorage.getItem('lastView') === 'activity') {
-            switchView('dashboard');
-        }
-        const saved = await persistDataAndRefresh({
-            refresh: {
-                activity: true,
-                dashboard: true
-            },
-            onErrorMessage: 'Failed to save activity visibility.'
+        const requestedValue = !!toggleActivityVisible.checked;
+        await enqueueSettingsPersist(async () => {
+            const requestedData = JSON.parse(JSON.stringify(appData));
+            requestedData.preferences.show_activity_log = requestedValue;
+            let savedWithWarning = false;
+            const saved = await persistDataAndRefresh({
+                refresh: {
+                    activity: true,
+                    dashboard: true
+                },
+                onWarning: () => {
+                    savedWithWarning = true;
+                },
+                onSuccess: () => {
+                    appData.preferences.show_activity_log = requestedValue;
+                    syncSettingsFormAfterRollback();
+                    if (shouldHideActivityInShowcase() && localStorage.getItem('lastView') === 'activity') {
+                        switchView('dashboard');
+                    }
+                },
+                onErrorMessage: 'Failed to save activity visibility.',
+                dataSnapshot: requestedData,
+                waitForSettings: false
+            });
+            if (!saved) {
+                settingsFormNeedsSync = true;
+                renderSettingsView();
+                renderDashboard();
+                renderActivityLogView();
+            }
+            if (saved && !savedWithWarning) showAppNotice('Settings saved', 'success');
+            return saved;
         });
-        if (saved) showAppNotice('Settings saved', 'success');
     });
 }
 
 if (toggleRecentActivityVisible) {
     toggleRecentActivityVisible.addEventListener('change', async () => {
-        appData.preferences.show_recent_activity = !!toggleRecentActivityVisible.checked;
-        const saved = await persistDataAndRefresh({
-            refresh: {
-                activity: true,
-                dashboard: true
-            },
-            onErrorMessage: 'Failed to save dashboard activity visibility.'
+        const requestedValue = !!toggleRecentActivityVisible.checked;
+        await enqueueSettingsPersist(async () => {
+            const requestedData = JSON.parse(JSON.stringify(appData));
+            requestedData.preferences.show_recent_activity = requestedValue;
+            let savedWithWarning = false;
+            const saved = await persistDataAndRefresh({
+                refresh: {
+                    activity: true,
+                    dashboard: true
+                },
+                onWarning: () => {
+                    savedWithWarning = true;
+                },
+                onSuccess: () => {
+                    appData.preferences.show_recent_activity = requestedValue;
+                    syncSettingsFormAfterRollback();
+                },
+                onErrorMessage: 'Failed to save dashboard activity visibility.',
+                dataSnapshot: requestedData,
+                waitForSettings: false
+            });
+            if (!saved) {
+                settingsFormNeedsSync = true;
+                renderSettingsView();
+                renderDashboard();
+                renderActivityLogView();
+            }
+            if (saved && !savedWithWarning) showAppNotice('Settings saved', 'success');
+            return saved;
         });
-        if (saved) showAppNotice('Settings saved', 'success');
     });
 }
 
@@ -7685,11 +8726,43 @@ if (showcaseTitleInput) {
 }
 
 if (activityRetentionSelect) {
-    activityRetentionSelect.addEventListener('change', () => {
+    activityRetentionSelect.addEventListener('change', async () => {
         const selected = Number(activityRetentionSelect.value);
-        appData.preferences.activity_retention_days = [0, 90, 180, 365].includes(selected) ? selected : 365;
-        applyActivityRetention();
-        persistActivityMaintenance('Failed to save activity retention.');
+        const requestedRetention = [0, 90, 180, 365].includes(selected) ? selected : 365;
+        await enqueueSettingsPersist(async () => {
+            const requestedData = JSON.parse(JSON.stringify(appData));
+            requestedData.preferences.activity_retention_days = requestedRetention;
+            if (requestedRetention !== 0) {
+                const cutoff = Date.now() - (requestedRetention * 24 * 60 * 60 * 1000);
+                requestedData.activity_log = (requestedData.activity_log || [])
+                    .filter(entry => (entry.timestamp || 0) >= cutoff);
+            }
+            const saved = await persistDataAndRefresh({
+                refresh: {
+                    dashboard: true,
+                    activity: true
+                },
+                onSuccess: () => {
+                    appData.preferences.activity_retention_days = requestedRetention;
+                    if (requestedRetention !== 0) {
+                        const cutoff = Date.now() - (requestedRetention * 24 * 60 * 60 * 1000);
+                        appData.activity_log = (appData.activity_log || [])
+                            .filter(entry => (entry.timestamp || 0) >= cutoff);
+                    }
+                    syncSettingsFormAfterRollback();
+                },
+                onErrorMessage: 'Failed to save activity retention.',
+                dataSnapshot: requestedData,
+                waitForSettings: false
+            });
+            if (!saved) {
+                settingsFormNeedsSync = true;
+                activityRetentionSelect.value = String(getActivityRetentionDays());
+                renderDashboard();
+                renderActivityLogView();
+            }
+            return saved;
+        });
     });
 }
 
@@ -7713,8 +8786,15 @@ if (btnDeleteOlderActivity) {
             confirmedIndex: 1
         }))) return;
 
+        await settingsPersistQueue;
+        const activityLogBeforeDelete = cloneCollectionArray(appData.activity_log);
         appData.activity_log = (appData.activity_log || []).filter(entry => (entry.timestamp || 0) >= cutoff);
-        persistActivityMaintenance('Failed to delete older activity logs.');
+        const saved = await persistActivityMaintenance('Failed to delete older activity logs.');
+        if (!saved) {
+            appData.activity_log = activityLogBeforeDelete;
+            renderDashboard();
+            renderActivityLogView();
+        }
     });
 }
 
@@ -7736,8 +8816,15 @@ if (btnClearAllActivity) {
             confirmedIndex: 1
         }))) return;
 
+        await settingsPersistQueue;
+        const activityLogBeforeDelete = cloneCollectionArray(appData.activity_log);
         appData.activity_log = [];
-        persistActivityMaintenance('Failed to clear activity logs.');
+        const saved = await persistActivityMaintenance('Failed to clear activity logs.');
+        if (!saved) {
+            appData.activity_log = activityLogBeforeDelete;
+            renderDashboard();
+            renderActivityLogView();
+        }
     });
 }
 
@@ -8176,7 +9263,7 @@ if (activityLogContainer) {
             cancelId: 0,
             confirmedIndex: 1
         }))) return;
-        deleteActivityEntry(activityId);
+        await deleteActivityEntry(activityId);
     });
 }
 
@@ -8352,14 +9439,26 @@ function renderFilters() {
     const inks = getLibraryInks();
     const brands = [...new Set(inks.map(i => i.brand).filter(Boolean))].sort();
     const lines = [...new Set(inks.map(i => i.line).filter(Boolean))].sort();
-    const types = ['Bottle', 'Sample', 'Cartridge'];
-    const flowOpts = ['Dry', 'Average', 'Wet'];
-    const lubOpts = ['None', 'Low', 'Medium', 'High'];
-    const dryTimeOpts = ['Fast', 'Average', 'Slow'];
+    const types = collectOrderedFilterValues(
+        inks,
+        (ink) => normalizeInkType(ink.type),
+        ['Bottle', 'Sample', 'Cartridge', 'Other']
+    );
+    const flowOpts = collectOrderedFilterValues(
+        inks,
+        (ink) => ink.flow,
+        ['Very Dry', 'Dry', 'Average', 'Wet', 'Very Wet']
+    );
+    const lubOpts = collectOrderedFilterValues(
+        inks,
+        (ink) => ink.lubrication,
+        ['None', 'Low', 'Medium', 'High']
+    );
+    const dryTimeOpts = collectOrderedFilterValues(inks, (ink) => ink.dry_time);
     const baseTypes = [...new Set(inks.flatMap(i => i.base_type || []))].sort();
     const permanences = [...new Set(inks.map(i => i.permanence).filter(Boolean))].sort();
     const papers = [...new Set(inks.flatMap(i => i.paper_compatibility || []))].sort();
-    const volumes = [...new Set(inks.map(i => (i.cl || '').toString().trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    const volumes = [...new Set(inks.map(i => (i.volume_ml || '').toString().trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
     const colorHexes = new Set();
     inks.forEach(ink => {
@@ -8409,7 +9508,7 @@ function renderFilters() {
             ${options.map((opt) => {
                 const safeOpt = escapeHtml(opt);
                 const safeOptHtml = escapeHtml(opt);
-                return `<span class="filter-tag ${(activeInksFilters.volume || []).includes(opt) ? 'active' : ''}" data-filter-category="volume" data-filter-value="${safeOpt}">${safeOptHtml} cl</span>`;
+                return `<span class="filter-tag ${(activeInksFilters.volume || []).includes(opt) ? 'active' : ''}" data-filter-category="volume" data-filter-value="${safeOpt}">${safeOptHtml} ml</span>`;
             }).join('')}
         </div>
     `;
@@ -8454,10 +9553,22 @@ function renderSwatchFilters() {
         .map((swatch) => ({ swatch, ink: getInkById(swatch.ink_id) }))
         .filter((item) => item.ink && item.swatch && item.swatch.image);
     const brands = [...new Set(swatches.map(({ ink }) => ink.brand).filter(Boolean))].sort();
-    const types = ['Bottle', 'Sample', 'Cartridge'];
-    const flowOpts = ['Dry', 'Average', 'Wet'];
-    const lubOpts = ['None', 'Low', 'Medium', 'High'];
-    const dryTimeOpts = ['Fast', 'Average', 'Slow'];
+    const types = collectOrderedFilterValues(
+        swatches,
+        ({ ink }) => normalizeInkType(ink.type),
+        ['Bottle', 'Sample', 'Cartridge', 'Other']
+    );
+    const flowOpts = collectOrderedFilterValues(
+        swatches,
+        ({ ink }) => ink.flow,
+        ['Very Dry', 'Dry', 'Average', 'Wet', 'Very Wet']
+    );
+    const lubOpts = collectOrderedFilterValues(
+        swatches,
+        ({ ink }) => ink.lubrication,
+        ['None', 'Low', 'Medium', 'High']
+    );
+    const dryTimeOpts = collectOrderedFilterValues(swatches, ({ ink }) => ink.dry_time);
     const baseTypes = [...new Set(swatches.flatMap(({ ink }) => ink.base_type || []))].sort();
     const permanences = [...new Set(swatches.map(({ ink }) => ink.permanence).filter(Boolean))].sort();
     const lightingValues = [...new Set(
@@ -8584,7 +9695,7 @@ function renderInks() {
             }
 
             if (activeInksFilters.volume && activeInksFilters.volume.length > 0) {
-                const inkVolume = (ink.cl || '').toString().trim();
+                const inkVolume = (ink.volume_ml || '').toString().trim();
                 if (!activeInksFilters.volume.includes(inkVolume)) return false;
             }
 
@@ -8740,20 +9851,36 @@ function renderSwatches() {
         };
 
         const primaryImage = getPrimaryImageEntry(swatch);
-        const imagePath = resolveImageThumbnailSource(primaryImage ? primaryImage.path : swatch.image);
+        const imagePath = primaryImage ? primaryImage.path : swatch.image;
         const safeInkName = escapeHtml(ink.name || '');
         const safeInkBrand = escapeHtml(ink.brand || '');
         const safeSwatchNib = swatch.swatch_nib ? escapeHtml(swatch.swatch_nib) : '';
+        const fallbackBackground = `linear-gradient(135deg, ${ink.color_base || '#ccc'}, ${ink.color_accent || ink.color_base || '#999'})`;
 
         card.innerHTML = `
-            <div class="ink-swatch-bg" style="height: 150px; background-size: cover; background-position: center;"></div>
+            <div class="ink-swatch-bg" style="height: 150px; background: ${fallbackBackground}; background-size: cover; background-position: center;"></div>
             <div class="card-content">
                 <div class="pen-name" style="font-weight: 600;">${safeInkName}</div>
                 <div class="pen-detail" style="font-size: 12px; color: var(--color-text-muted);">${safeInkBrand}${safeSwatchNib ? ` • ${safeSwatchNib}` : ''}</div>
             </div>
         `;
         const swatchVisual = card.querySelector('.ink-swatch-bg');
-        if (swatchVisual) swatchVisual.style.backgroundImage = `url(${JSON.stringify(imagePath)})`;
+        if (swatchVisual && imagePath) {
+            const imageLoader = new Image();
+            loadImageElementWithFallback(imageLoader, imagePath, {
+                onLoad: (loadedSource) => {
+                    swatchVisual.style.backgroundImage = `url(${JSON.stringify(loadedSource)})`;
+                },
+                onUnavailable: () => {
+                    swatchVisual.classList.add('image-unavailable');
+                    swatchVisual.setAttribute('aria-label', 'Image unavailable');
+                    const fallbackIcon = document.createElement('i');
+                    fallbackIcon.className = 'ph ph-image-square card-image-fallback-icon';
+                    fallbackIcon.setAttribute('aria-hidden', 'true');
+                    swatchVisual.appendChild(fallbackIcon);
+                }
+            });
+        }
         grid.appendChild(card);
     });
 }
@@ -8789,7 +9916,7 @@ function getFilteredSortedPensForDetails() {
         if (activePensFilters.brand.length > 0 && !activePensFilters.brand.includes(pen.brand)) return false;
         if (activePensFilters.nib.length > 0 && !activePensFilters.nib.includes(pen.nib)) return false;
         if (activePensFilters.nib_material.length > 0 && !activePensFilters.nib_material.includes(pen.nib_material)) return false;
-        if (activePensFilters.material.length > 0 && !activePensFilters.material.includes(pen.material)) return false;
+        if (!valueMatchesFilter(pen.material, activePensFilters.material)) return false;
         if (!valueMatchesFilter(pen.filling_system, activePensFilters.filling_system)) return false;
         if (!valueMatchesFilter(pen.color, activePensFilters.color)) return false;
 
@@ -8838,7 +9965,7 @@ function getFilteredSortedInksForDetails() {
         if (activeInksFilters.color.length > 0 && !activeInksFilters.color.includes(ink.color_base)) return false;
 
         if (activeInksFilters.volume && activeInksFilters.volume.length > 0) {
-            const inkVolume = (ink.cl || '').toString().trim();
+            const inkVolume = (ink.volume_ml || '').toString().trim();
             if (!activeInksFilters.volume.includes(inkVolume)) return false;
         }
 
@@ -9311,7 +10438,12 @@ function updateAutocompleteLists() {
     // Helper to get unique values
     const getUnique = (arr, key) => {
         if (!arr) return [];
-        return [...new Set(arr.map(item => item[key]).filter(val => val && val.trim() !== ""))].sort();
+        return [...new Set(
+            arr
+                .map(item => item[key])
+                .filter(val => (typeof val === 'string' || typeof val === 'number') && String(val).trim() !== '')
+                .map(val => String(val))
+        )].sort();
     };
     const getUniqueCsv = (arr, key) => collectUniqueFromCsv(arr, key);
     const libraryInks = getLibraryInks();
@@ -9320,7 +10452,7 @@ function updateAutocompleteLists() {
     autocompleteData['ink-brand-input'] = getUnique(libraryInks, 'brand');
     autocompleteData['ink-name-input'] = getUnique(libraryInks, 'name');
     autocompleteData['ink-line-input'] = getUnique(libraryInks, 'line');
-    autocompleteData['ink-cl-input'] = getUnique(libraryInks, 'cl');
+    autocompleteData['ink-volume-ml-input'] = getUnique(libraryInks, 'volume_ml');
     autocompleteData['ink-dry-time'] = getUnique(libraryInks, 'dry_time');
 
     autocompleteData['pen-brand-input'] = getUnique(appData.pens, 'brand');
@@ -9572,22 +10704,145 @@ function extractPenColors(imgElement) {
 }
 
 // Custom Control Logic
+
+function getCustomSelectParts(trigger) {
+    if (!trigger) return { container: null, options: [] };
+    const container = trigger.nextElementSibling;
+    if (!container || !container.classList.contains('custom-options')) {
+        return { container: null, options: [] };
+    }
+    return {
+        container,
+        options: Array.from(container.querySelectorAll('.custom-option'))
+    };
+}
+
+function ensureCustomControlElementId(element, prefix) {
+    if (!element) return '';
+    if (!element.id) {
+        customSelectAccessibilityId += 1;
+        element.id = `${prefix}-${customSelectAccessibilityId}`;
+    }
+    return element.id;
+}
+
+function customSelectFallbackLabel(trigger, container) {
+    const wrapper = trigger?.closest('.custom-select-wrapper-outer');
+    const targetId = container?.dataset.target
+        || wrapper?.querySelector('select, input[type="hidden"]')?.id
+        || 'selection';
+    return String(targetId)
+        .replace(/-(input|select)$/i, '')
+        .replace(/[-_]+/g, ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function applyCustomSelectAccessibleName(trigger, container) {
+    const wrapper = trigger?.closest('.custom-select-wrapper-outer');
+    if (!wrapper) return;
+    const nativeSelect = wrapper.querySelector('select');
+    let label = null;
+    if (nativeSelect?.id) {
+        label = Array.from(document.querySelectorAll('label')).find((candidate) => candidate.htmlFor === nativeSelect.id) || null;
+    }
+    if (!label) {
+        label = wrapper.parentElement?.querySelector('label') || null;
+    }
+    if (label) {
+        trigger.setAttribute('aria-labelledby', ensureCustomControlElementId(label, 'custom-select-label'));
+        trigger.removeAttribute('aria-label');
+    } else {
+        trigger.setAttribute('aria-label', customSelectFallbackLabel(trigger, container));
+        trigger.removeAttribute('aria-labelledby');
+    }
+}
+
+function isCustomSelectDisabled(trigger) {
+    return trigger?.getAttribute('aria-disabled') === 'true'
+        || trigger?.closest('.custom-select-wrapper-outer')?.classList.contains('is-disabled');
+}
+
+function prepareCustomSelectAccessibility(trigger) {
+    const { container, options } = getCustomSelectParts(trigger);
+    if (!container) return { container, options };
+
+    if (!container.id) {
+        customSelectAccessibilityId += 1;
+        container.id = `custom-select-options-${customSelectAccessibilityId}`;
+    }
+    trigger.setAttribute('role', 'combobox');
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-controls', container.id);
+    trigger.setAttribute('aria-expanded', trigger.classList.contains('open') ? 'true' : 'false');
+    container.setAttribute('role', 'listbox');
+    applyCustomSelectAccessibleName(trigger, container);
+
+    options.forEach((option, index) => {
+        if (!option.id) option.id = `${container.id}-option-${index}`;
+        option.setAttribute('role', 'option');
+        option.setAttribute('aria-selected', option.classList.contains('selected') ? 'true' : 'false');
+    });
+    return { container, options };
+}
+
+function setCustomSelectKeyboardOption(trigger, index) {
+    const { options } = prepareCustomSelectAccessibility(trigger);
+    if (!options.length) return;
+    const nextIndex = Math.max(0, Math.min(index, options.length - 1));
+    options.forEach((option, optionIndex) => {
+        option.classList.toggle('keyboard-active', optionIndex === nextIndex);
+    });
+    const activeOption = options[nextIndex];
+    trigger.setAttribute('aria-activedescendant', activeOption.id);
+    const container = activeOption.parentElement;
+    if (container) {
+        const optionTop = activeOption.offsetTop;
+        const optionBottom = optionTop + activeOption.offsetHeight;
+        if (optionTop < container.scrollTop) {
+            container.scrollTop = optionTop;
+        } else if (optionBottom > container.scrollTop + container.clientHeight) {
+            container.scrollTop = optionBottom - container.clientHeight;
+        }
+    }
+}
+
+function setCustomSelectOpen(trigger, open) {
+    const { container, options } = prepareCustomSelectAccessibility(trigger);
+    if (!container) return;
+    if (open && isCustomSelectDisabled(trigger)) open = false;
+    trigger.classList.toggle('open', open);
+    container.classList.toggle('show', open);
+    trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+        const selectedIndex = options.findIndex((option) => option.classList.contains('selected'));
+        setCustomSelectKeyboardOption(trigger, selectedIndex >= 0 ? selectedIndex : 0);
+    } else {
+        options.forEach((option) => option.classList.remove('keyboard-active'));
+        trigger.removeAttribute('aria-activedescendant');
+    }
+}
+
+function closeOtherCustomSelects(activeTrigger = null) {
+    document.querySelectorAll('.custom-select-trigger.open').forEach((trigger) => {
+        if (trigger !== activeTrigger) setCustomSelectOpen(trigger, false);
+    });
+}
+
 function setupCustomControls() {
     enhanceSettingsCustomSelects();
     enhanceActivityCustomSelects();
 
     // 1. Custom Selects
     document.querySelectorAll('.custom-select-trigger').forEach(trigger => {
+        prepareCustomSelectAccessibility(trigger);
         trigger.addEventListener('click', (e) => {
             e.stopPropagation();
-
-            // Close other custom selects
-            document.querySelectorAll('.custom-options').forEach(opt => {
-                if (opt !== trigger.nextElementSibling) opt.classList.remove('show');
-            });
-            document.querySelectorAll('.custom-select-trigger').forEach(t => {
-                if (t !== trigger) t.classList.remove('open');
-            });
+            if (isCustomSelectDisabled(trigger)) {
+                setCustomSelectOpen(trigger, false);
+                return;
+            }
+            const shouldOpen = !trigger.classList.contains('open');
+            closeOtherCustomSelects(trigger);
 
             // Close Multiselects
             document.querySelectorAll('.multiselect-dropdown.open').forEach(el => {
@@ -9596,9 +10851,53 @@ function setupCustomControls() {
                 if (opts) opts.classList.remove('show');
             });
 
-            trigger.classList.toggle('open');
-            const options = trigger.nextElementSibling;
-            if (options) options.classList.toggle('show');
+            setCustomSelectOpen(trigger, shouldOpen);
+        });
+
+        trigger.addEventListener('keydown', (e) => {
+            if (isCustomSelectDisabled(trigger)) {
+                if (e.key !== 'Tab') e.preventDefault();
+                setCustomSelectOpen(trigger, false);
+                return;
+            }
+            const { options } = prepareCustomSelectAccessibility(trigger);
+            if (!options.length) return;
+            const isOpen = trigger.classList.contains('open');
+            const activeIndex = options.findIndex((option) => option.classList.contains('keyboard-active'));
+            const selectedIndex = options.findIndex((option) => option.classList.contains('selected'));
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
+                e.preventDefault();
+                closeOtherCustomSelects(trigger);
+                if (!isOpen) setCustomSelectOpen(trigger, true);
+                const currentIndex = activeIndex >= 0 ? activeIndex : (selectedIndex >= 0 ? selectedIndex : 0);
+                if (e.key === 'Home') setCustomSelectKeyboardOption(trigger, 0);
+                else if (e.key === 'End') setCustomSelectKeyboardOption(trigger, options.length - 1);
+                else if (e.key === 'ArrowDown') setCustomSelectKeyboardOption(trigger, Math.min(options.length - 1, currentIndex + 1));
+                else setCustomSelectKeyboardOption(trigger, Math.max(0, currentIndex - 1));
+                return;
+            }
+
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (!isOpen) {
+                    closeOtherCustomSelects(trigger);
+                    setCustomSelectOpen(trigger, true);
+                    return;
+                }
+                const option = options[activeIndex >= 0 ? activeIndex : (selectedIndex >= 0 ? selectedIndex : 0)];
+                if (option) option.click();
+                trigger.focus();
+                return;
+            }
+
+            if (e.key === 'Escape' && isOpen) {
+                e.preventDefault();
+                e.stopPropagation();
+                setCustomSelectOpen(trigger, false);
+            } else if (e.key === 'Tab' && isOpen) {
+                setCustomSelectOpen(trigger, false);
+            }
         });
     });
 
@@ -9681,6 +10980,8 @@ function setupCustomControls() {
                 }
                 // If nothing selected, let event propagate (might save form)
             } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
                 list.classList.remove('show');
             }
         });
@@ -9709,8 +11010,7 @@ function setupCustomControls() {
         // Close custom selects when clicking outside any custom-select wrapper.
         // This allows clicks into text/autocomplete fields to dismiss open select menus.
         if (!e.target.closest('.custom-select-wrapper-outer')) {
-            document.querySelectorAll('.custom-select-wrapper-outer .custom-options.show').forEach(el => el.classList.remove('show'));
-            document.querySelectorAll('.custom-select-trigger.open').forEach(el => el.classList.remove('open'));
+            closeOtherCustomSelects();
         }
 
         // Close autocomplete suggestion lists only when clicking outside autocomplete wrappers.
@@ -9732,49 +11032,11 @@ function setupCustomControls() {
 }
 
 function setupPopoverMultiselects() {
-    // Find all popover trigger buttons for multiselects using native Popover API
     const triggers = document.querySelectorAll('.multiselect-header[popovertarget]');
-
     triggers.forEach(trigger => {
         const popoverId = trigger.getAttribute('popovertarget');
-        const popover = document.getElementById(popoverId);
-        if (!popover) return;
-
-        const placeholder = trigger.querySelector('.placeholder');
-        // Store default text if not already stored
-        if (placeholder && !placeholder.dataset.default) {
-            placeholder.dataset.default = placeholder.textContent;
-        }
-        const defaultText = placeholder ? placeholder.dataset.default : '';
-
-        const updateText = () => {
-            const checkboxes = popover.querySelectorAll('input[type="checkbox"]');
-            const selected = Array.from(checkboxes)
-                .filter(cb => cb.checked)
-                .map(cb => cb.parentElement.textContent.trim());
-
-            if (selected.length > 0) {
-                if (placeholder) {
-                    placeholder.textContent = selected.join(', ');
-                    placeholder.classList.add('has-value');
-                }
-            } else {
-                if (placeholder) {
-                    placeholder.textContent = defaultText;
-                    placeholder.classList.remove('has-value');
-                }
-            }
-        };
-
-        // Attach listener to popover container.
-        // Ensure we don't attach multiple times if this runs again
-        if (!popover.dataset.hasListener) {
-            popover.addEventListener('change', updateText);
-            popover.dataset.hasListener = 'true';
-        }
-
-        // Initial run
-        updateText();
+        if (!popoverId || !popoverId.endsWith('-popover')) return;
+        setupMultiselectPopover(popoverId.slice(0, -8));
     });
 }
 
@@ -9782,6 +11044,8 @@ function setupCustomSelectOptions(container) {
     if (!container) return;
 
     container.querySelectorAll('.custom-option').forEach(option => {
+        option.setAttribute('role', 'option');
+        option.setAttribute('aria-selected', option.classList.contains('selected') ? 'true' : 'false');
         option.onclick = (e) => {
             e.stopPropagation();
             const wrapper = container.parentElement;
@@ -9806,14 +11070,19 @@ function setupCustomSelectOptions(container) {
                 nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
             } else {
                 if (triggerLabel) triggerLabel.textContent = text;
-                container.querySelectorAll('.custom-option').forEach(o => o.classList.remove('selected'));
+                container.querySelectorAll('.custom-option').forEach((o) => {
+                    o.classList.remove('selected');
+                    o.setAttribute('aria-selected', 'false');
+                });
                 option.classList.add('selected');
+                option.setAttribute('aria-selected', 'true');
             }
 
-            trigger.classList.remove('open');
-            container.classList.remove('show');
+            setCustomSelectOpen(trigger, false);
         };
     });
+    const trigger = container.parentElement?.querySelector('.custom-select-trigger');
+    if (trigger) prepareCustomSelectAccessibility(trigger);
 }
 
 function setCustomSelectValue(id, value) {
@@ -9833,8 +11102,12 @@ function setCustomSelectValue(id, value) {
         if (matchingOption) {
             if (trigger) trigger.textContent = matchingOption.textContent;
             // Update selected state
-            options.querySelectorAll('.custom-option').forEach(o => o.classList.remove('selected'));
+            options.querySelectorAll('.custom-option').forEach((o) => {
+                o.classList.remove('selected');
+                o.setAttribute('aria-selected', 'false');
+            });
             matchingOption.classList.add('selected');
+            matchingOption.setAttribute('aria-selected', 'true');
         } else {
             // Fallback for custom values not in list? Or default.
             if (!value) {
@@ -9842,6 +11115,9 @@ function setCustomSelectValue(id, value) {
             }
         }
     }
+
+    const triggerElement = wrapper.querySelector('.custom-select-trigger');
+    if (triggerElement) prepareCustomSelectAccessibility(triggerElement);
 
 }
 
@@ -9857,7 +11133,6 @@ const btnAddSwatchHeader = document.getElementById('btn-add-swatch-header');
 let currentSwatchImageCandidate = null; // { type: 'url'|'upload', value: string }
 let currentSwatchFormMode = 'create';
 let currentEditingSwatchId = null;
-let isSavingSwatch = false;
 const btnDeleteSwatchUnified = document.getElementById('btn-delete-swatch-unified');
 const swatchPreviewCard = document.getElementById('swatch-preview-card');
 const swatchPhotoControls = document.getElementById('swatch-photo-controls');
@@ -9869,7 +11144,6 @@ const btnPrevSwatchPhoto = document.getElementById('btn-prev-swatch-photo');
 const btnNextSwatchPhoto = document.getElementById('btn-next-swatch-photo');
 let currentSwatchGallery = [];
 let currentSwatchGalleryIndex = 0;
-let pendingSwatchPhotoPromise = null;
 
 // Event Listeners for Opening Source Modal
 if (btnAddSwatchHeader) {
@@ -9879,6 +11153,9 @@ if (btnAddSwatchHeader) {
 }
 async function openAddSwatchModal() {
     if (!(await requestCloseAllModals())) return;
+    swatchModalSession += 1;
+    swatchPhotoRequestId += 1;
+    pendingSwatchPhotoPromise = null;
     if (modalAddSwatch) {
         activateModal(modalAddSwatch);
         populateInkSelect('fetch-swatch-ink-wrapper', 'fetch-swatch-ink-options', 'fetch-swatch-ink-input');
@@ -9910,8 +11187,12 @@ function syncNativeCustomSelectUI(config) {
         if (selectedOption) triggerLabel.textContent = selectedOption.textContent;
 
         options.querySelectorAll('.custom-option').forEach((opt) => {
-            opt.classList.toggle('selected', opt.dataset.value === select.value);
+            const isSelected = opt.dataset.value === select.value;
+            opt.classList.toggle('selected', isSelected);
+            opt.setAttribute('aria-selected', isSelected ? 'true' : 'false');
         });
+        const trigger = wrapper.querySelector('.custom-select-trigger');
+        if (trigger) prepareCustomSelectAccessibility(trigger);
     });
 }
 
@@ -9923,6 +11204,7 @@ function enhanceNativeCustomSelects(config, syncFn) {
         if (selectEl.dataset[config.enhancedDatasetKey] === '1') return;
         if (!selectEl.id) return;
         selectEl.dataset[config.enhancedDatasetKey] = '1';
+        const selectLabel = Array.from(document.querySelectorAll('label')).find((label) => label.htmlFor === selectEl.id) || null;
 
         const wrapper = document.createElement('div');
         wrapper.className = `custom-select-wrapper-outer ${config.wrapperClass}`;
@@ -9930,6 +11212,7 @@ function enhanceNativeCustomSelects(config, syncFn) {
         const trigger = document.createElement('div');
         trigger.className = 'custom-select-trigger';
         trigger.tabIndex = 0;
+        trigger.id = `${selectEl.id}-custom-trigger`;
         trigger.innerHTML = '<span class="current-value"></span><i class="ph ph-caret-down"></i>';
 
         const options = document.createElement('div');
@@ -9949,6 +11232,15 @@ function enhanceNativeCustomSelects(config, syncFn) {
 
         selectEl.classList.add(config.hiddenClass);
         selectEl.tabIndex = -1;
+        selectEl.setAttribute('aria-hidden', 'true');
+        if (selectLabel) {
+            selectLabel.htmlFor = trigger.id;
+            trigger.setAttribute('aria-labelledby', ensureCustomControlElementId(selectLabel, 'custom-select-label'));
+            selectLabel.addEventListener('click', (event) => {
+                event.preventDefault();
+                trigger.focus();
+            });
+        }
         selectEl.addEventListener('change', syncFn);
     });
 
@@ -10003,8 +11295,16 @@ function setSwatchFormMode(mode = 'create') {
     if (titleEl) titleEl.textContent = currentSwatchFormMode === 'edit' ? 'Edit Swatch' : 'Add Swatch';
     if (saveBtn) saveBtn.textContent = currentSwatchFormMode === 'edit' ? 'Save Changes' : 'Save Swatch';
     if (inkWrapper) {
-        inkWrapper.style.pointerEvents = currentSwatchFormMode === 'edit' ? 'none' : '';
-        inkWrapper.style.opacity = currentSwatchFormMode === 'edit' ? '0.75' : '';
+        const isLinkedInkLocked = currentSwatchFormMode === 'edit';
+        const inkTrigger = inkWrapper.querySelector('.custom-select-trigger');
+        inkWrapper.style.pointerEvents = isLinkedInkLocked ? 'none' : '';
+        inkWrapper.style.opacity = isLinkedInkLocked ? '0.75' : '';
+        inkWrapper.classList.toggle('is-disabled', isLinkedInkLocked);
+        if (inkTrigger) {
+            inkTrigger.setAttribute('aria-disabled', isLinkedInkLocked ? 'true' : 'false');
+            inkTrigger.tabIndex = isLinkedInkLocked ? -1 : 0;
+            if (isLinkedInkLocked) setCustomSelectOpen(inkTrigger, false);
+        }
     }
     if (btnDeleteSwatchUnified) {
         btnDeleteSwatchUnified.style.display = (isManagerApp && currentSwatchFormMode === 'edit') ? 'inline-block' : 'none';
@@ -10088,6 +11388,7 @@ function renderSwatchModalGallery() {
 function setSwatchGalleryCurrentPrimary() {
     if (!currentSwatchGallery.length) return;
     currentSwatchGallery = setGalleryCurrentPrimary(currentSwatchGallery, currentSwatchGalleryIndex);
+    currentSwatchGalleryIndex = 0;
     closePhotoActionMenus();
     renderSwatchModalGallery();
 }
@@ -10206,6 +11507,9 @@ async function openEditSwatchModal(swatchId) {
     if (!(await requestCloseAllModals())) return;
     if (!modalAddSwatch) return;
 
+    swatchModalSession += 1;
+    swatchPhotoRequestId += 1;
+    pendingSwatchPhotoPromise = null;
     activateModal(modalAddSwatch);
     populateInkSelect('fetch-swatch-ink-wrapper', 'fetch-swatch-ink-options', 'fetch-swatch-ink-input');
     resetSwatchForm('edit');
@@ -10260,20 +11564,89 @@ function setSwatchCurrentImageEntry(path, previewSrc = '', { append = false } = 
     renderSwatchModalGallery();
 }
 
-async function setSwatchPreviewFromUrl(url, showErrors = true) {
-    if (!url) return false;
+function beginSwatchPhotoProcessing() {
+    if (pendingSwatchPhotoPromise) {
+        showAppNotice('Please wait for the current photo to finish processing.', 'warning');
+        return null;
+    }
+    const modalSession = swatchModalSession;
+    const requestId = ++swatchPhotoRequestId;
+    let resolvePendingPhoto = null;
+    const processingPromise = new Promise((resolve) => {
+        resolvePendingPhoto = resolve;
+    });
+    let finished = false;
+    let processingTimer = null;
+    let cancelPendingWait = null;
+    const operation = {
+        isCurrent: () => (
+            modalSession === swatchModalSession
+            && requestId === swatchPhotoRequestId
+            && isModalVisible(modalAddSwatch)
+        ),
+        setCancelHandler: (handler) => {
+            cancelPendingWait = typeof handler === 'function' ? handler : null;
+        },
+        finish: (ok) => {
+            if (finished) return;
+            finished = true;
+            if (processingTimer) clearTimeout(processingTimer);
+            if (pendingSwatchPhotoPromise === processingPromise) pendingSwatchPhotoPromise = null;
+            if (operation.isCurrent() && !isSavingSwatch) {
+                setFormModalBusy(modalAddSwatch, false);
+            }
+            if (resolvePendingPhoto) resolvePendingPhoto(!!ok);
+        }
+    };
+    pendingSwatchPhotoPromise = processingPromise;
+    setFormModalBusy(modalAddSwatch, true);
+    processingTimer = setTimeout(() => {
+        if (!operation.isCurrent()) {
+            operation.finish(false);
+            return;
+        }
+        const preview = document.getElementById('swatch-preview-image');
+        if (preview) {
+            preview.onload = null;
+            preview.onerror = null;
+        }
+        if (cancelPendingWait) {
+            const cancel = cancelPendingWait;
+            cancelPendingWait = null;
+            cancel();
+        }
+        operation.finish(false);
+        swatchPhotoRequestId += 1;
+        renderSwatchModalGallery();
+        setSwatchValidation('Photo processing timed out. Please choose the photo again.');
+    }, PHOTO_PROCESSING_TIMEOUT_MS);
+    return operation;
+}
+
+async function setSwatchPreviewFromUrl(url, showErrors = true, existingOperation = null) {
+    const operation = existingOperation || beginSwatchPhotoProcessing();
+    if (!operation) return false;
+    if (!url || !operation.isCurrent()) {
+        operation.finish(false);
+        return false;
+    }
     setSwatchPreviewState('loading');
     if (isManagerApp && isHeicImagePath(url)) {
         try {
             const converted = await getConvertedRemoteHeicImage(url);
-            if (converted && converted.objectUrl) {
+            if (operation.isCurrent() && converted && converted.objectUrl) {
                 currentSwatchImageCandidate = { type: 'url', value: url };
                 setSwatchCurrentImageEntry(url, converted.objectUrl);
                 updateSwatchControlsState();
+                operation.finish(true);
                 return true;
             }
         } catch (error) {
             console.error('Remote HEIC preview failed.', error);
+        }
+        if (!operation.isCurrent()) {
+            operation.finish(false);
+            return false;
         }
         if (showErrors) {
             setSwatchPreviewState('error', { message: 'Could not convert HEIC/HEIF image from URL.' });
@@ -10282,30 +11655,45 @@ async function setSwatchPreviewFromUrl(url, showErrors = true) {
         }
         currentSwatchImageCandidate = null;
         updateSwatchControlsState();
+        operation.finish(false);
         return false;
     }
 
     const preview = document.getElementById('swatch-preview-image');
     return await new Promise((resolve) => {
-        if (!preview) return resolve(false);
+        if (!preview) {
+            operation.finish(false);
+            return resolve(false);
+        }
+        operation.setCancelHandler(() => resolve(false));
         preview.onload = () => {
-            preview.onload = null;
-            preview.onerror = null;
-            currentSwatchImageCandidate = { type: 'url', value: url };
-            setSwatchCurrentImageEntry(url, url);
-            updateSwatchControlsState();
-            resolve(true);
+            const isCurrent = operation.isCurrent();
+            if (isCurrent) {
+                preview.onload = null;
+                preview.onerror = null;
+                currentSwatchImageCandidate = { type: 'url', value: url };
+                setSwatchCurrentImageEntry(url, url);
+                updateSwatchControlsState();
+            }
+            operation.setCancelHandler(null);
+            operation.finish(isCurrent);
+            resolve(isCurrent);
         };
         preview.onerror = () => {
-            preview.onload = null;
-            preview.onerror = null;
-            if (showErrors) {
-                setSwatchPreviewState('error', { message: 'Could not load image from URL.' });
-            } else {
-                setSwatchPreviewState('empty');
+            const isCurrent = operation.isCurrent();
+            if (isCurrent) {
+                preview.onload = null;
+                preview.onerror = null;
+                if (showErrors) {
+                    setSwatchPreviewState('error', { message: 'Could not load image from URL.' });
+                } else {
+                    setSwatchPreviewState('empty');
+                }
+                currentSwatchImageCandidate = null;
+                updateSwatchControlsState();
             }
-            currentSwatchImageCandidate = null;
-            updateSwatchControlsState();
+            operation.setCancelHandler(null);
+            operation.finish(false);
             resolve(false);
         };
         preview.src = url;
@@ -10313,49 +11701,59 @@ async function setSwatchPreviewFromUrl(url, showErrors = true) {
 }
 
 async function setSwatchPreviewFromUpload(path, { append = false } = {}) {
-    if (!path) return false;
-    let resolvePendingSwatchPhoto = null;
-    const processingPromise = new Promise((resolve) => {
-        resolvePendingSwatchPhoto = resolve;
-    });
-    pendingSwatchPhotoPromise = processingPromise;
-    const finishProcessing = (ok) => {
-        if (pendingSwatchPhotoPromise === processingPromise) pendingSwatchPhotoPromise = null;
-        if (resolvePendingSwatchPhoto) resolvePendingSwatchPhoto(!!ok);
-    };
+    const operation = beginSwatchPhotoProcessing();
+    if (!operation) return false;
+    if (!path || !operation.isCurrent()) {
+        operation.finish(false);
+        return false;
+    }
     let previewUrl = '';
     try {
         previewUrl = await getLocalImagePreviewSource(path);
     } catch (error) {
-        setSwatchPreviewState('error', { message: 'Could not load selected image.' });
-        currentSwatchImageCandidate = null;
-        updateSwatchControlsState();
-        finishProcessing(false);
+        if (operation.isCurrent()) {
+            setSwatchPreviewState('error', { message: 'Could not load selected image.' });
+            currentSwatchImageCandidate = null;
+            updateSwatchControlsState();
+        }
+        operation.finish(false);
+        return false;
+    }
+    if (!operation.isCurrent()) {
+        operation.finish(false);
         return false;
     }
     setSwatchPreviewState('loading');
     const preview = document.getElementById('swatch-preview-image');
     return await new Promise((resolve) => {
         if (!preview) {
-            finishProcessing(false);
+            operation.finish(false);
             return resolve(false);
         }
+        operation.setCancelHandler(() => resolve(false));
         preview.onload = () => {
-            preview.onload = null;
-            preview.onerror = null;
-            currentSwatchImageCandidate = { type: 'upload', value: path };
-            setSwatchCurrentImageEntry(path, previewUrl, { append });
-            updateSwatchControlsState();
-            finishProcessing(true);
-            resolve(true);
+            const isCurrent = operation.isCurrent();
+            if (isCurrent) {
+                preview.onload = null;
+                preview.onerror = null;
+                currentSwatchImageCandidate = { type: 'upload', value: path };
+                setSwatchCurrentImageEntry(path, previewUrl, { append });
+                updateSwatchControlsState();
+            }
+            operation.setCancelHandler(null);
+            operation.finish(isCurrent);
+            resolve(isCurrent);
         };
         preview.onerror = () => {
-            preview.onload = null;
-            preview.onerror = null;
-            setSwatchPreviewState('error', { message: 'Could not load selected image.' });
-            currentSwatchImageCandidate = null;
-            updateSwatchControlsState();
-            finishProcessing(false);
+            if (operation.isCurrent()) {
+                preview.onload = null;
+                preview.onerror = null;
+                setSwatchPreviewState('error', { message: 'Could not load selected image.' });
+                currentSwatchImageCandidate = null;
+                updateSwatchControlsState();
+            }
+            operation.setCancelHandler(null);
+            operation.finish(false);
             resolve(false);
         };
         preview.src = previewUrl;
@@ -10375,31 +11773,45 @@ function populateInkSelect(wrapperId, optionsId, inputId) {
     // Custom binding to handle the "Auto Search" logic for Fetch Modal
     const options = optionsContainer.querySelectorAll('.custom-option');
     options.forEach(opt => {
+        opt.setAttribute('role', 'option');
         opt.onclick = (e) => {
             e.stopPropagation();
             const val = opt.dataset.value;
             const text = opt.textContent;
 
             const wrapper = document.getElementById(wrapperId);
-            wrapper.classList.remove('open');
+            const trigger = wrapper.querySelector('.custom-select-trigger');
             wrapper.querySelector('.current-value').textContent = text;
-            optionsContainer.classList.remove('show');
+            options.forEach((option) => {
+                const isSelected = option === opt;
+                option.classList.toggle('selected', isSelected);
+                option.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+            });
+            setCustomSelectOpen(trigger, false);
             document.getElementById(inputId).value = val;
             updateSwatchControlsState();
             setSwatchValidation('');
         };
     });
+    const trigger = document.getElementById(wrapperId)?.querySelector('.custom-select-trigger');
+    if (trigger) prepareCustomSelectAccessibility(trigger);
 }
 
 async function handleFetchSearch(inkId, options = {}) {
     const ink = appData.inks.find(i => i.id === inkId);
     if (!ink) return;
+    const operation = beginSwatchPhotoProcessing();
+    if (!operation) return false;
     const query = `${ink.brand || ''} ${ink.name}`.trim();
     setSwatchValidation('');
     setSwatchPreviewState('loading');
 
     try {
         const result = await desktopAPI.fetchInkSwatch(query);
+        if (!operation.isCurrent()) {
+            operation.finish(false);
+            return false;
+        }
         if (result.success && result.imageUrl) {
             const foundName = (result.inkName || '').toLowerCase();
             const queryName = ink.name.toLowerCase();
@@ -10420,24 +11832,29 @@ async function handleFetchSearch(inkId, options = {}) {
                 });
                 currentSwatchImageCandidate = null;
                 updateSwatchControlsState();
+                operation.finish(false);
                 return false;
             }
 
-            const ok = await setSwatchPreviewFromUrl(result.imageUrl);
+            const ok = await setSwatchPreviewFromUrl(result.imageUrl, true, operation);
             const nameInput = document.getElementById('fetch-swatch-name-auto');
-            if (nameInput) nameInput.value = result.inkName || 'Unknown';
+            if (operation.isCurrent() && nameInput) nameInput.value = result.inkName || 'Unknown';
             return ok;
         } else {
             setSwatchPreviewState('error', { message: result.message || 'No swatch found automatically.' });
             currentSwatchImageCandidate = null;
             updateSwatchControlsState();
+            operation.finish(false);
             return false;
         }
     } catch (e) {
         console.error("Link Fetch Error", e);
-        setSwatchPreviewState('error', { message: 'Failed to fetch swatch from InkSwatch.com.' });
-        currentSwatchImageCandidate = null;
-        updateSwatchControlsState();
+        if (operation.isCurrent()) {
+            setSwatchPreviewState('error', { message: 'Failed to fetch swatch from InkSwatch.com.' });
+            currentSwatchImageCandidate = null;
+            updateSwatchControlsState();
+        }
+        operation.finish(false);
         return false;
     }
 }
@@ -10445,6 +11862,10 @@ async function handleFetchSearch(inkId, options = {}) {
 document.querySelectorAll('.swatch-source-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         if (btn.disabled) return;
+        if (pendingSwatchPhotoPromise) {
+            showAppNotice('Please wait for the current photo to finish processing.', 'warning');
+            return;
+        }
         setSwatchSource(btn.dataset.source);
         setSwatchValidation('');
     });
@@ -10489,6 +11910,11 @@ document.getElementById('fetch-swatch-url-manual')?.addEventListener('keydown', 
 });
 
 async function selectSwatchUpload({ append = false } = {}) {
+    if (pendingSwatchPhotoPromise) {
+        showAppNotice('Please wait for the current photo to finish processing.', 'warning');
+        return;
+    }
+    const modalSession = swatchModalSession;
     closePhotoActionMenus();
     const inkId = document.getElementById('fetch-swatch-ink-input')?.value;
     if (!inkId) {
@@ -10502,7 +11928,7 @@ async function selectSwatchUpload({ append = false } = {}) {
         setSwatchValidation(`Image selection failed: ${error && error.message ? error.message : error}`);
         return;
     }
-    if (!path) return;
+    if (!path || modalSession !== swatchModalSession || !isModalVisible(modalAddSwatch)) return;
     setSwatchValidation('');
     await setSwatchPreviewFromUpload(path, { append });
 }
@@ -10520,20 +11946,29 @@ if (btnAddSwatchPhoto) {
 
 document.getElementById('btn-save-swatch-unified')?.addEventListener('click', async (event) => {
     if (isSavingSwatch) return;
+    const savingSwatchMode = currentSwatchFormMode;
+    const editingSwatchId = currentEditingSwatchId;
     isSavingSwatch = true;
+    let createdImagePaths = [];
+    let swatchStateBeforeSave = null;
     const saveButton = event.currentTarget || document.getElementById('btn-save-swatch-unified');
+    setFormModalBusy(modalAddSwatch, true);
     if (saveButton) {
         saveButton.disabled = true;
         saveButton.setAttribute('aria-busy', 'true');
     }
     try {
-    if (pendingSwatchPhotoPromise) await pendingSwatchPhotoPromise;
+    if (pendingSwatchPhotoPromise && !(await pendingSwatchPhotoPromise)) {
+        setSwatchValidation('The selected photo could not be processed. Please choose it again.');
+        return;
+    }
+    await settingsPersistQueue;
     const inkId = document.getElementById('fetch-swatch-ink-input')?.value;
-    if (!inkId && currentSwatchFormMode !== 'edit') {
+    if (!inkId && savingSwatchMode !== 'edit') {
         setSwatchValidation('Please select an ink.');
         return;
     }
-    if (currentSwatchFormMode !== 'edit' && !currentSwatchImageCandidate) {
+    if (savingSwatchMode !== 'edit' && !currentSwatchImageCandidate) {
         setSwatchValidation('Please add a swatch image.');
         return;
     }
@@ -10541,20 +11976,27 @@ document.getElementById('btn-save-swatch-unified')?.addEventListener('click', as
     const ink = appData.inks.find(i => i.id === inkId);
     const imageMetadata = ink ? { brand: ink.brand, model: ink.name } : { brand: 'unknown', model: 'ink' };
     const swatchMetadata = getSwatchMetadataPayload();
-    const isEditMode = currentSwatchFormMode === 'edit';
+    const isEditMode = savingSwatchMode === 'edit';
+    const swatchGalleryForSave = normalizeModalGallery(currentSwatchGallery);
+    swatchStateBeforeSave = {
+        swatches: cloneCollectionArray(appData.swatches),
+        activityLog: cloneCollectionArray(appData.activity_log)
+    };
 
     if (isEditMode) {
-        const swatch = getSwatchById(currentEditingSwatchId);
+        const swatch = getSwatchById(editingSwatchId);
         if (!swatch) {
             setSwatchValidation('Swatch not found.');
             return;
         }
-	        const linkedInk = getInkById(swatch.ink_id);
-	        const editMetadata = linkedInk ? { brand: linkedInk.brand, model: linkedInk.name } : imageMetadata;
-	        let newFilename = swatch.image || '';
-	        const previousSwatchImagePaths = getImageEntries(swatch).map((entry) => entry.path).filter(Boolean);
-	        let swatchImages = await savePendingGalleryImages(currentSwatchGallery, 'swatch', editMetadata);
-	        if (!swatchImages.length && newFilename) swatchImages = singlePrimaryImageList(newFilename);
+		        const linkedInk = getInkById(swatch.ink_id);
+		        const editMetadata = linkedInk ? { brand: linkedInk.brand, model: linkedInk.name } : imageMetadata;
+		        let newFilename = swatch.image || '';
+		        const previousSwatchImagePaths = getImageEntries(swatch).map((entry) => entry.path).filter(Boolean);
+		        const swatchGallerySave = await savePendingGalleryImages(swatchGalleryForSave, 'swatch', editMetadata);
+                let swatchImages = swatchGallerySave.images;
+                createdImagePaths = swatchGallerySave.createdPaths;
+		        if (!swatchImages.length && newFilename) swatchImages = singlePrimaryImageList(newFilename);
 	        const primarySwatchImage = getGalleryPrimaryEntry(swatchImages);
 	        newFilename = primarySwatchImage ? primarySwatchImage.path : '';
 	        if (!newFilename) {
@@ -10581,8 +12023,8 @@ document.getElementById('btn-save-swatch-unified')?.addEventListener('click', as
             });
         }
 
-        await persistDataAndRefresh({
-            refresh: {
+	        const saved = await persistDataAndRefresh({
+	            refresh: {
                 dashboard: true,
                 swatches: true,
                 inks: true,
@@ -10590,32 +12032,68 @@ document.getElementById('btn-save-swatch-unified')?.addEventListener('click', as
                 autocomplete: true
             },
             onSuccess: async () => {
-	                for (const oldFilenameToDelete of oldFilenamesToDelete) {
-	                    await disposeReplacedManagedImage(oldFilenameToDelete);
-	                }
-                closeAllModals();
-                switchView('swatches');
-                renderSwatches();
-            },
-            onErrorMessage: 'Failed to update swatch!'
-        });
-        return;
-    }
+                try {
+                    await runPostSaveCleanupTasks(
+                        oldFilenamesToDelete.map((oldFilenameToDelete) => (
+                            () => disposeReplacedManagedImage(oldFilenameToDelete)
+                        ))
+                    );
+                } finally {
+                    closeAllModals();
+                    switchView('swatches');
+                    renderSwatches();
+                }
+	            },
+	            onErrorMessage: 'Failed to update swatch!'
+	        });
+            if (!saved) {
+                appData.swatches = swatchStateBeforeSave.swatches;
+                appData.activity_log = swatchStateBeforeSave.activityLog;
+                const cleanup = await deleteUncommittedManagedImages(createdImagePaths);
+                setSwatchValidation(cleanup.success
+                    ? 'The swatch was not saved. Nothing was changed.'
+                    : 'The swatch was not saved. Nothing was changed, but some temporary photo files could not be removed.');
+            }
+	        return;
+	    }
 
-	    const swatchImages = await savePendingGalleryImages(currentSwatchGallery, 'swatch', imageMetadata);
-	    const primarySwatchImage = getGalleryPrimaryEntry(swatchImages);
+		    const swatchGallerySave = await savePendingGalleryImages(swatchGalleryForSave, 'swatch', imageMetadata);
+            const swatchImages = swatchGallerySave.images;
+            createdImagePaths = swatchGallerySave.createdPaths;
+		    const primarySwatchImage = getGalleryPrimaryEntry(swatchImages);
 	    const savedFilename = primarySwatchImage ? primarySwatchImage.path : null;
 	    if (!savedFilename) {
 	        setSwatchValidation('Failed to save swatch image.');
 	        return;
 	    }
 
-	    await updateInkWithImage(inkId, savedFilename, swatchMetadata, swatchImages);
-    closeAllModals();
-    switchView('swatches');
-    renderSwatches();
-    } finally {
-        isSavingSwatch = false;
+		    const saved = await updateInkWithImage(inkId, savedFilename, swatchMetadata, swatchImages);
+	    if (!saved) {
+            appData.swatches = swatchStateBeforeSave.swatches;
+            appData.activity_log = swatchStateBeforeSave.activityLog;
+            const cleanup = await deleteUncommittedManagedImages(createdImagePaths);
+            setSwatchValidation(cleanup.success
+                ? 'The swatch was not saved. Nothing was changed.'
+                : 'The swatch was not saved. Nothing was changed, but some temporary photo files could not be removed.');
+	        return;
+	    }
+	    closeAllModals();
+	    switchView('swatches');
+	    renderSwatches();
+    } catch (error) {
+        if (swatchStateBeforeSave) {
+            appData.swatches = swatchStateBeforeSave.swatches;
+            appData.activity_log = swatchStateBeforeSave.activityLog;
+        }
+        const cleanup = await deleteUncommittedManagedImages(createdImagePaths);
+        const cleanupFailed = !!(error && error.cleanupFailed) || !cleanup.success;
+        setSwatchValidation(cleanupFailed
+            ? 'One or more photos could not be saved. Nothing was changed, but some temporary photo files could not be removed.'
+            : 'One or more photos could not be saved. Nothing was changed.');
+        console.warn('Swatch save attempt failed.', error && error.cause ? error.cause : error);
+	    } finally {
+	        isSavingSwatch = false;
+        setFormModalBusy(modalAddSwatch, false);
         if (saveButton) {
             saveButton.disabled = false;
             saveButton.removeAttribute('aria-busy');
@@ -10623,15 +12101,17 @@ document.getElementById('btn-save-swatch-unified')?.addEventListener('click', as
     }
 });
 
-if (btnDeleteSwatchUnified) {
-    btnDeleteSwatchUnified.addEventListener('click', async () => {
-        if (currentSwatchFormMode !== 'edit') return;
-        const swatchId = currentEditingSwatchId || '';
-        const swatch = getSwatchById(swatchId);
-        if (!swatch) return;
-        const ink = getInkById(swatch.ink_id);
-        const inkName = ink ? formatInkName(ink) : 'this ink';
+async function deleteCurrentSwatch() {
+    if (currentSwatchFormMode !== 'edit' || isDeletingCollectionItem || isSavingSwatch) return false;
+    const swatchId = currentEditingSwatchId || '';
+    const swatch = getSwatchById(swatchId);
+    if (!swatch) return false;
+    const ink = getInkById(swatch.ink_id);
+    const inkName = ink ? formatInkName(ink) : 'this ink';
 
+    isDeletingCollectionItem = true;
+    setFormModalBusy(modalAddSwatch, true);
+    try {
         if (!(await confirmAction({
             title: 'Delete Swatch',
             message: `Delete swatch for ${inkName}?`,
@@ -10640,8 +12120,13 @@ if (btnDeleteSwatchUnified) {
             defaultId: 0,
             cancelId: 0,
             confirmedIndex: 1
-        }))) return;
+        }))) return false;
+        await settingsPersistQueue;
 
+        const swatchStateBeforeDelete = {
+            swatches: cloneCollectionArray(appData.swatches),
+            activityLog: cloneCollectionArray(appData.activity_log)
+        };
         const swatchImagePaths = getImageEntries(swatch).map((entry) => entry.path).filter(Boolean);
         appData.swatches = getAllSwatches().filter((item) => item.id !== swatchId);
         logActivity('deleted', 'swatch', `Deleted swatch for ${inkName}.`, {
@@ -10649,7 +12134,7 @@ if (btnDeleteSwatchUnified) {
             metadata: buildSwatchActivityMetadata(swatch, ink)
         });
 
-        await persistDataAndRefresh({
+        const saved = await persistDataAndRefresh({
             refresh: {
                 dashboard: true,
                 inks: true,
@@ -10658,16 +12143,33 @@ if (btnDeleteSwatchUnified) {
                 autocomplete: true
             },
             onSuccess: async () => {
-                for (const swatchImagePath of swatchImagePaths) {
-                    await desktopAPI.deleteImage(swatchImagePath);
+                try {
+                    await runPostSaveCleanupTasks(
+                        swatchImagePaths.map((swatchImagePath) => (
+                            () => deleteManagedImageIfUnreferenced(swatchImagePath)
+                        ))
+                    );
+                } finally {
+                    closeAllModals();
+                    switchView('swatches');
+                    renderSwatches();
                 }
-                closeAllModals();
-                switchView('swatches');
-                renderSwatches();
             },
             onErrorMessage: 'Failed to delete swatch!'
         });
-    });
+        if (!saved) {
+            appData.swatches = swatchStateBeforeDelete.swatches;
+            appData.activity_log = swatchStateBeforeDelete.activityLog;
+        }
+        return saved;
+    } finally {
+        isDeletingCollectionItem = false;
+        setFormModalBusy(modalAddSwatch, false);
+    }
+}
+
+if (btnDeleteSwatchUnified) {
+    btnDeleteSwatchUnified.addEventListener('click', deleteCurrentSwatch);
 }
 
 function makeClientId(prefix = 'id') {
@@ -10677,10 +12179,11 @@ function makeClientId(prefix = 'id') {
 // Helper to Update App Data
 async function updateInkWithImage(inkId, filename, swatchMetadata = null, images = null) {
     const ink = appData.inks.find(i => i.id === inkId);
-    if (!ink) return;
+    if (!ink) return false;
 
     const payload = swatchMetadata || {};
     appData.swatches = Array.isArray(appData.swatches) ? appData.swatches : [];
+    const previousSwatches = [...appData.swatches];
 	    const newSwatch = {
 	        id: makeClientId('swatch'),
 	        ink_id: inkId,
@@ -10694,11 +12197,12 @@ async function updateInkWithImage(inkId, filename, swatchMetadata = null, images
         created_at: Date.now()
     };
     appData.swatches.push(newSwatch);
+    const previousActivityLog = [...(appData.activity_log || [])];
     logActivity('created', 'swatch', `Added swatch for ${formatInkName(ink)}.`, {
         entityId: newSwatch.id,
         metadata: buildSwatchActivityMetadata(newSwatch, ink)
     });
-    await persistDataAndRefresh({
+    const saved = await persistDataAndRefresh({
         refresh: {
             dashboard: true,
             swatches: true,
@@ -10708,6 +12212,12 @@ async function updateInkWithImage(inkId, filename, swatchMetadata = null, images
         },
         onErrorMessage: 'Failed to save swatch image data!'
     });
+    if (!saved) {
+        appData.swatches = previousSwatches;
+        appData.activity_log = previousActivityLog;
+        return false;
+    }
+    return true;
 }
 
 // DOM Elements

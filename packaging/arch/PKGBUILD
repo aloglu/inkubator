@@ -15,9 +15,8 @@ depends=(
 )
 makedepends=(
   'base-devel'
-  'cargo'
   'file'
-  'nodejs'
+  'nodejs-lts-krypton'
   'npm'
   'pkgconf'
   'rust'

@@ -97,7 +97,11 @@ jobs:
         if: matrix.platform == 'linux'
         shell: bash
         run: |
-          chromium_bin="$(command -v chromium || command -v google-chrome)"
+          chromium_bin="${CHROME_BIN:-}"
+          if [[ -z "${chromium_bin}" || ! -x "${chromium_bin}" ]]; then
+            chromium_bin="$(command -v google-chrome || command -v chromium)"
+          fi
+          "${chromium_bin}" --version
           INKUBATOR_CHROMIUM_BIN="${chromium_bin}" npm run test:renderer
 
       - name: Check Rust formatting

@@ -531,7 +531,7 @@ async function main() {
   server.stderr.on('data', (chunk) => serverLog.push(String(chunk)));
 
   const chromium = spawn(chromiumBin, [
-    '--headless=new',
+    '--headless',
     '--no-sandbox',
     '--disable-gpu',
     '--disable-background-networking',
@@ -545,33 +545,57 @@ async function main() {
     `--user-data-dir=${profileDir}`,
     '--window-size=1280,900',
     'about:blank'
-  ], { stdio: ['ignore', 'ignore', 'ignore'] });
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
   let chromiumLaunchError = null;
-  chromium.once('error', (error) => {
-    chromiumLaunchError = error;
-  });
+  let chromiumExitStatus = null;
+  let chromiumOutput = '';
+  const captureChromiumOutput = (chunk) => {
+    chromiumOutput = `${chromiumOutput}${String(chunk)}`.slice(-16000);
+  };
+  chromium.stdout.on('data', captureChromiumOutput);
+  chromium.stderr.on('data', captureChromiumOutput);
   const serverExited = new Promise((resolve) => server.once('exit', resolve));
   const chromiumExited = new Promise((resolve) => {
-    chromium.once('exit', resolve);
-    chromium.once('error', resolve);
+    chromium.once('exit', (code, signal) => {
+      chromiumExitStatus = { code, signal };
+      resolve();
+    });
+    chromium.once('error', (error) => {
+      chromiumLaunchError = error;
+      resolve();
+    });
   });
+  const chromiumStartupError = () => {
+    if (chromiumLaunchError) {
+      return new Error(`Could not start Chromium at "${chromiumBin}": ${chromiumLaunchError.message}`);
+    }
+    if (!chromiumExitStatus) return null;
+    const status = chromiumExitStatus.signal
+      ? `signal ${chromiumExitStatus.signal}`
+      : `exit code ${chromiumExitStatus.code}`;
+    const output = chromiumOutput.trim();
+    return new Error(
+      `Chromium at "${chromiumBin}" exited before opening its debugging port (${status}).${output ? `\nChromium output:\n${output}` : ''}`
+    );
+  };
   let client;
   const runtimeErrors = [];
   const consoleErrors = [];
 
   try {
     await waitForHttp(baseUrl);
-    if (chromiumLaunchError) {
-      throw new Error(`Could not start Chromium at "${chromiumBin}": ${chromiumLaunchError.message}`);
+    const initialChromiumError = chromiumStartupError();
+    if (initialChromiumError) throw initialChromiumError;
+    const debuggingUrl = `http://127.0.0.1:${debugPort}/json/version`;
+    try {
+      await waitForJson(debuggingUrl, 30000, chromiumStartupError);
+    } catch (error) {
+      const startupError = chromiumStartupError();
+      if (startupError) throw startupError;
+      const output = chromiumOutput.trim();
+      throw new Error(`${error.message}${output ? `\nChromium output:\n${output}` : ''}`);
     }
-    await waitForJson(
-      `http://127.0.0.1:${debugPort}/json/version`,
-      15000,
-      () => chromiumLaunchError
-        ? new Error(`Could not start Chromium at "${chromiumBin}": ${chromiumLaunchError.message}`)
-        : null
-    );
     const targetResponse = await fetch(`http://127.0.0.1:${debugPort}/json/new?about:blank`, { method: 'PUT' });
     const target = await targetResponse.json();
     client = new CdpClient(target.webSocketDebuggerUrl);

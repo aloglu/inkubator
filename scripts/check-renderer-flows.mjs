@@ -1514,6 +1514,9 @@ async function main() {
         popover.showPopover();
       }
       const originalChecked = checkbox.checked;
+      const originalTransition = checkbox.style.getPropertyValue('transition');
+      const originalTransitionPriority = checkbox.style.getPropertyPriority('transition');
+      checkbox.style.setProperty('transition', 'none', 'important');
       checkbox.checked = false;
       const unchecked = getComputedStyle(checkbox);
       const uncheckedState = {
@@ -1521,11 +1524,11 @@ async function main() {
         width: unchecked.width,
         height: unchecked.height,
         borderRadius: unchecked.borderRadius,
-        backgroundColor: unchecked.backgroundColor
+        backgroundColor: unchecked.backgroundColor,
+        backgroundImage: unchecked.backgroundImage
       };
       checkbox.checked = true;
       checkbox.focus();
-      await new Promise((resolve) => setTimeout(resolve, 220));
       const checked = getComputedStyle(checkbox);
       const checkedState = {
         backgroundColor: checked.backgroundColor,
@@ -1542,6 +1545,11 @@ async function main() {
         }
       });
       checkbox.checked = originalChecked;
+      if (originalTransition) {
+        checkbox.style.setProperty('transition', originalTransition, originalTransitionPriority);
+      } else {
+        checkbox.style.removeProperty('transition');
+      }
       checkbox.blur();
       if (popover && typeof popover.hidePopover === 'function' && popover.matches(':popover-open')) {
         popover.hidePopover();
@@ -1557,6 +1565,7 @@ async function main() {
       multiselectCheckboxStyle.uncheckedState.backgroundColor,
       `checked multiselect controls should have a clear selected state: ${JSON.stringify(multiselectCheckboxStyle)}`
     );
+    assert.equal(multiselectCheckboxStyle.uncheckedState.backgroundImage, 'none', 'unchecked multiselect controls should not render a checkmark');
     assert.notEqual(multiselectCheckboxStyle.checkedState.backgroundImage, 'none', 'checked multiselect controls should render the custom checkmark');
     assert.equal(multiselectCheckboxStyle.focusRulePresent, true, 'multiselect checkbox styling should include a keyboard focus ring');
 

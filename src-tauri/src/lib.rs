@@ -15,7 +15,7 @@ use std::{
     sync::Mutex,
     time::{Duration, SystemTime},
 };
-use tauri::{AppHandle, Manager, State, Window};
+use tauri::{ipc::Channel, AppHandle, Manager, State, Window};
 use tokio::{net::lookup_host, time::timeout};
 use url::Url;
 use uuid::Uuid;
@@ -1467,6 +1467,81 @@ fn collection_with_arrays(source: &Value) -> Value {
         "currently_inked": dedupe_currently_inked_by_pen(collection_array(source, "currently_inked")),
         "activity_log": collection_array(source, "activity_log")
     })
+}
+
+fn has_current_swatch_image_reference(swatch: &Value) -> bool {
+    let is_swatch_reference = |value: &str| {
+        normalize_managed_relative_image_path(value)
+            .is_some_and(|image_path| image_path.starts_with("swatches/"))
+    };
+    if swatch
+        .get("image")
+        .and_then(Value::as_str)
+        .is_some_and(is_swatch_reference)
+    {
+        return true;
+    }
+    swatch
+        .get("images")
+        .and_then(Value::as_array)
+        .is_some_and(|images| {
+            images.iter().any(|entry| {
+                entry.as_str().is_some_and(is_swatch_reference)
+                    || ["path", "image", "url"].iter().any(|field| {
+                        entry
+                            .get(field)
+                            .and_then(Value::as_str)
+                            .is_some_and(is_swatch_reference)
+                    })
+            })
+        })
+}
+
+fn clear_missing_legacy_ink_swatch_aliases(data: &mut Value, images_root: &Path) -> Result<()> {
+    let ink_ids_with_swatches = collection_array(data, "swatches")
+        .into_iter()
+        .filter(has_current_swatch_image_reference)
+        .filter_map(|swatch| {
+            swatch
+                .get("ink_id")
+                .and_then(Value::as_str)
+                .filter(|ink_id| !ink_id.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .collect::<HashSet<_>>();
+    let Some(inks) = data.get_mut("inks").and_then(Value::as_array_mut) else {
+        return Ok(());
+    };
+    let images_root_exists = path_exists_without_following(images_root)?;
+
+    for ink in inks {
+        let Some(object) = ink.as_object_mut() else {
+            continue;
+        };
+        let linked_swatch_exists = object
+            .get("id")
+            .and_then(Value::as_str)
+            .is_some_and(|ink_id| ink_ids_with_swatches.contains(ink_id));
+        if !linked_swatch_exists {
+            continue;
+        }
+        for field in ["image", "image_url", "url"] {
+            let legacy_alias = object
+                .get(field)
+                .and_then(Value::as_str)
+                .and_then(normalize_managed_relative_image_path)
+                .filter(|image_path| image_path.starts_with("swatches/"));
+            let Some(legacy_alias) = legacy_alias else {
+                continue;
+            };
+            let alias_exists = images_root_exists
+                && resolve_referenced_image_source(images_root, &legacy_alias, false)?.is_some();
+            if !alias_exists {
+                object.insert(field.to_string(), json!(""));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn merge_collection_data(existing: &Value, incoming: &Value, behavior: &str) -> Value {
@@ -4585,7 +4660,10 @@ async fn backup_status(app: AppHandle) -> std::result::Result<Value, String> {
 }
 
 #[tauri::command]
-async fn export_backup(app: AppHandle) -> std::result::Result<Value, String> {
+async fn export_backup(
+    app: AppHandle,
+    on_started: Channel<()>,
+) -> std::result::Result<Value, String> {
     (|| {
         ensure_app_storage(&app)?;
         let default_name = format!("inkubator-backup-{}.zip", timestamp());
@@ -4602,6 +4680,7 @@ async fn export_backup(app: AppHandle) -> std::result::Result<Value, String> {
         } else {
             target.with_extension("zip")
         };
+        let _ = on_started.send(());
         let stage = manual_backups_path(&app)?.join(format!(
             ".manual-export-{}-{}",
             timestamp(),
@@ -4687,14 +4766,15 @@ fn import_backup_folder(
         return Ok(conflict);
     }
 
-    let data = merge_collection_data(&Value::Null, &incoming_collection, "overwrite");
-    validate_managed_image_references(&data)?;
-    refresh_storage_revision(&mut preferences)?;
-    let revision = state_revision(&data, &preferences)?;
     let backup_images = folder.join("images");
     let backup_replaced_images = folder.join("replaced-images");
     repair_and_validate_backup_media_tree(&backup_images, "images")?;
     repair_and_validate_backup_media_tree(&backup_replaced_images, "replaced-images")?;
+    let mut data = merge_collection_data(&Value::Null, &incoming_collection, "overwrite");
+    clear_missing_legacy_ink_swatch_aliases(&mut data, &backup_images)?;
+    validate_managed_image_references(&data)?;
+    refresh_storage_revision(&mut preferences)?;
+    let revision = state_revision(&data, &preferences)?;
     validate_imported_referenced_images(&backup_images, &data)?;
     let has_backup_images = path_exists_without_following(&backup_images)?;
     let has_backup_replaced_images = path_exists_without_following(&backup_replaced_images)?;
@@ -6477,6 +6557,140 @@ mod tests {
     }
 
     #[test]
+    fn backup_import_clears_only_obsolete_legacy_ink_swatch_aliases() {
+        let root = test_root("legacy-ink-swatch-alias-import");
+        let paths = StoragePaths::new(root.join("storage"));
+        let preferences = default_preferences();
+        write_test_storage(&paths, &default_collection_data(), &preferences);
+        let (_, _, revision) = read_storage_state(&paths).unwrap();
+
+        let backup = root.join("backup");
+        let imported_collection = json!({
+            "pens": [],
+            "inks": [{
+                "id": "legacy-alias",
+                "image": "swatches/missing-legacy.webp",
+                "image_url": "images/swatches/missing-url-alias.webp",
+                "url": "swatches/missing-direct-url-alias.webp"
+            }, {
+                "id": "bottle-photo",
+                "image": "inks/bottle.webp"
+            }, {
+                "id": "preserved-alias",
+                "image": "swatches/preserved-legacy.webp"
+            }, {
+                "id": "unlinked-alias",
+                "image": "swatches/unlinked.webp"
+            }],
+            "swatches": [{
+                "id": "current-swatch",
+                "ink_id": "legacy-alias",
+                "image": "swatches/current.webp"
+            }, {
+                "id": "bottle-swatch",
+                "ink_id": "bottle-photo",
+                "image": "swatches/bottle-swatch.webp"
+            }, {
+                "id": "preserved-current-swatch",
+                "ink_id": "preserved-alias",
+                "image": "swatches/preserved-current.webp"
+            }],
+            "currently_inked": [],
+            "activity_log": []
+        });
+        write_json(&backup.join("data.json"), &imported_collection).unwrap();
+        write_json(&backup.join("preferences.json"), &preferences).unwrap();
+        fs::create_dir_all(backup.join("images/inks")).unwrap();
+        fs::create_dir_all(backup.join("images/swatches")).unwrap();
+        let image = test_raster_bytes(ImageFormat::WebP, [20, 40, 60]);
+        fs::write(backup.join("images/inks/bottle.webp"), &image).unwrap();
+        fs::write(backup.join("images/swatches/current.webp"), &image).unwrap();
+        fs::write(backup.join("images/swatches/bottle-swatch.webp"), &image).unwrap();
+        fs::write(backup.join("images/swatches/preserved-legacy.webp"), &image).unwrap();
+        fs::write(
+            backup.join("images/swatches/preserved-current.webp"),
+            &image,
+        )
+        .unwrap();
+        fs::write(backup.join("images/swatches/unlinked.webp"), &image).unwrap();
+
+        let result = import_backup_folder(&paths, &backup, None, Some(&revision)).unwrap();
+
+        assert_eq!(result["success"], json!(true));
+        let imported = read_json(&paths.data).unwrap();
+        assert_eq!(imported["inks"][0]["image"], json!(""));
+        assert_eq!(imported["inks"][0]["image_url"], json!(""));
+        assert_eq!(imported["inks"][0]["url"], json!(""));
+        assert_eq!(imported["inks"][1]["image"], json!("inks/bottle.webp"));
+        assert_eq!(
+            imported["inks"][2]["image"],
+            json!("swatches/preserved-legacy.webp")
+        );
+        assert_eq!(
+            imported["inks"][3]["image"],
+            json!("swatches/unlinked.webp")
+        );
+        assert_eq!(
+            imported["swatches"][0]["image"],
+            json!("swatches/current.webp")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_alias_replacement_requires_a_canonical_swatch_image() {
+        assert!(has_current_swatch_image_reference(&json!({
+            "image": "swatches/current.webp"
+        })));
+        assert!(has_current_swatch_image_reference(&json!({
+            "images": [{ "url": "swatches/current.webp" }]
+        })));
+        assert!(!has_current_swatch_image_reference(&json!({
+            "image_url": "swatches/noncanonical.webp"
+        })));
+        assert!(!has_current_swatch_image_reference(&json!({
+            "url": "swatches/noncanonical.webp"
+        })));
+        assert!(!has_current_swatch_image_reference(&json!({
+            "images": [{}]
+        })));
+    }
+
+    #[test]
+    fn backup_import_does_not_treat_an_empty_swatch_gallery_as_a_replacement() {
+        let root = test_root("invalid-empty-swatch-gallery-import");
+        let paths = StoragePaths::new(root.join("storage"));
+        let preferences = default_preferences();
+        write_test_storage(&paths, &default_collection_data(), &preferences);
+        let (_, _, revision) = read_storage_state(&paths).unwrap();
+
+        let backup = root.join("backup");
+        let imported_collection = json!({
+            "pens": [],
+            "inks": [{
+                "id": "legacy-alias",
+                "image": "swatches/missing-legacy.webp"
+            }],
+            "swatches": [{
+                "id": "invalid-swatch",
+                "ink_id": "legacy-alias",
+                "images": [{}]
+            }],
+            "currently_inked": [],
+            "activity_log": []
+        });
+        write_json(&backup.join("data.json"), &imported_collection).unwrap();
+        write_json(&backup.join("preferences.json"), &preferences).unwrap();
+
+        let error = import_backup_folder(&paths, &backup, None, Some(&revision))
+            .expect_err("the missing legacy reference must remain strict");
+
+        assert!(error.to_string().contains("missing its referenced images"));
+        assert_eq!(read_json(&paths.data).unwrap(), default_collection_data());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn identical_backup_import_refreshes_revision_and_hides_internal_token() {
         let root = test_root("identical-backup-revision");
         let paths = StoragePaths::new(root.join("storage"));
@@ -7990,6 +8204,37 @@ mod tests {
                 "swatches/public-swatch.webp".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn public_showcase_projection_retains_currency_when_prices_are_visible() {
+        let collection = json!({
+            "pens": [{
+                "id": "pen-public",
+                "price": "150"
+            }],
+            "inks": [{
+                "id": "ink-public",
+                "price": "24.50"
+            }]
+        });
+        let preferences = json!({
+            "defaults": {
+                "currency": "EUR"
+            },
+            "showcase": {
+                "show_prices": true
+            }
+        });
+
+        let public = build_public_showcase_data(&collection, &preferences);
+
+        assert_eq!(
+            public["preferences"]["defaults"]["currency"].as_str(),
+            Some("EUR")
+        );
+        assert_eq!(public["pens"][0]["price"].as_str(), Some("150"));
+        assert_eq!(public["inks"][0]["price"].as_str(), Some("24.50"));
     }
 
     #[test]

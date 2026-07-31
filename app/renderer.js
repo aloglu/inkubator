@@ -2806,6 +2806,7 @@ async function init() {
         bindSystemColorModeListener();
         applyShowcaseTitleUi();
         applyInterfacePreferences();
+        updateInkPricePrefix();
         applyShowcaseSortDefaults();
         applyShowcaseSectionVisibility();
 
@@ -4597,6 +4598,11 @@ function syncSettingsFormAfterRollback() {
 
 async function persistShowcaseSettingsOperation(requestedData, { notify = true } = {}) {
     const requestedPreferences = requestedData.preferences;
+    // Compare after earlier queued saves apply so duplicate input events collapse correctly.
+    if (JSON.stringify(requestedPreferences) === JSON.stringify(getPreferences())) {
+        syncSettingsFormAfterRollback();
+        return true;
+    }
     let savedWithWarning = false;
     const saved = await persistDataAndRefresh({
         refresh: {
@@ -5994,6 +6000,7 @@ let appNoticeEl = null;
 let appNoticeTimer = null;
 let suppressSettingsPersist = false;
 let showcaseExportInFlight = false;
+let backupExportInFlight = false;
 let backupImportInFlight = false;
 const SETTINGS_TOOLTIP_DELAY_MS = 500;
 
@@ -6206,9 +6213,14 @@ function calculateAppNoticeDuration(message, type = 'info', minimumDurationMs = 
     return Math.min(12000, Math.max(effectiveMinimum, calculated));
 }
 
-function showAppNotice(message, type = 'info', minimumDurationMs = null) {
+function showAppNotice(message, type = 'info', durationOrOptions = null) {
     const text = String(message || '').trim().replace(/[.。]+$/u, '');
     if (!text) return;
+    const options = durationOrOptions
+        && typeof durationOrOptions === 'object'
+        && !Array.isArray(durationOrOptions)
+        ? durationOrOptions
+        : { minimumDurationMs: durationOrOptions };
     const el = ensureAppNoticeEl();
     if (appNoticeTimer) {
         clearTimeout(appNoticeTimer);
@@ -6220,7 +6232,8 @@ function showAppNotice(message, type = 'info', minimumDurationMs = null) {
     if (type === 'error') el.classList.add('is-error');
     if (type === 'warning') el.classList.add('is-warning');
     el.classList.add('is-visible');
-    const duration = calculateAppNoticeDuration(text, type, minimumDurationMs);
+    if (options.persistent === true) return;
+    const duration = calculateAppNoticeDuration(text, type, options.minimumDurationMs);
     appNoticeTimer = setTimeout(() => {
         el.classList.remove('is-visible');
         appNoticeTimer = null;
@@ -6607,9 +6620,10 @@ function openPenDetailModal(penId, sourceView = 'pens') {
     `;
 
     const formatPrice = (p) => {
-        if (!p || p === 'Not Specified') return 'Not Specified';
-        let val = p.toString().trim();
-        return val.startsWith('$') ? val : `$${val}`;
+        const value = parsePriceNumber(p);
+        return Number.isFinite(value) && value > 0
+            ? formatMoney(value)
+            : 'Not Specified';
     };
 
     const ci = (appData.currently_inked || []).find(item => item.pen_id === pen.id);
@@ -8084,18 +8098,62 @@ if (btnAddInkHeader) {
 if (btnExportBackup) {
     btnExportBackup.addEventListener('click', async () => {
         if (!isManagerApp || !desktopAPI || typeof desktopAPI.exportBackup !== 'function') return;
-        let result = null;
+        if (backupExportInFlight) return;
+        backupExportInFlight = true;
+        setSettingsOperationBusy(true);
+        const label = btnExportBackup.querySelector('span');
+        const originalLabel = label ? label.textContent : '';
+        btnExportBackup.disabled = true;
+        btnExportBackup.setAttribute('aria-busy', 'true');
+        if (label) label.textContent = 'Exporting...';
+        let exportSettled = false;
+        let exportNoticeShown = false;
+        const showExportProgress = () => {
+            if (exportSettled || exportNoticeShown) return;
+            exportNoticeShown = true;
+            showAppNotice(
+                'Exporting full backup. Large image collections may take a moment.',
+                'warning',
+                { persistent: true }
+            );
+        };
         try {
-            result = await desktopAPI.exportBackup();
+            if (settingsInputPersistTimer) {
+                clearTimeout(settingsInputPersistTimer);
+                settingsInputPersistTimer = null;
+                void persistShowcaseSettingsNow({ notify: false });
+            }
+            const settingsReady = settingsPersistQueue;
+            const result = await desktopAPI.exportBackup({
+                waitFor: settingsReady,
+                onStarted: showExportProgress
+            });
+            exportSettled = true;
+            if (result && result.success) {
+                refreshBackupStatus();
+                const exportedPath = String(result.path || '').trim();
+                showAppNotice(
+                    exportedPath ? `Backup exported: ${exportedPath}` : 'Backup exported successfully',
+                    'success'
+                );
+            } else if (result && result.canceled) {
+                showAppNotice('Backup export canceled', 'info');
+            } else {
+                showAppNotice(
+                    `Backup export failed: ${result && result.message ? result.message : 'Unknown error.'}`,
+                    'error'
+                );
+            }
         } catch (error) {
+            exportSettled = true;
             showAppNotice(`Backup export failed: ${error && error.message ? error.message : error}`, 'error');
-            return;
-        }
-        if (result && result.success) {
-            refreshBackupStatus();
-            showAppNotice(`Backup exported: ${result.path}`, 'success');
-        } else if (!(result && result.canceled)) {
-            showAppNotice(`Backup export failed: ${result && result.message ? result.message : 'Unknown error.'}`, 'error');
+        } finally {
+            exportSettled = true;
+            backupExportInFlight = false;
+            btnExportBackup.disabled = false;
+            btnExportBackup.removeAttribute('aria-busy');
+            if (label) label.textContent = originalLabel;
+            setSettingsOperationBusy(false);
         }
     });
 }
@@ -8137,24 +8195,20 @@ if (btnImportBackup) {
             btnImportBackup.disabled = true;
             btnImportBackup.setAttribute('aria-busy', 'true');
             if (label) label.textContent = 'Importing...';
-            showAppNotice('Importing backup. Large image collections may take a moment.', 'warning');
-            const importPrefs = getImportExportPreferences();
+            let importSucceeded = false;
             try {
-                let result = null;
-                try {
-                    result = await desktopAPI.importBackup(selectedBackup, {
-                        auto_validate_import: !!importPrefs.auto_validate_import,
-                        conflict_behavior: 'overwrite'
-                    });
-                } catch (error) {
-                    showAppNotice(
-                        persistenceErrorMessage(error, 'Backup import failed'),
-                        'error',
-                        isDataConflictError(error) ? 12000 : 6000
-                    );
-                    return;
-                }
+                showAppNotice(
+                    'Importing backup. Large image collections may take a moment.',
+                    'warning',
+                    { persistent: true }
+                );
+                const importPrefs = getImportExportPreferences();
+                const result = await desktopAPI.importBackup(selectedBackup, {
+                    auto_validate_import: !!importPrefs.auto_validate_import,
+                    conflict_behavior: 'overwrite'
+                });
                 if (result && result.success) {
+                    importSucceeded = true;
                     const reloaded = result.data || await desktopAPI.loadData();
                     if (reloaded) {
                         if (importPrefs.auto_validate_import) {
@@ -8189,13 +8243,26 @@ if (btnImportBackup) {
                     } else {
                         showAppNotice('Backup imported successfully', 'success');
                     }
-                } else if (!(result && result.canceled)) {
+                } else if (result && result.canceled) {
+                    showAppNotice('Backup import canceled', 'info');
+                } else {
                     showAppNotice(
                         persistenceErrorMessage(result, 'Backup import failed'),
                         'error',
                         isDataConflictError(result) ? 12000 : 6000
                     );
                 }
+            } catch (error) {
+                showAppNotice(
+                    persistenceErrorMessage(
+                        error,
+                        importSucceeded
+                            ? 'Backup imported, but the app could not refresh'
+                            : 'Backup import failed'
+                    ),
+                    'error',
+                    isDataConflictError(error) ? 12000 : 6000
+                );
             } finally {
                 btnImportBackup.disabled = false;
                 btnImportBackup.removeAttribute('aria-busy');

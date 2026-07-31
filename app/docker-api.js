@@ -240,23 +240,103 @@
         return bytesToBase64(new Uint8Array(await file.arrayBuffer()));
     }
 
-    async function downloadBackupZip() {
+    function defaultBackupFilename() {
+        return `inkubator-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
+    }
+
+    function backupFilenameFromResponse(response, fallback) {
+        const disposition = response.headers.get('Content-Disposition') || '';
+        return disposition.match(/filename="([^"]+)"/)?.[1] || fallback;
+    }
+
+    function supportsBackupSavePicker() {
+        return window.isSecureContext === true
+            && window.self === window.top
+            && typeof window.showSaveFilePicker === 'function';
+    }
+
+    async function writeBackupResponse(response, fileHandle) {
+        let writable = null;
+        try {
+            writable = await fileHandle.createWritable();
+            if (response.body && typeof response.body.pipeTo === 'function') {
+                await response.body.pipeTo(writable);
+            } else {
+                await writable.write(await response.blob());
+                await writable.close();
+            }
+        } catch (error) {
+            const cleanup = [];
+            if (writable && typeof writable.abort === 'function') {
+                cleanup.push(Promise.resolve().then(() => writable.abort()));
+            }
+            if (
+                response.body
+                && !response.body.locked
+                && typeof response.body.cancel === 'function'
+            ) {
+                cleanup.push(Promise.resolve().then(() => response.body.cancel()));
+            }
+            await Promise.allSettled(cleanup);
+            throw error;
+        }
+    }
+
+    async function downloadBackupZip(options = {}) {
+        const waitFor = options && options.waitFor && typeof options.waitFor.then === 'function'
+            ? options.waitFor
+            : null;
+        const onStarted = options && typeof options.onStarted === 'function'
+            ? options.onStarted
+            : null;
+        const suggestedFilename = defaultBackupFilename();
+        let fileHandle = null;
+        if (supportsBackupSavePicker()) {
+            try {
+                fileHandle = await window.showSaveFilePicker({
+                    suggestedName: suggestedFilename,
+                    types: [{
+                        description: 'ZIP archive',
+                        accept: { 'application/zip': ['.zip'] }
+                    }],
+                    excludeAcceptAllOption: true
+                });
+            } catch (error) {
+                if (error && error.name === 'AbortError') {
+                    return { success: false, canceled: true };
+                }
+                throw error;
+            }
+        }
+
+        if (waitFor) await waitFor;
+        if (onStarted) onStarted();
         const response = await fetch('/api/export-backup', { method: 'POST' });
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
             throw new Error(payload.message || `Backup export failed: ${response.status}`);
         }
+        const filename = fileHandle && fileHandle.name
+            ? fileHandle.name
+            : backupFilenameFromResponse(response, suggestedFilename);
+
+        if (fileHandle) {
+            await writeBackupResponse(response, fileHandle);
+            return { success: true, path: filename };
+        }
+
         const blob = await response.blob();
-        const disposition = response.headers.get('Content-Disposition') || '';
-        const filename = disposition.match(/filename="([^"]+)"/)?.[1] || `inkubator-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
+        try {
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+        } finally {
+            link.remove();
+            URL.revokeObjectURL(url);
+        }
         return { success: true, path: filename };
     }
 

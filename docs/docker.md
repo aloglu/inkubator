@@ -153,7 +153,7 @@ After DNS and HTTPS are configured:
 4. Log in and confirm Manage changes to Logout.
 5. Refresh from Dashboard, Pens, Inks, Swatches, Activity, and Settings; each page should remain on the same section.
 6. Add a pen or swatch with an image and confirm it appears on the public showcase after saving.
-7. Export a full backup and confirm the browser downloads a `.zip`.
+7. Export a full backup and confirm the browser saves or downloads a `.zip`.
 8. Log out and confirm `/admin/` requires login again.
 
 ## Caching And Compression
@@ -175,7 +175,7 @@ Keep the `/data` mount stable across upgrades. It contains app data, preferences
 
 Run only one Inkubator container against a given `/data` directory. Save ordering and stale-write protection coordinate operations inside one container; they do not coordinate multiple containers sharing the same mount.
 
-Manual full backups download as ZIP files through the browser. Automated backups remain inside `/data/backups/auto`.
+Manual full backups are saved as ZIP files through the browser. When the browser permits direct file saving, it opens a save dialog; otherwise it uses its configured download behavior. Automated backups remain inside `/data/backups/auto`.
 
 Docker backup uploads send ZIP bytes directly rather than encoding the archive inside JSON. The server writes the upload to temporary storage, validates and extracts entries with bounded memory, generates thumbnails, and only then replaces the active collection. Invalid imports and commit failures restore the previous collection. A reverse proxy must permit request bodies at least as large as the backups you intend to restore; the Nginx example above matches Inkubator's default 1 GiB compressed-backup limit.
 

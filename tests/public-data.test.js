@@ -193,6 +193,17 @@ test('public projection removes hidden prices and private manager settings witho
   });
 });
 
+test('public projection retains the default currency when prices are visible', () => {
+  const source = fixture();
+  source.preferences.showcase.show_prices = true;
+
+  const projected = projectPublicData(source);
+
+  assert.equal(projected.preferences.defaults.currency, 'EUR');
+  assert.equal(projected.pens[0].price, '123');
+  assert.equal(projected.inks[0].price, '45');
+});
+
 test('hidden inks strictly omit dependent swatches, current links, relationship activity, and media', () => {
   const source = fixture();
   source.preferences.show_activity_log = false;

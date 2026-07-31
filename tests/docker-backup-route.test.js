@@ -313,6 +313,10 @@ test('authenticated Docker routes export and restore a full backup', async (t) =
   const exported = await authorizedFetch('/api/export-backup', { method: 'POST' });
   assert.equal(exported.status, 200);
   assert.equal(exported.headers.get('content-type'), 'application/zip');
+  assert.match(
+    exported.headers.get('content-disposition') || '',
+    /^attachment; filename="inkubator-backup-.*\.zip"$/
+  );
   const backupBytes = Buffer.from(await exported.arrayBuffer());
   assert.ok(backupBytes.length > imageBytes.length);
   const exportedZipPath = path.join(dataDir, 'export-inspection.zip');
@@ -500,6 +504,107 @@ test('authenticated Docker routes export and restore a full backup', async (t) =
   });
   assert.equal(unsafeImport.status, 400);
   assert.match((await unsafeImport.json()).message, /unsupported managed image path/i);
+
+  const noncanonicalSwatchAliasBackup = await createZipBytes({
+    'data.json': JSON.stringify({
+      pens: [],
+      inks: [{
+        id: 'stale-swatch-alias',
+        image: 'swatches/missing-legacy.webp'
+      }],
+      swatches: [{
+        id: 'noncanonical-current-swatch',
+        ink_id: 'stale-swatch-alias',
+        image: 'inks/wrong-section.webp',
+        image_url: 'swatches/noncanonical.webp'
+      }],
+      currently_inked: [],
+      activity_log: []
+    }),
+    'preferences.json': '{}',
+    'manifest.json': '{"type":"inkubator-backup","version":3}',
+    'images/inks/wrong-section.webp': imageBytes,
+    'images/swatches/noncanonical.webp': secondImageBytes
+  });
+  const noncanonicalSwatchAliasImport = await authorizedFetch('/api/import-backup', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/zip',
+      'X-Inkubator-Expected-Revision': replacementSaveResult.revision
+    },
+    body: noncanonicalSwatchAliasBackup
+  });
+  assert.equal(noncanonicalSwatchAliasImport.status, 400);
+  assert.match(
+    (await noncanonicalSwatchAliasImport.json()).message,
+    /swatches\/missing-legacy\.webp/i
+  );
+
+  const legacyPngBytes = await sharp({
+    create: {
+      width: 5,
+      height: 3,
+      channels: 4,
+      background: { r: 42, g: 95, b: 72, alpha: 1 }
+    }
+  }).png().toBuffer();
+  const legacyCompatibilityBackup = await createZipBytes({
+    'data.json': JSON.stringify({
+      pens: [{
+        id: 'legacy-png-pen',
+        image: 'pens/legacy-png.webp'
+      }],
+      inks: [{
+        id: 'stale-swatch-alias',
+        image: 'swatches/missing-legacy.webp'
+      }, {
+        id: 'preserved-swatch-alias',
+        image: 'swatches/preserved-legacy.webp'
+      }],
+      swatches: [{
+        id: 'current-swatch',
+        ink_id: 'stale-swatch-alias',
+        image: 'swatches/current.webp'
+      }, {
+        id: 'preserved-current-swatch',
+        ink_id: 'preserved-swatch-alias',
+        image: 'swatches/preserved-current.webp'
+      }],
+      currently_inked: [],
+      activity_log: []
+    }),
+    'preferences.json': '{}',
+    'manifest.json': '{"type":"inkubator-backup","version":3}',
+    'images/pens/legacy-png.webp': legacyPngBytes,
+    'images/swatches/current.webp': imageBytes,
+    'images/swatches/preserved-legacy.webp': imageBytes,
+    'images/swatches/preserved-current.webp': secondImageBytes
+  });
+  const legacyCompatibilityImport = await authorizedFetch('/api/import-backup', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/zip',
+      'X-Inkubator-Expected-Revision': replacementSaveResult.revision
+    },
+    body: legacyCompatibilityBackup
+  });
+  assert.equal(legacyCompatibilityImport.status, 200);
+  const legacyCompatibilityResult = await legacyCompatibilityImport.json();
+  assert.equal(legacyCompatibilityResult.success, true);
+  assert.equal(legacyCompatibilityResult.data.inks[0].image, '');
+  assert.equal(
+    legacyCompatibilityResult.data.inks[1].image,
+    'swatches/preserved-legacy.webp'
+  );
+  const repairedLegacyPng = await fs.readFile(
+    path.join(dataDir, 'images', 'pens', 'legacy-png.webp')
+  );
+  assert.equal(repairedLegacyPng.subarray(0, 4).toString('ascii'), 'RIFF');
+  assert.equal(repairedLegacyPng.subarray(8, 12).toString('ascii'), 'WEBP');
+  assert.equal(
+    (await sharp(repairedLegacyPng).metadata()).format,
+    'webp'
+  );
 
   const corruptLiveCollection = JSON.parse(await fs.readFile(dataPath, 'utf8'));
   corruptLiveCollection.pens[0].image = 'pens/missing-live-image.webp';

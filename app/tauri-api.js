@@ -3,6 +3,9 @@
   const invoke = tauri && tauri.core && typeof tauri.core.invoke === 'function'
     ? tauri.core.invoke
     : null;
+  const Channel = tauri && tauri.core && typeof tauri.core.Channel === 'function'
+    ? tauri.core.Channel
+    : null;
   if (!invoke || window.inkubatorAPI) return;
 
   let dataRevision = null;
@@ -134,7 +137,22 @@
     getImagePreviewUrl: (path) => call('get_image_preview_url', { sourcePath: path }),
     getImagesBaseUrl: () => call('get_images_base_url'),
     backupStatus: () => call('backup_status'),
-    exportBackup: () => call('export_backup'),
+    exportBackup: async (options = {}) => {
+      const waitFor = options && options.waitFor && typeof options.waitFor.then === 'function'
+        ? options.waitFor
+        : null;
+      if (waitFor) await waitFor;
+      if (!Channel) {
+        throw new Error('Desktop backup export progress support is unavailable.');
+      }
+      const onStarted = options && typeof options.onStarted === 'function'
+        ? options.onStarted
+        : null;
+      const progressChannel = new Channel(() => {
+        if (onStarted) onStarted();
+      });
+      return call('export_backup', { onStarted: progressChannel });
+    },
     selectBackup: () => call('select_backup'),
     importBackup: (zipPath, options) => {
       const generation = dataGeneration;

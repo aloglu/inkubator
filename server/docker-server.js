@@ -19,6 +19,7 @@ const {
 } = require('../lib/critical-persistence');
 const {
   backupError,
+  clearMissingLegacyInkSwatchAliases,
   collectManagedRasterReferencePaths,
   commitStagedImport,
   extractBackupZip,
@@ -1549,16 +1550,20 @@ async function importBackupFromZip(zipPath, options = {}) {
     const collection = stripPreferences(normalized);
     const preferences = stripStorageMetadata(normalized.preferences);
     const storedPreferences = preferencesWithNewStorageRevision(preferences);
-    validateManagedRasterReferences(imageReferenceValues(collection), { strict: true });
-    await writeJson(incomingDataPath, collection);
-    await writeJson(incomingPreferencesPath, storedPreferences);
-
     const stagedImages = path.join(stage, 'images');
     const stagedThumbnails = path.join(stagedImages, '.thumbs');
     const stagedReplacedImages = path.join(stage, 'replaced-images');
     await ensureDir(stagedImages);
     await ensureDir(stagedReplacedImages);
     for (const dir of ['pens', 'inks', 'swatches']) await ensureDir(path.join(stagedImages, dir));
+    await clearMissingLegacyInkSwatchAliases({
+      collection,
+      imagesRoot: stagedImages
+    });
+    validateManagedRasterReferences(imageReferenceValues(collection), { strict: true });
+    await writeJson(incomingDataPath, collection);
+    await writeJson(incomingPreferencesPath, storedPreferences);
+
     const referencedImages = collectManagedRasterReferencePaths(collection, { strict: true });
     await requireManagedRasterFiles({
       imagesRoot: stagedImages,

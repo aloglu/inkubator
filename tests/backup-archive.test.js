@@ -165,6 +165,91 @@ test('extractBackupZip rejects active or forged managed media', async (t) => {
   );
 });
 
+test('extractBackupZip repairs decodable legacy PNG data stored under WebP names', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'inkubator-backup-legacy-webp-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+
+  const zipPath = path.join(root, 'legacy.zip');
+  const destination = path.join(root, 'out');
+  const png = await sharp({
+    create: {
+      width: 4,
+      height: 3,
+      channels: 4,
+      background: '#24506f'
+    }
+  }).png().toBuffer();
+  await writeZip(zipPath, {
+    'data.json': '{}',
+    'preferences.json': '{}',
+    'images/pens/legacy.webp': png
+  });
+
+  await extractBackupZip(zipPath, destination);
+
+  const repairedPath = path.join(destination, 'images/pens/legacy.webp');
+  const repaired = await fs.readFile(repairedPath);
+  assert.equal(repaired.subarray(0, 4).toString('ascii'), 'RIFF');
+  assert.equal(repaired.subarray(8, 12).toString('ascii'), 'WEBP');
+  assert.equal((await sharp(repairedPath).metadata()).format, 'webp');
+});
+
+test('extractBackupZip applies its expanded-size limit to repaired WebP output', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'inkubator-backup-repair-limit-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+
+  const width = 16;
+  const raw = Buffer.alloc(width * width * 4);
+  let state = 123456789;
+  for (let index = 0; index < raw.length; index += 1) {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    raw[index] = state & 0xff;
+  }
+  const png = await sharp(raw, {
+    raw: { width, height: width, channels: 4 }
+  }).png().toBuffer();
+  const repairedWebp = await sharp(png).webp({ lossless: true }).toBuffer();
+  assert.ok(repairedWebp.length > png.length, 'fixture must grow during repair');
+
+  const zipPath = path.join(root, 'repair-growth.zip');
+  await writeZip(zipPath, {
+    'data.json': '{}',
+    'preferences.json': '{}',
+    'images/pens/growing.webp': png
+  });
+  const originalExpandedBytes = png.length + Buffer.byteLength('{}') * 2;
+  const limit = originalExpandedBytes + (repairedWebp.length - png.length) - 1;
+
+  await assert.rejects(
+    extractBackupZip(zipPath, path.join(root, 'out'), {
+      maxEntries: 10,
+      maxExpandedBytes: limit
+    }),
+    /expanded backup exceeds/i
+  );
+});
+
+test('extractBackupZip rejects truncated PNG data stored under a WebP name', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'inkubator-backup-truncated-legacy-png-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+
+  const zipPath = path.join(root, 'truncated.zip');
+  await writeZip(zipPath, {
+    'data.json': '{}',
+    'preferences.json': '{}',
+    'images/pens/truncated.webp': Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a
+    ])
+  });
+
+  await assert.rejects(
+    extractBackupZip(zipPath, path.join(root, 'out')),
+    /unreadable legacy PNG image/i
+  );
+});
+
 test('backup collection references reject unsafe managed image paths', () => {
   assert.doesNotThrow(() => validateManagedRasterReferences([
     'pens/example.webp',

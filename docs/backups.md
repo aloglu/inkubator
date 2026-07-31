@@ -91,7 +91,8 @@ Docker admin:
 
 - Open `/admin/`.
 - Use **Export Full Backup**.
-- The browser downloads the `.zip` file.
+- When the browser permits direct file saving, it opens a save dialog so you can choose the ZIP name and location.
+- Other browsers use their normal download behavior. Their download settings determine whether they ask for a location.
 
 Full backup ZIPs are the portable backup format for moving between machines, restoring after an install, or moving between desktop and Docker.
 

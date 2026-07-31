@@ -381,6 +381,7 @@ test('normalizeAppData migrates legacy ink swatch fields into swatches collectio
     assert.equal(data.swatches[0].image, 'swatches/legacy.webp');
     assert.equal(data.swatches[0].swatch_paper, 'Rhodia');
     assert.equal(data.swatches[0].swatch_nib, 'F');
+    assert.equal(data.inks[0].image, 'swatches/legacy.webp');
 });
 
 test('normalizeAppData drops swatches that are not linked to existing inks or missing image', () => {

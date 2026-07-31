@@ -211,6 +211,7 @@ async function writeFixture() {
         material: 'Resin',
         filling_system: 'Piston',
         color: 'Teal',
+        price: '150',
         hex_color: '#0f766e',
         hex_colors: ['#0f766e'],
         image: 'pens/detail-a.png',
@@ -313,6 +314,7 @@ async function writeFixture() {
       color_mode: 'dark',
       confirm_destructive_actions: false,
       defaults: {
+        currency: 'EUR',
         pen_nib: 'M',
         pen_nib_material: 'Steel',
         pen_status: 'clean',
@@ -339,7 +341,18 @@ async function checkTauriApiContract() {
   let revision = 'desktop-r0';
   let storedData = { marker: 'initial' };
   let forcedSaveError = null;
+  let nativeExportResult = { success: true, path: '/tmp/tauri-export.zip' };
+  const nativeExportEvents = [];
   const clone = (value) => JSON.parse(JSON.stringify(value));
+  class MockChannel {
+    constructor(onmessage) {
+      this.onmessage = onmessage;
+    }
+
+    emit(message) {
+      this.onmessage(message);
+    }
+  }
   const conflict = () => ({
     success: false,
     code: 'DATA_CONFLICT',
@@ -373,6 +386,14 @@ async function checkTauriApiContract() {
       revision = `desktop-r${revisionNumber}`;
       return { success: true, data: clone(storedData), revision };
     }
+    if (command === 'export_backup') {
+      nativeExportEvents.push('command');
+      if (!nativeExportResult.canceled) {
+        payload.onStarted.emit();
+        nativeExportEvents.push('return');
+      }
+      return clone(nativeExportResult);
+    }
     throw new Error(`Unexpected Tauri command: ${command}`);
   };
 
@@ -385,7 +406,7 @@ async function checkTauriApiContract() {
     clearTimeout,
     window: {
       __TAURI__: {
-        core: { invoke }
+        core: { invoke, Channel: MockChannel }
       }
     }
   });
@@ -442,6 +463,47 @@ async function checkTauriApiContract() {
   const importCall = calls.findLast((call) => call.command === 'import_backup');
   assert.equal(importCall.payload.zipPath, '/tmp/inkubator-test.zip', 'Tauri import should use the expected camelCase path argument');
   assert.equal(importCall.payload.expectedRevision, 'desktop-external', 'Tauri import should pass the retained revision');
+
+  let releaseExportWait = null;
+  const exportWait = new Promise((resolve) => {
+    releaseExportWait = resolve;
+  });
+  const exportCallCountBeforeWait = calls.filter((call) => call.command === 'export_backup').length;
+  const pendingExport = api.exportBackup({
+    waitFor: exportWait,
+    onStarted: () => nativeExportEvents.push('started')
+  });
+  await Promise.resolve();
+  assert.equal(
+    calls.filter((call) => call.command === 'export_backup').length,
+    exportCallCountBeforeWait,
+    'Tauri backup export should not invoke the native command while queued settings are pending'
+  );
+  releaseExportWait();
+  const exported = await pendingExport;
+  assert.deepEqual(exported, { success: true, path: '/tmp/tauri-export.zip' });
+  assert.equal(
+    calls.filter((call) => call.command === 'export_backup').length,
+    exportCallCountBeforeWait + 1,
+    'Tauri backup export should invoke the native command after queued settings finish'
+  );
+  assert.deepEqual(
+    nativeExportEvents,
+    ['command', 'started', 'return'],
+    'Tauri backup progress should start from the native command before it resolves'
+  );
+
+  nativeExportResult = { success: false, canceled: true };
+  nativeExportEvents.length = 0;
+  let canceledExportStarted = false;
+  const canceledExport = await api.exportBackup({
+    onStarted: () => {
+      canceledExportStarted = true;
+    }
+  });
+  assert.deepEqual(canceledExport, { success: false, canceled: true });
+  assert.equal(canceledExportStarted, false, 'canceling the native save picker should not start export progress');
+  assert.deepEqual(nativeExportEvents, ['command'], 'native picker cancellation should send no progress event');
 }
 
 async function main() {
@@ -721,6 +783,20 @@ async function main() {
     }).then(async (response) => ({ status: response.status, body: await response.json() }))`);
     assert.equal(login.status, 200, 'admin login should succeed');
 
+    await navigate(`${baseUrl}/admin/pens`);
+    await waitForCondition(`typeof appData !== 'undefined'
+      && getDefaultCurrency() === 'EUR'
+      && document.querySelectorAll('#pens-grid .pen-card-horizontal').length >= 3`);
+    const startupCurrencyPresentation = await evaluate(`({
+      prefix: document.querySelector('#pen-price-prefix')?.textContent || '',
+      expectedPrefix: getCurrencySymbol(getDefaultCurrency())
+    })`);
+    assert.equal(
+      startupCurrencyPresentation.prefix,
+      startupCurrencyPresentation.expectedPrefix,
+      'direct management routes should apply the saved currency symbol during startup'
+    );
+
     await navigate(`${baseUrl}/admin/settings`);
     await waitForCondition(`typeof appData !== 'undefined'
       && getComputedStyle(document.querySelector('#view-settings')).display !== 'none'`);
@@ -748,6 +824,22 @@ async function main() {
       'Docker management pages should use the authenticated thumbnail route'
     );
 
+    await evaluate(`openPenDetailModal('pen-detail-carousel')`);
+    const penCurrencyPresentation = await evaluate(`(() => {
+      const priceSection = Array.from(document.querySelectorAll('#pen-detail-metadata > div')).find(
+        (section) => section.querySelector('h4')?.textContent.trim() === 'Price'
+      );
+      const pen = appData.pens.find((item) => item.id === 'pen-detail-carousel');
+      return {
+        currency: getDefaultCurrency(),
+        price: priceSection?.querySelector('p')?.textContent.trim() || '',
+        expectedPrice: formatMoney(parsePriceNumber(pen?.price))
+      };
+    })()`);
+    assert.equal(penCurrencyPresentation.currency, 'EUR', 'the saved default currency should load in the shared renderer');
+    assert.equal(penCurrencyPresentation.price, penCurrencyPresentation.expectedPrice, 'pen details should format prices with the default currency');
+    await evaluate(`closeDetailModals()`);
+
     const appNoticeTiming = await evaluate(`(() => {
       const mediumText = 'x'.repeat(80);
       const originalSetTimeout = window.setTimeout;
@@ -761,6 +853,10 @@ async function main() {
           scheduledDuration = delay;
           return 1;
         };
+        showAppNotice('Importing backup', 'warning', { persistent: true });
+        const persistentScheduledDuration = scheduledDuration;
+        const persistentTimer = appNoticeTimer;
+        const persistentText = document.querySelector('.app-notice-floating')?.textContent || '';
         showAppNotice(mediumText, 'warning');
         return {
           shortSuccess: calculateAppNoticeDuration('Saved', 'success'),
@@ -772,6 +868,9 @@ async function main() {
           explicitMaximum: calculateAppNoticeDuration('Short', 'error', 12000),
           cappedText: calculateAppNoticeDuration('x'.repeat(1000), 'error'),
           cappedMinimum: calculateAppNoticeDuration('Short', 'error', 30000),
+          persistentScheduledDuration,
+          persistentTimer,
+          persistentText,
           scheduledDuration,
           visible: document.querySelector('.app-notice-floating')?.classList.contains('is-visible') || false,
           warning: document.querySelector('.app-notice-floating')?.classList.contains('is-warning') || false
@@ -791,9 +890,445 @@ async function main() {
     assert.equal(appNoticeTiming.explicitMaximum, 12000, 'an explicit twelve-second minimum should remain supported');
     assert.equal(appNoticeTiming.cappedText, 12000, 'very long notices should stop at the twelve-second maximum');
     assert.equal(appNoticeTiming.cappedMinimum, 12000, 'explicit notice minimums should respect the overall maximum');
+    assert.equal(appNoticeTiming.persistentScheduledDuration, null, 'persistent notices should not schedule a dismissal');
+    assert.equal(appNoticeTiming.persistentTimer, null, 'persistent notices should not retain a timer handle');
+    assert.equal(appNoticeTiming.persistentText, 'Importing backup', 'persistent notices should display their message');
     assert.equal(appNoticeTiming.scheduledDuration, 7000, 'showAppNotice should schedule its calculated duration');
     assert.equal(appNoticeTiming.visible, true, 'showAppNotice should make the notice visible');
     assert.equal(appNoticeTiming.warning, true, 'showAppNotice should apply the requested severity style');
+
+    const backupExportLifecycle = await evaluate(`(async () => {
+      const originalExportBackup = desktopAPI.exportBackup;
+      const button = document.querySelector('#btn-export-backup');
+      const originalLabel = button?.querySelector('span')?.textContent || '';
+
+      const clearNotice = () => {
+        if (appNoticeTimer) {
+          clearTimeout(appNoticeTimer);
+          appNoticeTimer = null;
+        }
+        document.querySelector('.app-notice-floating')?.classList.remove('is-visible');
+      };
+
+      const runExport = async (outcome) => {
+        clearNotice();
+        let exportCalls = 0;
+        let receivedSettingsWait = false;
+        let startExport = null;
+        let settleExport = null;
+        desktopAPI.exportBackup = async (options = {}) => {
+          exportCalls += 1;
+          receivedSettingsWait = !!(options.waitFor && typeof options.waitFor.then === 'function');
+          startExport = typeof options.onStarted === 'function'
+            ? options.onStarted
+            : () => {};
+          return await new Promise((resolve, reject) => {
+            settleExport = { resolve, reject };
+          });
+        };
+
+        button.click();
+        button.click();
+        while (!settleExport) {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+
+        const beforeStartNotice = document.querySelector('.app-notice-floating');
+        const beforeStart = {
+          noticeText: beforeStartNotice?.textContent || '',
+          noticeVisible: beforeStartNotice?.classList.contains('is-visible') || false,
+          noticeTimerless: appNoticeTimer === null
+        };
+
+        if (outcome !== 'cancellation') {
+          startExport();
+          startExport();
+        }
+        await Promise.resolve();
+        const pendingNotice = document.querySelector('.app-notice-floating');
+        const pending = {
+          exportCalls,
+          receivedSettingsWait,
+          noticeText: pendingNotice?.textContent || '',
+          noticeVisible: pendingNotice?.classList.contains('is-visible') || false,
+          noticeWarning: pendingNotice?.classList.contains('is-warning') || false,
+          noticeTimerless: appNoticeTimer === null,
+          buttonDisabled: !!button?.disabled,
+          buttonBusy: button?.getAttribute('aria-busy') === 'true',
+          buttonLabel: button?.querySelector('span')?.textContent || '',
+          settingsInert: !!viewSettings?.inert,
+          settingsBusy: viewSettings?.getAttribute('aria-busy') === 'true'
+        };
+
+        if (outcome === 'success') {
+          settleExport.resolve({ success: true, path: '/tmp/exported-backup.zip' });
+        } else if (outcome === 'failure') {
+          settleExport.reject(new Error('simulated export failure'));
+        } else {
+          settleExport.resolve({ success: false, canceled: true });
+        }
+
+        while (backupExportInFlight) {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5));
+
+        const terminalNotice = document.querySelector('.app-notice-floating');
+        const completed = {
+          noticeText: terminalNotice?.textContent || '',
+          noticeVisible: terminalNotice?.classList.contains('is-visible') || false,
+          noticeError: terminalNotice?.classList.contains('is-error') || false,
+          noticeWarning: terminalNotice?.classList.contains('is-warning') || false,
+          noticeTimerScheduled: appNoticeTimer !== null,
+          buttonDisabled: !!button?.disabled,
+          buttonBusy: button?.hasAttribute('aria-busy') || false,
+          buttonLabel: button?.querySelector('span')?.textContent || '',
+          settingsInert: !!viewSettings?.inert,
+          settingsBusy: viewSettings?.hasAttribute('aria-busy') || false
+        };
+        startExport();
+        await Promise.resolve();
+        const noticeAfterLateStart = document.querySelector('.app-notice-floating');
+        const afterLateStart = {
+          noticeText: noticeAfterLateStart?.textContent || '',
+          noticeWarning: noticeAfterLateStart?.classList.contains('is-warning') || false
+        };
+        clearNotice();
+        return { beforeStart, pending, completed, afterLateStart };
+      };
+
+      try {
+        return {
+          originalLabel,
+          success: await runExport('success'),
+          failure: await runExport('failure'),
+          cancellation: await runExport('cancellation')
+        };
+      } finally {
+        desktopAPI.exportBackup = originalExportBackup;
+        backupExportInFlight = false;
+        if (button) {
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+          const label = button.querySelector('span');
+          if (label) label.textContent = originalLabel;
+        }
+        setSettingsOperationBusy(false);
+        clearNotice();
+      }
+    })()`);
+    assert.equal(backupExportLifecycle.success.pending.exportCalls, 1, 'repeated backup-export clicks should start only one export');
+    assert.equal(backupExportLifecycle.success.pending.receivedSettingsWait, true, 'backup export should pass the queued-settings promise to its platform API');
+    assert.equal(backupExportLifecycle.success.beforeStart.noticeVisible, false, 'backup export progress should stay hidden while the save picker is open');
+    assert.equal(backupExportLifecycle.success.beforeStart.noticeTimerless, true, 'the picker phase should not schedule a notice');
+    assert.match(backupExportLifecycle.success.pending.noticeText, /Exporting full backup/i);
+    assert.doesNotMatch(backupExportLifecycle.success.pending.noticeText, /choose a name|location|prompted/i);
+    assert.equal(backupExportLifecycle.success.pending.noticeVisible, true, 'backup export progress should be visible while pending');
+    assert.equal(backupExportLifecycle.success.pending.noticeWarning, true, 'backup export progress should use the warning style');
+    assert.equal(backupExportLifecycle.success.pending.noticeTimerless, true, 'backup export progress should remain until completion');
+    assert.equal(backupExportLifecycle.success.pending.buttonDisabled, true, 'backup export should disable its button while pending');
+    assert.equal(backupExportLifecycle.success.pending.buttonBusy, true, 'backup export should expose button busy state');
+    assert.equal(backupExportLifecycle.success.pending.buttonLabel, 'Exporting...', 'backup export should show a progress label');
+    assert.equal(backupExportLifecycle.success.pending.settingsInert, true, 'settings should lock while backup export is pending');
+    assert.equal(backupExportLifecycle.success.pending.settingsBusy, true, 'settings should expose busy state while exporting');
+    assert.match(backupExportLifecycle.success.completed.noticeText, /Backup exported: \/tmp\/exported-backup\.zip/i);
+    assert.equal(backupExportLifecycle.success.completed.noticeVisible, true, 'backup export success should replace progress');
+    assert.equal(backupExportLifecycle.success.completed.noticeError, false, 'backup export success should not use the error style');
+    assert.equal(backupExportLifecycle.success.completed.noticeWarning, false, 'backup export success should clear the warning style');
+    assert.equal(backupExportLifecycle.success.completed.noticeTimerScheduled, true, 'backup export success should dismiss normally');
+    assert.equal(backupExportLifecycle.success.completed.buttonDisabled, false, 'backup export should restore its button after success');
+    assert.equal(backupExportLifecycle.success.completed.buttonBusy, false, 'backup export should clear button busy state after success');
+    assert.equal(backupExportLifecycle.success.completed.buttonLabel, backupExportLifecycle.originalLabel, 'backup export should restore its label after success');
+    assert.equal(backupExportLifecycle.success.completed.settingsInert, false, 'settings should unlock after backup export success');
+    assert.equal(backupExportLifecycle.success.completed.settingsBusy, false, 'settings should clear busy state after backup export success');
+    assert.match(backupExportLifecycle.failure.completed.noticeText, /Backup export failed: simulated export failure/i);
+    assert.equal(backupExportLifecycle.failure.completed.noticeError, true, 'backup export failure should replace progress with an error');
+    assert.equal(backupExportLifecycle.failure.completed.noticeTimerScheduled, true, 'backup export errors should dismiss normally');
+    assert.equal(backupExportLifecycle.failure.completed.buttonDisabled, false, 'backup export should restore its button after failure');
+    assert.equal(backupExportLifecycle.failure.completed.buttonBusy, false, 'backup export should clear button busy state after failure');
+    assert.equal(backupExportLifecycle.failure.completed.buttonLabel, backupExportLifecycle.originalLabel, 'backup export should restore its label after failure');
+    assert.equal(backupExportLifecycle.failure.completed.settingsInert, false, 'settings should unlock after backup export failure');
+    assert.equal(backupExportLifecycle.failure.completed.settingsBusy, false, 'settings should clear busy state after backup export failure');
+    assert.equal(backupExportLifecycle.cancellation.beforeStart.noticeVisible, false, 'a canceled save picker should not show export progress');
+    assert.equal(backupExportLifecycle.cancellation.pending.noticeVisible, false, 'backup cancellation should occur without a yellow progress notice');
+    assert.equal(backupExportLifecycle.cancellation.completed.noticeText, 'Backup export canceled', 'backup export cancellation should replace progress');
+    assert.equal(backupExportLifecycle.cancellation.completed.noticeVisible, true, 'backup export cancellation should show a terminal notice');
+    assert.equal(backupExportLifecycle.cancellation.completed.noticeError, false, 'backup export cancellation should not use the error style');
+    assert.equal(backupExportLifecycle.cancellation.completed.noticeWarning, false, 'backup export cancellation should clear the warning style');
+    assert.equal(backupExportLifecycle.cancellation.completed.noticeTimerScheduled, true, 'backup export cancellation should dismiss normally');
+    assert.equal(backupExportLifecycle.cancellation.completed.buttonDisabled, false, 'backup export should restore its button after cancellation');
+    assert.equal(backupExportLifecycle.cancellation.completed.buttonBusy, false, 'backup export should clear button busy state after cancellation');
+    assert.equal(backupExportLifecycle.cancellation.completed.buttonLabel, backupExportLifecycle.originalLabel, 'backup export should restore its label after cancellation');
+    assert.equal(backupExportLifecycle.cancellation.completed.settingsInert, false, 'settings should unlock after backup export cancellation');
+    assert.equal(backupExportLifecycle.cancellation.completed.settingsBusy, false, 'settings should clear busy state after backup export cancellation');
+    assert.equal(backupExportLifecycle.success.afterLateStart.noticeText, backupExportLifecycle.success.completed.noticeText, 'late progress callbacks should not replace backup success');
+    assert.equal(backupExportLifecycle.success.afterLateStart.noticeWarning, false, 'late progress callbacks should not restore warning styling after success');
+    assert.equal(backupExportLifecycle.failure.afterLateStart.noticeText, backupExportLifecycle.failure.completed.noticeText, 'late progress callbacks should not replace backup errors');
+    assert.equal(backupExportLifecycle.cancellation.afterLateStart.noticeText, backupExportLifecycle.cancellation.completed.noticeText, 'late progress callbacks should not replace backup cancellation');
+
+    const dockerBackupSaveBehavior = await evaluate(`(async () => {
+      const exportBackup = desktopAPI.exportBackup;
+      const pickerDescriptor = Object.getOwnPropertyDescriptor(window, 'showSaveFilePicker');
+      const originalFetch = window.fetch;
+      const originalCreateObjectUrl = URL.createObjectURL;
+      const originalRevokeObjectUrl = URL.revokeObjectURL;
+      const originalAnchorClick = HTMLAnchorElement.prototype.click;
+      const setSavePicker = (value) => {
+        Object.defineProperty(window, 'showSaveFilePicker', {
+          configurable: true,
+          writable: true,
+          value
+        });
+      };
+
+      try {
+        let pickerOptions = null;
+        let pickerCalls = 0;
+        let writableCreated = false;
+        let writableClosed = false;
+        let releaseSavePicker = null;
+        let pickerProgressCalls = 0;
+        const pickerOrder = [];
+        const streamedBytes = [];
+        setSavePicker(async (options) => {
+          pickerCalls += 1;
+          pickerOptions = options;
+          pickerOrder.push('picker-open');
+          await new Promise((resolve) => {
+            releaseSavePicker = resolve;
+          });
+          pickerOrder.push('picker-selected');
+          return {
+            name: 'chosen-docker-backup.zip',
+            createWritable: async () => {
+              writableCreated = true;
+              return new WritableStream({
+                write(chunk) {
+                  streamedBytes.push(...Array.from(new Uint8Array(chunk)));
+                },
+                close() {
+                  writableClosed = true;
+                }
+              });
+            }
+          };
+        });
+        let releasePickerWait = null;
+        const pickerWait = new Promise((resolve) => {
+          releasePickerWait = resolve;
+        });
+        let pickerExportFetches = 0;
+        window.fetch = (...args) => {
+          if (String(args[0] || '').includes('/api/export-backup')) {
+            pickerExportFetches += 1;
+            pickerOrder.push('fetch');
+          }
+          return originalFetch(...args);
+        };
+        const pendingPickerExport = exportBackup({
+          waitFor: pickerWait,
+          onStarted: () => {
+            pickerProgressCalls += 1;
+            pickerOrder.push('started');
+          }
+        });
+        const pickerOpenedSynchronously = pickerCalls === 1;
+        while (!releaseSavePicker) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+        const progressWhilePickerOpen = pickerProgressCalls;
+        releaseSavePicker();
+        while (!pickerOrder.includes('picker-selected')) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+        const fetchesWhileSettingsPending = pickerExportFetches;
+        const progressWhileSettingsPending = pickerProgressCalls;
+        releasePickerWait();
+        const pickerResult = await pendingPickerExport;
+        const fetchesAfterSettingsReady = pickerExportFetches;
+        const progressAfterSettingsReady = pickerProgressCalls;
+        window.fetch = originalFetch;
+
+        let cancellationFetches = 0;
+        let cancellationProgressCalls = 0;
+        window.fetch = (...args) => {
+          if (String(args[0] || '').includes('/api/export-backup')) cancellationFetches += 1;
+          return originalFetch(...args);
+        };
+        setSavePicker(async () => {
+          throw new DOMException('The user aborted a request.', 'AbortError');
+        });
+        const canceledResult = await exportBackup({
+          onStarted: () => {
+            cancellationProgressCalls += 1;
+          }
+        });
+        window.fetch = originalFetch;
+
+        let failedStreamFetches = 0;
+        let failedStreamProgressCalls = 0;
+        let failedStreamWritableAborts = 0;
+        let failedStreamBodyCancels = 0;
+        let failedStreamMessage = '';
+        setSavePicker(async () => ({
+          name: 'failed-docker-backup.zip',
+          createWritable: async () => ({
+            abort: async () => {
+              failedStreamWritableAborts += 1;
+            }
+          })
+        }));
+        window.fetch = async (...args) => {
+          if (!String(args[0] || '').includes('/api/export-backup')) {
+            return originalFetch(...args);
+          }
+          failedStreamFetches += 1;
+          return {
+            ok: true,
+            headers: new Headers({
+              'Content-Disposition': 'attachment; filename="failed-docker-backup.zip"'
+            }),
+            body: {
+              locked: false,
+              pipeTo: async () => {
+                throw new Error('simulated backup stream failure');
+              },
+              cancel: async () => {
+                failedStreamBodyCancels += 1;
+              }
+            }
+          };
+        };
+        try {
+          await exportBackup({
+            onStarted: () => {
+              failedStreamProgressCalls += 1;
+            }
+          });
+        } catch (error) {
+          failedStreamMessage = error?.message || String(error);
+        }
+        window.fetch = originalFetch;
+
+        let fallbackClick = null;
+        let fallbackBlobSize = 0;
+        let revokedUrl = '';
+        const fallbackOrder = [];
+        setSavePicker(undefined);
+        URL.createObjectURL = (blob) => {
+          fallbackBlobSize = blob.size;
+          return 'blob:inkubator-backup-test';
+        };
+        URL.revokeObjectURL = (url) => {
+          revokedUrl = url;
+        };
+        HTMLAnchorElement.prototype.click = function clickBackupDownload() {
+          fallbackClick = {
+            download: this.download,
+            href: this.href,
+            connected: this.isConnected
+          };
+        };
+        window.fetch = (...args) => {
+          if (String(args[0] || '').includes('/api/export-backup')) {
+            fallbackOrder.push('fetch');
+          }
+          return originalFetch(...args);
+        };
+        const fallbackResult = await exportBackup({
+          onStarted: () => {
+            fallbackOrder.push('started');
+          }
+        });
+        window.fetch = originalFetch;
+
+        return {
+          secureContext: window.isSecureContext,
+          picker: {
+            calls: pickerCalls,
+            suggestedName: pickerOptions?.suggestedName || '',
+            description: pickerOptions?.types?.[0]?.description || '',
+            extension: pickerOptions?.types?.[0]?.accept?.['application/zip']?.[0] || '',
+            excludeAcceptAllOption: pickerOptions?.excludeAcceptAllOption,
+            result: pickerResult,
+            writableCreated,
+            writableClosed,
+            byteLength: streamedBytes.length,
+            signature: streamedBytes.slice(0, 2),
+            openedSynchronously: pickerOpenedSynchronously,
+            progressWhilePickerOpen,
+            fetchesWhileSettingsPending,
+            progressWhileSettingsPending,
+            fetchesAfterSettingsReady,
+            progressAfterSettingsReady,
+            order: pickerOrder
+          },
+          cancellation: {
+            result: canceledResult,
+            exportFetches: cancellationFetches,
+            progressCalls: cancellationProgressCalls
+          },
+          streamFailure: {
+            exportFetches: failedStreamFetches,
+            progressCalls: failedStreamProgressCalls,
+            message: failedStreamMessage,
+            writableAborts: failedStreamWritableAborts,
+            bodyCancels: failedStreamBodyCancels
+          },
+          fallback: {
+            result: fallbackResult,
+            click: fallbackClick,
+            blobSize: fallbackBlobSize,
+            revokedUrl,
+            order: fallbackOrder
+          }
+        };
+      } finally {
+        window.fetch = originalFetch;
+        URL.createObjectURL = originalCreateObjectUrl;
+        URL.revokeObjectURL = originalRevokeObjectUrl;
+        HTMLAnchorElement.prototype.click = originalAnchorClick;
+        if (pickerDescriptor) {
+          Object.defineProperty(window, 'showSaveFilePicker', pickerDescriptor);
+        } else {
+          delete window.showSaveFilePicker;
+        }
+      }
+    })()`);
+    assert.equal(dockerBackupSaveBehavior.secureContext, true, 'Docker renderer smoke should run in a save-picker-capable secure context');
+    assert.equal(dockerBackupSaveBehavior.picker.calls, 1, 'Docker backup export should open the save picker once');
+    assert.equal(dockerBackupSaveBehavior.picker.openedSynchronously, true, 'Docker backup picker should open before the export call yields');
+    assert.equal(dockerBackupSaveBehavior.picker.progressWhilePickerOpen, 0, 'Docker backup progress should stay hidden while the save picker is open');
+    assert.equal(dockerBackupSaveBehavior.picker.fetchesWhileSettingsPending, 0, 'Docker backup generation should wait for queued settings');
+    assert.equal(dockerBackupSaveBehavior.picker.progressWhileSettingsPending, 0, 'Docker backup progress should wait until queued settings are ready');
+    assert.equal(dockerBackupSaveBehavior.picker.fetchesAfterSettingsReady, 1, 'Docker backup generation should start after queued settings finish');
+    assert.equal(dockerBackupSaveBehavior.picker.progressAfterSettingsReady, 1, 'Docker backup progress should start once after picker acceptance');
+    assert.deepEqual(dockerBackupSaveBehavior.picker.order, ['picker-open', 'picker-selected', 'started', 'fetch'], 'Docker progress should start after picker acceptance and before backup generation');
+    assert.match(dockerBackupSaveBehavior.picker.suggestedName, /^inkubator-backup-.+\.zip$/);
+    assert.equal(dockerBackupSaveBehavior.picker.description, 'ZIP archive', 'Docker backup picker should describe the ZIP file type');
+    assert.equal(dockerBackupSaveBehavior.picker.extension, '.zip', 'Docker backup picker should restrict the suggested file type to ZIP');
+    assert.equal(dockerBackupSaveBehavior.picker.excludeAcceptAllOption, true, 'Docker backup picker should keep the ZIP-only choice');
+    assert.deepEqual(dockerBackupSaveBehavior.picker.result, { success: true, path: 'chosen-docker-backup.zip' });
+    assert.equal(dockerBackupSaveBehavior.picker.writableCreated, true, 'Docker backup export should open the chosen file for writing');
+    assert.equal(dockerBackupSaveBehavior.picker.writableClosed, true, 'Docker backup export should close the chosen file after streaming');
+    assert.ok(dockerBackupSaveBehavior.picker.byteLength > 0, 'Docker backup export should stream non-empty ZIP data');
+    assert.deepEqual(dockerBackupSaveBehavior.picker.signature, [80, 75], 'Docker backup export should stream a ZIP archive');
+    assert.deepEqual(dockerBackupSaveBehavior.cancellation.result, { success: false, canceled: true });
+    assert.equal(dockerBackupSaveBehavior.cancellation.exportFetches, 0, 'canceling the Docker save picker should not create a backup');
+    assert.equal(dockerBackupSaveBehavior.cancellation.progressCalls, 0, 'canceling the Docker save picker should not show export progress');
+    assert.equal(dockerBackupSaveBehavior.streamFailure.exportFetches, 1, 'failed Docker backup writes should follow one export response');
+    assert.equal(dockerBackupSaveBehavior.streamFailure.progressCalls, 1, 'failed Docker backup writes should still start progress once');
+    assert.match(dockerBackupSaveBehavior.streamFailure.message, /simulated backup stream failure/i);
+    assert.equal(dockerBackupSaveBehavior.streamFailure.writableAborts, 1, 'failed Docker backup writes should abort the destination');
+    assert.equal(dockerBackupSaveBehavior.streamFailure.bodyCancels, 1, 'failed Docker backup writes should cancel the response body');
+    assert.equal(dockerBackupSaveBehavior.fallback.result.success, true, 'Docker backup export should retain an anchor-download fallback');
+    assert.match(dockerBackupSaveBehavior.fallback.result.path, /^inkubator-backup-.+\.zip$/);
+    assert.equal(dockerBackupSaveBehavior.fallback.click?.download, dockerBackupSaveBehavior.fallback.result.path, 'fallback download should use the server filename');
+    assert.equal(dockerBackupSaveBehavior.fallback.click?.href, 'blob:inkubator-backup-test', 'fallback download should use the generated object URL');
+    assert.equal(dockerBackupSaveBehavior.fallback.click?.connected, true, 'fallback download link should be attached before clicking');
+    assert.ok(dockerBackupSaveBehavior.fallback.blobSize > 0, 'fallback download should contain the backup ZIP');
+    assert.equal(dockerBackupSaveBehavior.fallback.revokedUrl, 'blob:inkubator-backup-test', 'fallback download should revoke its object URL');
+    assert.deepEqual(dockerBackupSaveBehavior.fallback.order, ['started', 'fetch'], 'fallback downloads should show progress immediately before backup generation');
 
     const preservedDefaults = await evaluate(`(() => {
       const sharedDefaults = { ...appData.preferences.defaults };
@@ -802,6 +1337,7 @@ async function main() {
       const fallbackDefaults = ensureAppDataDefaults({
         preferences: {
           defaults: {
+            currency: 'EUR',
             pen_nib: 'M',
             pen_nib_material: 'Steel',
             pen_status: 'clean',
@@ -1345,6 +1881,107 @@ async function main() {
     assert.equal(storedInkNameEscaping.detailInjected, false, 'stored ink names should not create markup in mobile pen details');
     assert.match(storedInkNameEscaping.detailText, /<img id="stored-ink-name-injection"/, 'mobile pen details should display stored markup-like ink names as text');
 
+    const settingsTextNoopPersistence = await evaluate(`(async () => {
+      const originalSaveData = desktopAPI.saveData;
+      const originalPreferences = JSON.parse(JSON.stringify(appData.preferences));
+      const snapshots = [];
+      const clearNotice = () => {
+        if (appNoticeTimer) {
+          clearTimeout(appNoticeTimer);
+          appNoticeTimer = null;
+        }
+        document.querySelector('.app-notice-floating')?.classList.remove('is-visible');
+      };
+      try {
+        if (settingsInputPersistTimer) {
+          clearTimeout(settingsInputPersistTimer);
+          settingsInputPersistTimer = null;
+        }
+        await settingsPersistQueue;
+        settingsPersistQueue = Promise.resolve();
+        appData.preferences.defaults.pen_nib = '';
+        renderSettingsView();
+        desktopAPI.saveData = async (data) => {
+          snapshots.push(JSON.parse(JSON.stringify(data)));
+          return { success: true };
+        };
+
+        clearNotice();
+        const unchangedFields = [
+          showcaseTitleInput,
+          defaultPenNibInput,
+          defaultPenNibMaterialInput,
+          backupRetentionCountInput
+        ];
+        for (const field of unchangedFields) {
+          field.focus();
+          field.blur();
+        }
+        await settingsPersistQueue;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        const noticeAfterNoop = document.querySelector('.app-notice-floating');
+        const unchanged = {
+          saveCalls: snapshots.length,
+          noticeVisible: noticeAfterNoop?.classList.contains('is-visible') || false,
+          noticeText: noticeAfterNoop?.textContent || ''
+        };
+
+        const editedTitle = 'Edited Settings Persistence Title';
+        showcaseTitleInput.focus();
+        showcaseTitleInput.value = editedTitle;
+        showcaseTitleInput.dispatchEvent(new Event('input', { bubbles: true }));
+        showcaseTitleInput.dispatchEvent(new Event('change', { bubbles: true }));
+        showcaseTitleInput.blur();
+        await settingsPersistQueue;
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        await settingsPersistQueue;
+        const noticeAfterEdit = document.querySelector('.app-notice-floating');
+        const edited = {
+          saveCalls: snapshots.length,
+          savedTitle: snapshots[0]?.preferences?.showcase?.title || '',
+          currentTitle: appData.preferences.showcase.title,
+          noticeVisible: noticeAfterEdit?.classList.contains('is-visible') || false,
+          noticeText: noticeAfterEdit?.textContent || '',
+          pendingTimer: settingsInputPersistTimer !== null
+        };
+
+        clearNotice();
+        const forcedNoopResult = await persistShowcaseSettingsNow({ force: true });
+        const noticeAfterForcedNoop = document.querySelector('.app-notice-floating');
+        const forcedNoop = {
+          result: forcedNoopResult,
+          saveCalls: snapshots.length,
+          noticeVisible: noticeAfterForcedNoop?.classList.contains('is-visible') || false
+        };
+
+        return { unchanged, edited, forcedNoop, editedTitle };
+      } finally {
+        if (settingsInputPersistTimer) {
+          clearTimeout(settingsInputPersistTimer);
+          settingsInputPersistTimer = null;
+        }
+        await settingsPersistQueue;
+        desktopAPI.saveData = originalSaveData;
+        appData.preferences = originalPreferences;
+        settingsPersistQueue = Promise.resolve();
+        settingsFormNeedsSync = false;
+        clearNotice();
+        renderSettingsView();
+        applyShowcaseTitleUi();
+      }
+    })()`);
+    assert.equal(settingsTextNoopPersistence.unchanged.saveCalls, 0, 'unchanged Settings text fields should not write data on blur');
+    assert.equal(settingsTextNoopPersistence.unchanged.noticeVisible, false, 'unchanged Settings text fields should not show a success notice');
+    assert.equal(settingsTextNoopPersistence.edited.saveCalls, 1, 'one real Settings text edit should persist exactly once');
+    assert.equal(settingsTextNoopPersistence.edited.savedTitle, settingsTextNoopPersistence.editedTitle, 'a real Settings text edit should reach persistence');
+    assert.equal(settingsTextNoopPersistence.edited.currentTitle, settingsTextNoopPersistence.editedTitle, 'a saved Settings text edit should update in-memory preferences');
+    assert.equal(settingsTextNoopPersistence.edited.noticeVisible, true, 'a real Settings text edit should show its success notice');
+    assert.equal(settingsTextNoopPersistence.edited.noticeText, 'Settings saved', 'a real Settings text edit should retain the existing success message');
+    assert.equal(settingsTextNoopPersistence.edited.pendingTimer, false, 'an immediate Settings text save should clear its debounce timer');
+    assert.equal(settingsTextNoopPersistence.forcedNoop.result, true, 'a forced no-op settings flush should report that settings are ready');
+    assert.equal(settingsTextNoopPersistence.forcedNoop.saveCalls, 1, 'a forced no-op settings flush should not write data');
+    assert.equal(settingsTextNoopPersistence.forcedNoop.noticeVisible, false, 'a forced no-op settings flush should not show a success notice');
+
     const failedShowcaseSettingsExport = await evaluate(`(async () => {
       const originalSaveData = desktopAPI.saveData;
       const originalExportShowcase = desktopAPI.exportShowcase;
@@ -1662,6 +2299,7 @@ async function main() {
       const snapshots = [];
       const callOrder = [];
       let releaseFirstSave = null;
+      let releaseImport = null;
       let importCalls = 0;
       try {
         appData.preferences.confirm_destructive_actions = false;
@@ -1684,6 +2322,9 @@ async function main() {
         desktopAPI.importBackup = async () => {
           importCalls += 1;
           callOrder.push('import-backup');
+          await new Promise((resolve) => {
+            releaseImport = resolve;
+          });
           return { success: true, data: importedData };
         };
 
@@ -1705,10 +2346,21 @@ async function main() {
 
         releaseFirstSave();
         await Promise.all([firstSave, secondSave]);
+        while (importCalls < 1 || !releaseImport) {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        const noticeDuringImport = document.querySelector('.app-notice-floating');
+        const persistentNotice = {
+          text: noticeDuringImport?.textContent || '',
+          visible: noticeDuringImport?.classList.contains('is-visible') || false,
+          timerless: appNoticeTimer === null
+        };
+        releaseImport();
         while (backupImportInFlight) {
           await new Promise((resolve) => setTimeout(resolve, 5));
         }
         await new Promise((resolve) => setTimeout(resolve, 15));
+        const noticeAfterImport = document.querySelector('.app-notice-floating');
 
         return {
           importWaited,
@@ -1716,7 +2368,13 @@ async function main() {
           settingsSaveCalls: snapshots.length,
           callOrder,
           importedNotes: appData.pens[0]?.notes || '',
-          settingsViewInert: !!viewSettings?.inert
+          settingsViewInert: !!viewSettings?.inert,
+          persistentNotice,
+          completedNotice: {
+            text: noticeAfterImport?.textContent || '',
+            visible: noticeAfterImport?.classList.contains('is-visible') || false,
+            timerScheduled: appNoticeTimer !== null
+          }
         };
       } finally {
         desktopAPI.saveData = originalSaveData;
@@ -1727,6 +2385,11 @@ async function main() {
         settingsPersistQueue = Promise.resolve();
         settingsFormNeedsSync = false;
         setSettingsOperationBusy(false);
+        if (appNoticeTimer) {
+          clearTimeout(appNoticeTimer);
+          appNoticeTimer = null;
+        }
+        document.querySelector('.app-notice-floating')?.classList.remove('is-visible');
         renderSettingsView();
       }
     })()`);
@@ -1740,6 +2403,67 @@ async function main() {
     );
     assert.equal(importWaitsForSettings.importedNotes, 'imported after settings queue', 'late settings candidates should not overwrite imported collection data');
     assert.equal(importWaitsForSettings.settingsViewInert, false, 'settings should unlock after backup import');
+    assert.equal(importWaitsForSettings.persistentNotice.visible, true, 'backup progress notice should stay visible while import is pending');
+    assert.equal(importWaitsForSettings.persistentNotice.timerless, true, 'backup progress notice should remain timerless while import is pending');
+    assert.match(importWaitsForSettings.persistentNotice.text, /Importing backup/i);
+    assert.equal(importWaitsForSettings.completedNotice.text, 'Backup imported successfully', 'success should replace the progress notice');
+    assert.equal(importWaitsForSettings.completedNotice.visible, true, 'the terminal import notice should be visible');
+    assert.equal(importWaitsForSettings.completedNotice.timerScheduled, true, 'the terminal import notice should dismiss normally');
+
+    const failedImportNotice = await evaluate(`(async () => {
+      const originalSelectBackup = desktopAPI.selectBackup;
+      const originalImportBackup = desktopAPI.importBackup;
+      let releaseImport = null;
+      try {
+        appData.preferences.confirm_destructive_actions = false;
+        desktopAPI.selectBackup = async () => '/tmp/failing-import.zip';
+        desktopAPI.importBackup = async () => {
+          await new Promise((resolve) => {
+            releaseImport = resolve;
+          });
+          throw new Error('simulated backup failure');
+        };
+        document.querySelector('#btn-import-backup').click();
+        while (!releaseImport) {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        const noticeDuringImport = document.querySelector('.app-notice-floating');
+        const pending = {
+          visible: noticeDuringImport?.classList.contains('is-visible') || false,
+          timerless: appNoticeTimer === null
+        };
+        releaseImport();
+        while (backupImportInFlight) {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        const noticeAfterImport = document.querySelector('.app-notice-floating');
+        return {
+          pending,
+          text: noticeAfterImport?.textContent || '',
+          error: noticeAfterImport?.classList.contains('is-error') || false,
+          timerScheduled: appNoticeTimer !== null,
+          buttonDisabled: !!btnImportBackup?.disabled,
+          settingsViewInert: !!viewSettings?.inert
+        };
+      } finally {
+        desktopAPI.selectBackup = originalSelectBackup;
+        desktopAPI.importBackup = originalImportBackup;
+        backupImportInFlight = false;
+        setSettingsOperationBusy(false);
+        if (appNoticeTimer) {
+          clearTimeout(appNoticeTimer);
+          appNoticeTimer = null;
+        }
+        document.querySelector('.app-notice-floating')?.classList.remove('is-visible');
+      }
+    })()`);
+    assert.equal(failedImportNotice.pending.visible, true, 'failed imports should retain progress while pending');
+    assert.equal(failedImportNotice.pending.timerless, true, 'failed imports should not time out before completion');
+    assert.match(failedImportNotice.text, /Backup import failed: simulated backup failure/i);
+    assert.equal(failedImportNotice.error, true, 'failed imports should replace progress with an error notice');
+    assert.equal(failedImportNotice.timerScheduled, true, 'import error notices should dismiss normally');
+    assert.equal(failedImportNotice.buttonDisabled, false, 'the import button should unlock after failure');
+    assert.equal(failedImportNotice.settingsViewInert, false, 'settings should unlock after import failure');
 
     const dockerRemoteHeic = await evaluate(`(async () => {
       const url = 'https://example.invalid/renderer-order-test.heic';
@@ -2850,11 +3574,14 @@ async function main() {
         'public/admin color-mode separation',
         'Docker showcase-export exclusion',
         'length-aware notification timing',
+        'full-backup export notice and busy lifecycle',
+        'Docker full-backup save picker, queue ordering, cleanup, and download fallback',
         'hidden-price completeness and derived ink privacy',
         'hidden public route fallback',
         'Tauri save serialization and conflict contract',
         'ink volume cl-to-volume_ml migration and ml presentation',
         'default preference preservation',
+        'default currency form and pen-detail presentation',
         'stored-value ink and swatch filters',
         'pen grid/detail filter parity',
         'custom-select keyboard behavior',
@@ -2863,6 +3590,7 @@ async function main() {
         'card and pen-detail broken-image fallbacks',
         'strict renderer color input validation',
         'stored ink-name HTML escaping',
+        'settings text-field no-op suppression',
         'settings persistence rollback and export gating',
         'serialized settings rollback',
         'mixed settings queue state preservation',

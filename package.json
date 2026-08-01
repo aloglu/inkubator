@@ -21,7 +21,7 @@
     "check:version": "node scripts/check-version.mjs",
     "check:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo check --locked --manifest-path src-tauri/Cargo.toml && cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --locked --manifest-path src-tauri/Cargo.toml",
     "test:renderer": "node scripts/check-renderer-flows.mjs",
-    "test": "node --test tests/critical-persistence.test.js tests/data-schema.test.js tests/public-data.test.js tests/release-version.test.js tests/version-consistency.test.js tests/docker-cache.test.js tests/docker-backup-route.test.js tests/docker-public-privacy.test.js tests/docker-image-retention-route.test.js tests/backup-archive.test.js tests/backup-schedule.test.js",
+    "test": "node --test tests/critical-persistence.test.js tests/data-schema.test.js tests/public-data.test.js tests/release-version.test.js tests/version-consistency.test.js tests/arch-package.test.js tests/linux-package.test.js tests/docker-cache.test.js tests/docker-backup-route.test.js tests/docker-public-privacy.test.js tests/docker-image-retention-route.test.js tests/backup-archive.test.js tests/backup-schedule.test.js",
     "verify": "npm run check:node && npm run check:syntax && npm run check:version && git diff --check && npm test && npm run test:renderer && npm run check:rust"
   },
   "keywords": [

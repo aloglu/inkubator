@@ -1,23 +1,30 @@
 # Arch Packaging
 
-This directory contains a PKGBUILD template for Arch Linux and AUR-style packaging.
+This directory contains the Arch Linux package recipe for the latest published Inkubator release. The recipe deliberately stays on that release while newer versions are in development.
 
 ## Local Build
 
-From this directory:
+Install the standard Arch build tools, clone the repository, and build the package:
 
 ```bash
+sudo pacman -S --needed base-devel git
+git clone https://github.com/aloglu/inkubator.git
+cd inkubator/packaging/arch
 makepkg -si
 ```
 
-The package builds the Tauri Linux DEB bundle first, then extracts the verified Tauri payload into the Arch package. This keeps the installed binary, resources, desktop entry, and icons aligned with the DEB/RPM release artifacts.
+Do not run `makepkg` as root. It downloads the published source archive, verifies its checksum, builds the Tauri Linux DEB bundle, and extracts the Tauri payload into the Arch package. This keeps the installed binary, resources, desktop entry, and icons aligned with the DEB/RPM release artifacts.
 
 ## Uninstall
 
 Remove the installed Arch package with:
 
 ```bash
-sudo pacman -Rns inkubator inkubator-debug
+if pacman -Qq inkubator-debug >/dev/null 2>&1; then
+  sudo pacman -Rns inkubator inkubator-debug
+else
+  sudo pacman -Rns inkubator
+fi
 ```
 
 `inkubator-debug` may be created automatically by Arch packaging when debug symbols are present. It is not a separate debug build of the app, and it can be removed with the main package.
@@ -35,23 +42,25 @@ rm -rf ~/.local/share/com.aloglu.inkubator
 
 If you previously used the Electron version, you may also have legacy data in `~/.local/share/com.inkubator.app` or `~/.config/Inkubator`.
 
-## Publishing Notes
+## Release Maintenance
 
-Before publishing to AUR:
+The PKGBUILD is updated after a release tag exists because its archive checksum cannot be finalized earlier. After publishing a new Inkubator tag:
 
-1. Update `pkgver` and reset `pkgrel` to `1`.
-2. Replace `sha256sums=('SKIP')` with the real source archive checksum:
+1. Confirm the tag exists on GitHub, update `pkgver`, and reset `pkgrel` to `1`. Remove any package patches already included in the new release.
+2. Update and verify the source archive checksum:
 
    ```bash
    updpkgsums
+   makepkg --verifysource
    ```
 
-3. Generate `.SRCINFO`:
+3. Build the package and inspect it with `namcap` when available. A clean-chroot build with `pkgctl build` is preferred before AUR publication.
+4. Generate `.SRCINFO` if publishing the recipe to AUR:
 
    ```bash
    makepkg --printsrcinfo > .SRCINFO
    ```
 
-4. Test the package in a clean chroot if possible.
+5. Commit the updated PKGBUILD separately from the release tag.
 
 Flatpak packaging is intentionally separate. It can be added later without changing the app architecture, but it requires a dedicated Flatpak manifest and build workflow rather than a native Tauri bundle target.

@@ -38,17 +38,25 @@ sudo dnf remove inkubator
 
 ## Arch-Based Linux
 
-Build the package from the included PKGBUILD template:
+The repository keeps a PKGBUILD for the latest published release. Install the standard Arch build tools, clone the repository, and build it:
 
 ```bash
-cd packaging/arch
+sudo pacman -S --needed base-devel git
+git clone https://github.com/aloglu/inkubator.git
+cd inkubator/packaging/arch
 makepkg -si
 ```
+
+Do not run `makepkg` as root.
 
 To remove the Arch package:
 
 ```bash
-sudo pacman -Rns inkubator inkubator-debug
+if pacman -Qq inkubator-debug >/dev/null 2>&1; then
+  sudo pacman -Rns inkubator inkubator-debug
+else
+  sudo pacman -Rns inkubator
+fi
 ```
 
 Arch may install `inkubator-debug` automatically when debug symbols are produced. It is safe to remove it with the main package.

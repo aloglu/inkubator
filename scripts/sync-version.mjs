@@ -55,12 +55,3 @@ if (fs.existsSync(cargoLockPath)) {
 const tauriConfig = readJson('src-tauri/tauri.conf.json');
 tauriConfig.version = version;
 writeJson('src-tauri/tauri.conf.json', tauriConfig);
-
-const pkgbuildPath = path.join(root, 'packaging/arch/PKGBUILD');
-if (fs.existsSync(pkgbuildPath)) {
-  let pkgbuild = fs.readFileSync(pkgbuildPath, 'utf8');
-  pkgbuild = pkgbuild
-    .replace(/^pkgver=.*$/m, `pkgver=${version}`)
-    .replace(/^pkgrel=.*$/m, 'pkgrel=1');
-  fs.writeFileSync(pkgbuildPath, pkgbuild);
-}

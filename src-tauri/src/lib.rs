@@ -275,20 +275,23 @@ fn frontend_source_root(app: &AppHandle) -> Result<PathBuf> {
         }
     }
 
-    let manifest_app = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .ok_or_else(|| anyhow!("Could not resolve repository root"))?
-        .join("app");
-    match fs::symlink_metadata(&manifest_app) {
-        Ok(metadata) if metadata.file_type().is_dir() => return Ok(manifest_app),
-        Ok(_) => {
-            return Err(anyhow!(
-                "Bundled app source is not a real directory: {}",
-                manifest_app.display()
-            ))
+    #[cfg(debug_assertions)]
+    {
+        let manifest_app = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("Could not resolve repository root"))?
+            .join("app");
+        match fs::symlink_metadata(&manifest_app) {
+            Ok(metadata) if metadata.file_type().is_dir() => return Ok(manifest_app),
+            Ok(_) => {
+                return Err(anyhow!(
+                    "Bundled app source is not a real directory: {}",
+                    manifest_app.display()
+                ))
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
         }
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-        Err(error) => return Err(error.into()),
     }
 
     Err(anyhow!(

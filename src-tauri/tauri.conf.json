@@ -52,7 +52,14 @@
     "linux": {
       "deb": {
         "depends": [
-          "libayatana-appindicator3-1"
+          "xdg-desktop-portal-gtk",
+          "zenity"
+        ]
+      },
+      "rpm": {
+        "depends": [
+          "xdg-desktop-portal-gtk",
+          "zenity"
         ]
       }
     },

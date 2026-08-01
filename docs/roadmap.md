@@ -12,4 +12,4 @@
 8. **Complete:** Validate fixed-shape pen cards and contained detail images with deliberately horizontal primary images; adaptive orientation was added and confirmed against mixed vertical/horizontal pen galleries.
 9. **Complete:** Run scoped correctness, security, persistence, dependency, dead-code, duplication, and refactoring audits without broad behavior changes.
 10. **Complete:** Run final end-to-end regression checks for desktop, Docker admin/public, and generated showcase workflows, including backup compatibility, data integrity, keyboard accessibility, and responsive layouts.
-11. **Complete locally:** Fresh Linux DEB and RPM packages were built, inspected, and launched successfully. The manual release tag still needs to run the Windows, macOS, Linux, and Docker GitHub workflows before publication.
+11. **Complete:** Inkubator 2.1.0 was published after the Windows, macOS, Linux, and Docker GitHub workflows completed successfully.

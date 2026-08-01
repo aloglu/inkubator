@@ -96,3 +96,7 @@ npm test
 npm run test:renderer
 cargo test --locked --manifest-path src-tauri/Cargo.toml
 ```
+
+## Version Synchronization
+
+Use `npm run sync-version -- X.Y.Z` when development moves to a new app version. This updates the application metadata only. The Arch PKGBUILD remains on the latest published release until the new tag exists and its checksum can be calculated; follow the [Arch release-maintenance checklist](../packaging/arch/README.md#release-maintenance) after publishing the tag.

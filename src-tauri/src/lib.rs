@@ -1961,6 +1961,7 @@ where
         output
             .sync_all()
             .with_context(|| format!("Could not sync temporary backup {}", staged.display()))?;
+        drop(output);
         promote_completed_file(&staged, destination)
     })();
     if result.is_err() {
@@ -7120,7 +7121,7 @@ mod tests {
 
     #[test]
     fn managed_media_paths_are_confined_to_the_image_root() {
-        let root = PathBuf::from("/tmp");
+        let root = test_root("managed-media-paths");
         assert_eq!(
             resolve_managed_media_path(&root, "/images/.thumbs/pens/example.webp").unwrap(),
             root.join(".thumbs/pens/example.webp")
@@ -7128,6 +7129,7 @@ mod tests {
         assert!(resolve_managed_media_path(&root, "/images/../data.json").is_err());
         assert!(resolve_managed_media_path(&root, "/other/example.webp").is_err());
         assert!(resolve_managed_media_path(&root, "/images/pens/example.txt").is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]
@@ -7137,10 +7139,13 @@ mod tests {
 
         let root = test_root("managed-media-symlinks");
         let images = root.join("images");
+        let linked_images = root.join("linked-images");
         let outside = root.join("outside");
         fs::create_dir_all(images.join("pens")).unwrap();
         fs::create_dir_all(&outside).unwrap();
+        fs::write(images.join("pens/real.webp"), b"real-image").unwrap();
         fs::write(outside.join("secret.webp"), b"outside-secret").unwrap();
+        symlink(&images, &linked_images).unwrap();
         symlink(&outside, images.join("pens/linked")).unwrap();
         symlink(outside.join("secret.webp"), images.join("pens/final.webp")).unwrap();
         symlink(
@@ -7156,6 +7161,7 @@ mod tests {
         ] {
             assert!(resolve_managed_media_path(&images, path).is_err(), "{path}");
         }
+        assert!(resolve_managed_media_path(&linked_images, "/images/pens/real.webp").is_err());
         fs::remove_dir_all(root).unwrap();
     }
 

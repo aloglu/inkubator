@@ -1,6 +1,6 @@
 [package]
 name = "inkubator"
-version = "2.1.0"
+version = "2.2.0"
 description = "Local-first desktop application for fountain pen and ink collections."
 authors = ["Abdullah Aloğlu <contact@alog.lu>"]
 edition = "2021"

@@ -19,8 +19,10 @@ const {
   regenerateThumbnails,
   readDirectoryIfExists,
   requireManagedRasterFiles,
+  resolveManagedDirectory,
   resolveManagedRasterFile,
   statIfExists,
+  syncFile,
   syncTree,
   validateManagedRasterReferences
 } = require('../lib/backup-archive');
@@ -455,6 +457,35 @@ test('managed raster resolution rejects symbolic links at every path level', asy
   }
 });
 
+test('managed raster resolution accepts a canonicalized storage root', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'inkubator-backup-canonical-root-'));
+  const realParent = path.join(root, 'real-parent');
+  const aliasParent = path.join(root, 'alias-parent');
+  const realImagesRoot = path.join(realParent, 'images');
+  const imagesRoot = path.join(aliasParent, 'images');
+  const realFile = path.join(realImagesRoot, 'pens', 'photo.webp');
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+
+  await fs.mkdir(path.dirname(realFile), { recursive: true });
+  await fs.writeFile(realFile, 'real-image');
+  if (!(await createSymlinkOrSkip(t, realParent, aliasParent, 'dir'))) return;
+
+  assert.equal(
+    await resolveManagedDirectory({ root: imagesRoot }),
+    await fs.realpath(realImagesRoot)
+  );
+  assert.deepEqual(
+    await resolveManagedRasterFile({
+      imagesRoot,
+      relativePath: 'pens/photo.webp'
+    }),
+    {
+      relativePath: 'pens/photo.webp',
+      target: await fs.realpath(realFile)
+    }
+  );
+});
+
 test('backup media validation fully decodes images instead of trusting metadata', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'inkubator-backup-full-decode-'));
   const imagePath = path.join(root, 'pens', 'truncated.png');
@@ -485,7 +516,7 @@ test('syncTree flushes files before their containing directories', async (t) => 
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   await fs.mkdir(nested, { recursive: true });
   await fs.writeFile(image, 'image');
-  await fs.chmod(image, 0o444);
+  if (process.platform !== 'win32') await fs.chmod(image, 0o444);
 
   const fileSystem = {
     stat: (...args) => fs.stat(...args),
@@ -509,6 +540,48 @@ test('syncTree flushes files before their containing directories', async (t) => 
   assert.notEqual(imageIndex, -1);
   assert.ok(imageIndex < nestedIndex);
   assert.ok(nestedIndex < rootIndex);
+});
+
+test('syncFile uses the non-truncating access mode required by each platform', async () => {
+  const opened = [];
+  const synced = [];
+  const closed = [];
+  const fileSystem = {
+    open: async (target, flags) => {
+      opened.push({ target, flags });
+      return {
+        sync: async () => synced.push(target),
+        close: async () => closed.push(target)
+      };
+    }
+  };
+
+  await syncFile(fileSystem, '/windows-file', { platform: 'win32' });
+  await syncFile(fileSystem, '/posix-file', { platform: 'linux' });
+
+  assert.deepEqual(opened, [
+    { target: '/windows-file', flags: 'r+' },
+    { target: '/posix-file', flags: 'r' }
+  ]);
+  assert.deepEqual(synced, ['/windows-file', '/posix-file']);
+  assert.deepEqual(closed, ['/windows-file', '/posix-file']);
+});
+
+test('syncFile closes its handle and reports flush failures', async () => {
+  const failure = Object.assign(new Error('injected file sync failure'), { code: 'EIO' });
+  let closed = false;
+  const fileSystem = {
+    open: async () => ({
+      sync: async () => { throw failure; },
+      close: async () => { closed = true; }
+    })
+  };
+
+  await assert.rejects(
+    syncFile(fileSystem, '/failed-file', { platform: 'win32' }),
+    (error) => error === failure
+  );
+  assert.equal(closed, true);
 });
 
 test('extractBackupZip rejects expanded archives over the configured limit', async () => {

@@ -15,6 +15,8 @@ makepkg -si
 
 Do not run `makepkg` as root. It downloads the published source archive, verifies its checksum, builds the Tauri Linux DEB bundle, and extracts the Tauri payload into the Arch package. This keeps the installed binary, resources, desktop entry, and icons aligned with the DEB/RPM release artifacts.
 
+The build accepts Arch's regular Node.js package or any compatible provider at version 24 or newer. It does not require replacing a compatible system Node.js installation with a named LTS package.
+
 ## Uninstall
 
 Remove the installed Arch package with:

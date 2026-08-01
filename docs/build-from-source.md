@@ -4,7 +4,7 @@ These steps are for development, local testing, or building your own copy of Ink
 
 ## Prerequisites
 
-- Node.js 24.18.0 LTS
+- Node.js 24 or newer; official verification uses the exact LTS version in `.nvmrc`
 - npm (included with Node.js)
 - Rust 1.97.1 and Cargo
 - Chromium or a Chromium-based browser for renderer verification

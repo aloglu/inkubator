@@ -24,7 +24,7 @@ depends=(
   'zenity'
 )
 makedepends=(
-  'nodejs-lts-krypton'
+  'nodejs>=24'
   'npm'
   'rust'
 )

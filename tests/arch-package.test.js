@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const rootDir = path.resolve(__dirname, '..');
 const pkgbuildPath = path.resolve(__dirname, '..', 'packaging', 'arch', 'PKGBUILD');
 
 function exactlyOneMatch(source, pattern, label) {
@@ -41,4 +42,39 @@ test('Arch package recipe contains release-ready source metadata', () => {
   assert.match(source, /^\s*'xdg-desktop-portal-gtk'\s*$/m);
   assert.match(source, /^\s*'zenity'\s*$/m);
   assert.doesNotMatch(source, /libayatana-appindicator/);
+});
+
+test('Node build requirements accept compatible Arch providers', () => {
+  const source = fs.readFileSync(pkgbuildPath, 'utf8');
+  const makedependsBlock = exactlyOneMatch(
+    source,
+    /^makedepends=\(\s*\n([\s\S]*?)^\)\s*$/gm,
+    'makedepends'
+  );
+  const packageJson = JSON.parse(
+    fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8')
+  );
+  const packageLock = JSON.parse(
+    fs.readFileSync(path.join(rootDir, 'package-lock.json'), 'utf8')
+  );
+  const engine = packageJson.engines?.node || '';
+  const minimumMajorMatch = engine.match(/^>=(\d+)$/);
+  const nodeBuildDependencies = [
+    ...makedependsBlock.matchAll(/^\s*'([^']*nodejs[^']*)'\s*$/gm)
+  ].map(([, dependency]) => dependency);
+
+  assert.ok(
+    minimumMajorMatch,
+    'Node compatibility must have a minimum version without an upper bound'
+  );
+  assert.equal(packageLock.packages?.['']?.engines?.node, engine);
+  assert.deepEqual(
+    nodeBuildDependencies,
+    [`nodejs>=${minimumMajorMatch[1]}`]
+  );
+  assert.doesNotMatch(
+    makedependsBlock,
+    /^\s*'nodejs-lts-[^']+'\s*$/m,
+    'Arch builds must not force a named Node LTS package'
+  );
 });

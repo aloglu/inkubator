@@ -9,6 +9,16 @@ The public surface is generated from the showcase visibility settings rather tha
 
 The container listens on plain HTTP. For anything beyond local testing, put it behind an HTTPS reverse proxy. Do not expose the admin interface over public HTTP because login credentials and session cookies need transport encryption.
 
+## Prerequisites
+
+Install Docker Engine or Docker Desktop. The Docker Compose instructions also require the current `docker compose` plugin. Cloning the Inkubator repository is not required when using the published image.
+
+The published image currently targets `linux/amd64` systems. Other CPU architectures are not part of the release build coverage yet.
+
+## Container Security
+
+The current image does not select a non-root user, so the Inkubator process runs as root inside the container. This also keeps bind-mounted `/data` directories writable across common host configurations. It does not grant unrestricted host access by itself, but do not run the container with `--privileged`, mount the Docker socket, or mount unrelated host directories. The documented command exposes only Inkubator's port and data directory.
+
 ## Container
 
 Set the admin password in your shell before starting the container:
@@ -57,16 +67,18 @@ Only use the LAN binding on a trusted network or behind a firewall. The containe
 | `INKUBATOR_ADMIN_USER` | `admin` | Username for the Docker admin login |
 | `INKUBATOR_ADMIN_PASSWORD` | none | Password for the Docker admin login |
 | `INKUBATOR_DATA_DIR` | `/data` | Container path for app data, preferences, images, and backups |
-| `INKUBATOR_PORT` / `PORT` | `8080` | Internal HTTP port used by the Node server |
+| `PORT` | `8080` | Internal HTTP port used by the Node server |
 | `INKUBATOR_MAX_BACKUP_BYTES` | `1073741824` | Maximum compressed backup upload size (1 GiB) |
 | `INKUBATOR_MAX_BACKUP_EXPANDED_BYTES` | `2147483648` | Maximum total extracted backup size (2 GiB) |
 | `INKUBATOR_MAX_BACKUP_ENTRIES` | `20000` | Maximum files and directories accepted from a backup |
 
-Most users should leave the internal port and backup safety limits at their defaults and only change the host-side port mapping.
+Most users should leave the internal port and backup safety limits at their defaults and only change the host-side port mapping. If you override `PORT`, the container side of the `-p` or Compose port mapping must use the same value.
 
 Manual image URLs must point to a supported raster image on a public HTTPS address. Docker mode rejects URL credentials, private or local network destinations, unsafe redirects, unsupported media types, and responses larger than 25 MiB.
 
 ## Docker Compose
+
+Save the following as `compose.yml` in an Inkubator deployment directory. If you cloned this repository, you can instead copy `docker-compose.example.yml` to `compose.yml`.
 
 ```yaml
 services:
@@ -88,12 +100,26 @@ Example `.env` file for Docker Compose:
 
 ```dotenv
 INKUBATOR_BIND_ADDRESS=127.0.0.1
-INKUBATOR_HOST_PORT=8090
+INKUBATOR_HOST_PORT=8080
 INKUBATOR_ADMIN_USER=your-username
-INKUBATOR_ADMIN_PASSWORD=your-password
+INKUBATOR_ADMIN_PASSWORD=choose-a-long-unique-password
 ```
 
+Keep `.env` private and do not commit it. This repository ignores `.env`; on systems with POSIX file permissions, `chmod 600 .env` prevents other local users from reading it.
+
+Start Inkubator from the directory containing `compose.yml` and `.env`:
+
+```bash
+docker compose up -d
+```
+
+Docker Compose pulls the published image automatically. Open `http://localhost:8080`, or use the host port selected in `.env`.
+
 Set `INKUBATOR_BIND_ADDRESS=0.0.0.0` only when another machine must reach the container directly.
+
+## Unraid
+
+Unraid users can deploy the published image through the native Docker custom-container form. See [Unraid Deployment](unraid.md) for the exact image, port, appdata path, and environment-variable settings.
 
 ## Caddy Example
 

@@ -9,6 +9,7 @@ These steps are for development, local testing, or building your own copy of Ink
 - Rust 1.97.1 and Cargo
 - Chromium or a Chromium-based browser for renderer verification
 - Tauri system dependencies for your operating system
+- Docker Engine or Docker Desktop only when building the Docker image
 
 For Linux, install the Tauri prerequisites that match your distribution before building.
 
@@ -57,6 +58,8 @@ npm run build:linux
 ```
 
 ## Docker Build
+
+This section requires Docker Engine or Docker Desktop.
 
 ```bash
 npm run docker:build

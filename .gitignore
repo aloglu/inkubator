@@ -18,6 +18,7 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+.env
 Changelog.md
 changelog.md
 
@@ -25,6 +26,9 @@ changelog.md
 feature-ideas.md
 post-2.1-engineering-plan.md
 lean-project-plan.md
+roadmap.md
+release-baseline.md
+release-checklist.md
 
 # Local backups/archives created by app/users
 backups/

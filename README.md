@@ -61,7 +61,6 @@ Pre-2.0 folder backups remain usable after you compress the backup folder into a
 - [Docker Deployment](docs/docker.md)
 - [Backups and Data Safety](docs/backups.md)
 - [Build From Source](docs/build-from-source.md)
-- [Release Checklist](docs/release-checklist.md)
 
 ## License
 

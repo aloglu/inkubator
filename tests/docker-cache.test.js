@@ -271,10 +271,12 @@ test('remote image downloader returns bounded supported image bytes', async () =
 
 test('Docker deployment defaults require a non-placeholder password and local binding', async () => {
   const root = path.join(__dirname, '..');
-  const [compose, readme, buildGuide] = await Promise.all([
+  const [compose, readme, buildGuide, dockerGuide, gitignore] = await Promise.all([
     fs.readFile(path.join(root, 'docker-compose.example.yml'), 'utf8'),
     fs.readFile(path.join(root, 'README.md'), 'utf8'),
-    fs.readFile(path.join(root, 'docs', 'build-from-source.md'), 'utf8')
+    fs.readFile(path.join(root, 'docs', 'build-from-source.md'), 'utf8'),
+    fs.readFile(path.join(root, 'docs', 'docker.md'), 'utf8'),
+    fs.readFile(path.join(root, '.gitignore'), 'utf8')
   ]);
   assert.match(compose, /INKUBATOR_ADMIN_PASSWORD:\s*"\$\{INKUBATOR_ADMIN_PASSWORD:\?/);
   assert.match(compose, /\$\{INKUBATOR_BIND_ADDRESS:-127\.0\.0\.1\}/);
@@ -284,6 +286,10 @@ test('Docker deployment defaults require a non-placeholder password and local bi
     assert.match(document, /-e INKUBATOR_ADMIN_PASSWORD(?:\s|\\)/);
     assert.doesNotMatch(document, /INKUBATOR_ADMIN_PASSWORD='change-this-password'/);
   }
+  assert.match(dockerGuide, /docker compose up -d/);
+  assert.match(dockerGuide, /do not commit it/i);
+  assert.doesNotMatch(dockerGuide, /`INKUBATOR_PORT`/);
+  assert.match(gitignore, /^\.env$/m);
   assert.equal(isRejectedAdminPassword(''), true);
   assert.equal(isRejectedAdminPassword('change-this-password'), true);
   assert.equal(isRejectedAdminPassword('a-unique-password'), false);

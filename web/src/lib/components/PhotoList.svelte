@@ -3,7 +3,7 @@
    * Photos of one item: add (upload), remove, and choose the main one. Uploads
    * go to the server straight away; the item keeps them only when it is saved.
    */
-  import { photoUrl, uploadPhoto, type PhotoSection } from '../api';
+  import { photoFromUrl, photoUrl, uploadPhoto, type PhotoSection } from '../api';
   import { newId } from '../ids';
   import { describeError } from '../stores/ui.svelte';
   import type { Image } from '../types/Image';
@@ -18,6 +18,7 @@
     label = 'Add a photo',
     selected = $bindable(),
     selectable = false,
+    lookup,
   }: {
     images?: Image[];
     section: PhotoSection;
@@ -29,36 +30,63 @@
     selected?: string;
     /** Photos can be picked for cropping. */
     selectable?: boolean;
+    /** An extra way to find a photo online, e.g. on inkswatch.com; returns its address. */
+    lookup?: { label: string; find: () => Promise<string> };
   } = $props();
 
   let uploading = $state(0);
   let error = $state('');
   let input: HTMLInputElement | undefined = $state();
+  let linking = $state(false);
+  let link = $state('');
+
+  /** Stores a photo on the server and adds it to the list. */
+  async function store(save: () => Promise<string>): Promise<boolean> {
+    uploading++;
+    try {
+      const path = await save();
+      const image: Image = {
+        id: newId('img'),
+        path,
+        primary: images.length === 0,
+        rotation: 0,
+        focus_x: 0.5,
+        focus_y: 0.5,
+        zoom: 1,
+      };
+      images = [...images, image];
+      if (selectable) selected = image.id;
+      return true;
+    } catch (failure) {
+      error = describeError(failure);
+      return false;
+    } finally {
+      uploading--;
+    }
+  }
 
   async function add(files: FileList | null) {
     error = '';
-    for (const file of files ?? []) {
-      uploading++;
-      try {
-        const path = await uploadPhoto(section, file, name);
-        const image: Image = {
-          id: newId('img'),
-          path,
-          primary: images.length === 0,
-          rotation: 0,
-          focus_x: 0.5,
-          focus_y: 0.5,
-          zoom: 1,
-        };
-        images = [...images, image];
-        if (selectable) selected = image.id;
-      } catch (failure) {
-        error = describeError(failure);
-      } finally {
-        uploading--;
-      }
-    }
+    for (const file of files ?? []) await store(() => uploadPhoto(section, file, name));
     if (input) input.value = '';
+  }
+
+  async function addLink(event: Event) {
+    event.preventDefault();
+    error = '';
+    const url = link.trim();
+    if (!url) return;
+    if (await store(() => photoFromUrl(section, url, name))) {
+      link = '';
+      linking = false;
+    }
+  }
+
+  async function addFound() {
+    if (!lookup) return;
+    error = '';
+    const find = lookup.find;
+    await store(async () => photoFromUrl(section, await find(), name));
   }
 
   function remove(id: string) {
@@ -112,6 +140,32 @@
     <Icon name={uploading ? 'arrows-clockwise' : 'image'} size={20} />
     <span>{uploading ? 'Uploading…' : label}</span>
   </label>
+</div>
+<div class="more">
+  {#if linking}
+    <div class="link-row">
+      <input
+        type="url"
+        bind:value={link}
+        placeholder="https://…"
+        aria-label="Photo address"
+        onkeydown={(event) => {
+          if (event.key === 'Enter') void addLink(event);
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+            event.preventDefault();
+            linking = false;
+          }
+        }}
+      />
+      <button type="button" class="text" onclick={addLink} disabled={!link.trim() || uploading > 0}>Add</button>
+    </div>
+  {:else}
+    <button type="button" class="text" onclick={() => (linking = true)}>From a link</button>
+  {/if}
+  {#if lookup}
+    <button type="button" class="text" onclick={addFound} disabled={uploading > 0}>{lookup.label}</button>
+  {/if}
 </div>
 {#if error}<p class="error" role="alert">{error}</p>{/if}
 
@@ -184,6 +238,41 @@
     inset: 0;
     opacity: 0;
     cursor: pointer;
+  }
+  .more {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 12px;
+    width: 100%;
+    margin-top: 6px;
+  }
+  .link-row {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+  }
+  .link-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--field);
+    font-size: 12px;
+  }
+  .text {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .text:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
   .error {
     margin-top: 6px;

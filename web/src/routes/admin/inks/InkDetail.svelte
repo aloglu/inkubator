@@ -7,6 +7,7 @@
   import PhotoFrame from '../../../lib/components/PhotoFrame.svelte';
   import Sheet from '../../../lib/components/Sheet.svelte';
   import Swab from '../../../lib/components/Swab.svelte';
+  import SwatchMedia from '../../../lib/components/SwatchMedia.svelte';
   import { daysBetween, formatDate, inkMaker, penName, plural } from '../../../lib/format';
   import { properties, summary, swabSheen } from '../../../lib/ink';
   import { router } from '../../../lib/router.svelte';
@@ -144,23 +145,17 @@
       {/each}
 
       <h4 class="kicker spaced">Swatches</h4>
-      {#if swatches.length}
-        <div class="thumbs">
-          {#each swatches as swatch (swatch.id)}
-            {@const image = swatch.images.find((i) => i.primary) ?? swatch.images[0]}
-            <figure>
-              {#if image}
-                <PhotoFrame src={photoUrl(image.path, true)} {image} ratio={4 / 3} radius="var(--radius-sm)" alt="Swatch of {ink.name}" />
-              {:else}
-                <div class="paper"><Swab base={ink.base_color} sheen={swabSheen(ink)} size="md" /></div>
-              {/if}
-              <figcaption>{[swatch.paper, swatch.nib].filter(Boolean).join(' · ') || 'Swatch'}</figcaption>
-            </figure>
-          {/each}
-        </div>
-      {:else}
-        <p class="notes">No swatches yet.</p>
-      {/if}
+      <div class="thumbs">
+        {#each swatches as swatch (swatch.id)}
+          <a class="thumb" href="/admin/swatches?swatch={encodeURIComponent(swatch.id)}">
+            <SwatchMedia {swatch} {ink} />
+            <span>{[swatch.paper, swatch.nib].filter(Boolean).join(' · ') || 'Swatch'}</span>
+          </a>
+        {/each}
+        <a class="add" href="/admin/swatches?new&ink={encodeURIComponent(ink.id)}">
+          <Icon name="plus" size={16} />{swatches.length ? 'Add' : 'Add a swatch'}
+        </a>
+      </div>
 
       <h4 class="kicker spaced">Earlier pens</h4>
       {#if earlier.length}
@@ -302,21 +297,32 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
-  figure {
+  .thumb {
     display: grid;
+    align-content: start;
     gap: 4px;
-    margin: 0;
-  }
-  figcaption {
     color: var(--muted);
     font-size: 12px;
+    text-decoration: none;
   }
-  .paper {
+  .thumb:hover span {
+    color: var(--fg);
+  }
+  .add {
     display: grid;
     place-items: center;
+    align-content: center;
+    gap: 4px;
     aspect-ratio: 4 / 3;
+    border: 1px dashed var(--line-strong);
     border-radius: var(--radius-sm);
-    background: repeating-linear-gradient(-6deg, transparent 0 20px, var(--paper-line) 20px 21px), var(--paper);
+    color: var(--muted);
+    font-size: 12px;
+    text-decoration: none;
+  }
+  .add:hover {
+    border-color: var(--accent);
+    color: var(--fg);
   }
   .history {
     display: grid;

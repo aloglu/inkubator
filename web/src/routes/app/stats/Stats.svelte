@@ -9,6 +9,7 @@
   import { money } from '../../../lib/ink';
   import { sortInks } from '../../../lib/sorting';
   import { byBrand, headline, rangeStart, rotation, type Range } from '../../../lib/stats';
+  import { collection } from '../../../lib/stores/collection.svelte';
   import type { Collection } from '../../../lib/types/Collection';
 
   let { data }: { data: Collection } = $props();
@@ -17,6 +18,10 @@
   const range: Range = $derived(period === 'all' ? 'all' : (Number(period) as 30 | 90 | 365));
   const now = Date.now();
 
+  // Visitors see money only when prices are public, and charts only when allowed.
+  const owner = $derived(collection.canEdit);
+  const prices = $derived(owner || data.settings.showcase.show_prices);
+  const charts = $derived(owner || data.settings.showcase.show_charts);
   const dateFormat = $derived(data.settings.defaults.date_format);
   const currency = $derived(data.settings.defaults.currency);
   const from = $derived(rangeStart(range, data.fills, now));
@@ -104,7 +109,7 @@
     <div class="spectrum">
       {#each spectrum as ink (ink.id)}
         <a
-          href="/admin/inks?ink={encodeURIComponent(ink.id)}"
+          href="/inks?ink={encodeURIComponent(ink.id)}"
           style:--c={ink.base_color}
           class:on={inUse.has(ink.id)}
           aria-label="{ink.name}, {ink.brand}{inUse.has(ink.id) ? ', in a pen' : ''}"
@@ -132,13 +137,16 @@
       <dt>Inks swatched</dt>
       <dd>{figures.swatched} <small>of {figures.inks}</small></dd>
     </div>
-    <div>
-      <dt>Tracked spend</dt>
-      <dd>{figures.spend === null ? '—' : compact(figures.spend)}</dd>
-      <p class="note">Pens and inks with a price</p>
-    </div>
+    {#if prices}
+      <div>
+        <dt>Tracked spend</dt>
+        <dd>{figures.spend === null ? '—' : compact(figures.spend)}</dd>
+        <p class="note">Pens and inks with a price</p>
+      </div>
+    {/if}
   </dl>
 
+  {#if charts}
   <section class="panel" aria-labelledby="rotation-title">
     <div class="panel-head">
       <h3 id="rotation-title">Rotation</h3>
@@ -153,7 +161,7 @@
         </div>
         {#each rows as row (row.pen.id)}
           <div class="lane">
-            <a class="pen" href="/admin/pens?pen={encodeURIComponent(row.pen.id)}" title={penName(row.pen)}>{laneLabel(row.pen)}</a>
+            <a class="pen" href="/pens?pen={encodeURIComponent(row.pen.id)}" title={penName(row.pen)}>{laneLabel(row.pen)}</a>
             <div class="track">
               {#each ticks as tick (tick.at)}<span class="grid" style:left="{x(tick.at)}%"></span>{/each}
               {#each row.segments as segment (segment.fill.id)}
@@ -166,7 +174,7 @@
                 <a
                   class="segment"
                   class:open={segment.open}
-                  href={segment.ink ? `/admin/inks?ink=${encodeURIComponent(segment.ink.id)}` : undefined}
+                  href={segment.ink ? `/inks?ink=${encodeURIComponent(segment.ink.id)}` : undefined}
                   style:left="{x(segment.start)}%"
                   style:width="max(4px, calc({x(segment.end) - x(segment.start)}% - 2px))"
                   style:--c={segment.ink?.base_color ?? 'var(--muted)'}
@@ -230,9 +238,10 @@
         {/if}
       </section>
     {/snippet}
-    {@render bars('Pen spend by brand', currency, penSpend, maxSpend, compact, (v) => compact(v))}
+    {#if prices}{@render bars('Pen spend by brand', currency, penSpend, maxSpend, compact, (v) => compact(v))}{/if}
     {@render bars('Inks by brand', 'bottles', inkCounts, maxInks, String, (v) => plural(v, 'bottle'))}
   </div>
+  {/if}
 </div>
 
 {#if tip}
@@ -309,7 +318,8 @@
   }
   .tiles {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
     margin: 0;
     border-block: 1px solid var(--line);
   }
@@ -521,6 +531,7 @@
   @media (max-width: 800px) {
     .tiles {
       grid-template-columns: 1fr 1fr;
+      grid-auto-flow: row;
     }
     .tiles > div:nth-child(2) {
       border-right: 0;

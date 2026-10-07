@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Development-only page listing the shared components, at /admin/_components.
+   * Development-only page listing the shared components, at /_components.
    * Uses the real collection where it helps (pickers, photos) and samples otherwise.
    */
   import { photoUrl } from '../../lib/api';

@@ -16,6 +16,7 @@
   import { applyFilters, usefulFacets } from '../../../lib/filters';
   import { rank } from '../../../lib/search';
   import { penSorts, sortPens } from '../../../lib/sorting';
+  import { collection } from '../../../lib/stores/collection.svelte';
   import { lists } from '../../../lib/stores/lists.svelte';
   import { openFills } from '../../../lib/suggestions';
   import type { Collection } from '../../../lib/types/Collection';
@@ -41,11 +42,11 @@
 
   const selectedId = $derived(router.query.get('pen'));
   const selected = $derived(selectedId ? data.pens.find((pen) => pen.id === selectedId) : undefined);
-  const editing = $derived(router.query.has('new') || (!!selected && router.query.has('edit')));
+  const editing = $derived(collection.canEdit && (router.query.has('new') || (!!selected && router.query.has('edit'))));
 
-  const href = (pen: Pen, edit = data.settings.open_items_in_edit_mode) =>
-    `/admin/pens?pen=${encodeURIComponent(pen.id)}${edit ? '&edit' : ''}`;
-  const close = () => router.navigate('/admin/pens');
+  const href = (pen: Pen, edit = collection.canEdit && data.settings.open_items_in_edit_mode) =>
+    `/pens?pen=${encodeURIComponent(pen.id)}${edit ? '&edit' : ''}`;
+  const close = () => router.navigate('/pens');
 </script>
 
 <div class="page">
@@ -53,7 +54,7 @@
     <h2>Pens</h2>
     <ListTools {list} {facets} items={data.pens} shown={pens.length} noun="pens" searchLabel="Search pens" sorts={penSorts}>
       {#snippet actions()}
-        <Button icon="plus" onclick={() => router.navigate('/admin/pens?new')}>Add pen</Button>
+        {#if collection.canEdit}<Button icon="plus" onclick={() => router.navigate('/pens?new')}>Add pen</Button>{/if}
       {/snippet}
     </ListTools>
   </header>

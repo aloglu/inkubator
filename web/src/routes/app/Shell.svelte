@@ -1,7 +1,9 @@
 <script lang="ts">
-  /** Admin layout: side rail on wide screens, tab bar on phones. */
+  /**
+   * The app's frame: side rail on wide screens, tab bar on phones. The owner
+   * sees every section; visitors see the sections the showcase allows.
+   */
   import type { Component } from 'svelte';
-  import { logout } from '../../lib/api';
   import Icon from '../../lib/components/Icon.svelte';
   import type { IconName } from '../../lib/icons';
   import { router } from '../../lib/router.svelte';
@@ -19,31 +21,74 @@
   import Swatches from './swatches/Swatches.svelte';
   import More from './More.svelte';
 
-  let { onsignedout }: { onsignedout: () => void } = $props();
+  let { onsignout }: { onsignout: () => void } = $props();
 
   type Section = { path: string; label: string; icon: IconName; count?: () => number | undefined };
   const main: Section[] = [
-    { path: '/admin', label: 'Desk', icon: 'lamp' },
-    { path: '/admin/pens', label: 'Pens', icon: 'pen-nib', count: () => collection.data?.pens.length },
-    { path: '/admin/inks', label: 'Inks', icon: 'drop', count: () => collection.data?.inks.length },
+    { path: '/', label: 'Desk', icon: 'lamp' },
+    { path: '/pens', label: 'Pens', icon: 'pen-nib', count: () => collection.data?.pens.length },
+    { path: '/inks', label: 'Inks', icon: 'drop', count: () => collection.data?.inks.length },
     {
-      path: '/admin/swatches',
+      path: '/swatches',
       label: 'Swatches',
       icon: 'palette',
       count: () => collection.data?.swatches.length,
     },
   ];
   const more: Section[] = [
-    { path: '/admin/stats', label: 'Stats', icon: 'chart-line-up' },
-    { path: '/admin/activity', label: 'Activity', icon: 'clock-counter-clockwise' },
+    { path: '/stats', label: 'Stats', icon: 'chart-line-up' },
+    { path: '/activity', label: 'Activity', icon: 'clock-counter-clockwise' },
   ];
-  const settings: Section = { path: '/admin/settings', label: 'Settings', icon: 'sliders-horizontal' };
+  const settings: Section = { path: '/settings', label: 'Settings', icon: 'sliders-horizontal' };
   const all = [...main, ...more, settings];
 
+  const owner = $derived(collection.canEdit);
+  const showcase = $derived(collection.data?.settings.showcase);
+
+  /** Whether the current viewer may open a page; visitors follow the showcase settings. */
+  function allowed(path: string): boolean {
+    if (owner) return true;
+    if (!showcase) return false;
+    switch (path) {
+      case '/':
+        return showcase.show_pens && showcase.show_inks;
+      case '/pens':
+        return showcase.show_pens;
+      case '/inks':
+        return showcase.show_inks;
+      case '/swatches':
+        return showcase.show_swatches;
+      case '/stats':
+        return showcase.show_stats;
+      case '/activity':
+        return showcase.show_activity;
+      case '/more':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  const visibleMain = $derived(main.filter((section) => allowed(section.path)));
+  const visibleMore = $derived(more.filter((section) => allowed(section.path)));
   const current = $derived(all.find((section) => section.path === router.path));
   /** On phones these live under More: its tab stays lit and they get a back link. */
-  const underMore = ['/admin/swatches', '/admin/stats', '/admin/activity', '/admin/settings'];
-  const moreTab: Section = { path: '/admin/more', label: 'More', icon: 'dots-three-outline' };
+  const underMore = ['/swatches', '/stats', '/activity', '/settings'];
+  const moreTab: Section = { path: '/more', label: 'More', icon: 'dots-three-outline' };
+  const title = $derived(owner ? 'Inkubator' : showcase?.title || 'Inkubator');
+  const signInHref = $derived(`/sign-in?next=${encodeURIComponent(router.path + location.search)}`);
+
+  // A visitor arriving at a page the showcase hides goes to the first one it shows.
+  $effect(() => {
+    if (owner && router.path === '/sign-in') router.navigate('/', { replace: true });
+    if (owner || !showcase || allowed(router.path) || router.path === '/_components') return;
+    const first = [...main, ...more].find((section) => allowed(section.path));
+    router.navigate(first?.path ?? '/more', { replace: true });
+  });
+
+  $effect(() => {
+    document.title = title;
+  });
 
   // The theme setting: "auto" follows the system.
   $effect(() => {
@@ -55,18 +100,11 @@
   // The component gallery is a development aid and is left out of release builds.
   let gallery: Component | null = $state(null);
   $effect(() => {
-    if (import.meta.env.DEV && router.path === '/admin/_components' && !gallery) {
+    if (import.meta.env.DEV && router.path === '/_components' && !gallery) {
       void import('./Gallery.svelte').then((module) => (gallery = module.default));
     }
   });
 
-  async function signOut() {
-    try {
-      await logout();
-    } finally {
-      onsignedout();
-    }
-  }
 </script>
 
 {#snippet link(section: Section)}
@@ -81,58 +119,70 @@
 <div class="app">
   <div class="rail-column">
     <nav class="rail" aria-label="Sections">
-      <a href="/admin" class="brand"><img src="/icons/nib-128.png" alt="" height="28" />Inkubator</a>
-      {#each main as section (section.path)}{@render link(section)}{/each}
-      <div class="sep"></div>
-      {#each more as section (section.path)}{@render link(section)}{/each}
+      <a href="/" class="brand"><img src="/icons/nib-128.png" alt="" height="28" />{title}</a>
+      {#each visibleMain as section (section.path)}{@render link(section)}{/each}
+      {#if visibleMore.length}
+        <div class="sep"></div>
+        {#each visibleMore as section (section.path)}{@render link(section)}{/each}
+      {/if}
       <div class="grow"></div>
-      {@render link(settings)}
-      <button type="button" class="nav" onclick={signOut}><Icon name="sign-out" size={17} />Log out</button>
+      {#if owner}
+        {@render link(settings)}
+        <button type="button" class="nav" onclick={onsignout}><Icon name="sign-out" size={17} />Log out</button>
+      {:else}
+        <a class="nav" href={signInHref}><Icon name="sign-out" size={17} />Sign in</a>
+      {/if}
     </nav>
   </div>
 
   <main>
-    {#if router.path === '/admin/_components' && import.meta.env.DEV}
+    {#if router.path === '/_components' && import.meta.env.DEV}
       {#if gallery}{@const Gallery = gallery}<Gallery />{/if}
     {:else if collection.status === 'error'}
       <p role="alert">{collection.error?.message}</p>
     {:else if !collection.data}
       <p class="muted">Loading…</p>
     {:else}
-      {#if underMore.includes(router.path)}
-        <a class="back" href="/admin/more"><Icon name="caret-left" size={14} />More</a>
+      {#if underMore.includes(router.path) && router.path !== '/more'}
+        <a class="back" href="/more"><Icon name="caret-left" size={14} />More</a>
       {/if}
-      {#if router.path === '/admin'}
+      {#if router.path === '/'}
         <Desk data={collection.data} />
-      {:else if router.path === '/admin/inks'}
+      {:else if router.path === '/inks'}
         <Inks data={collection.data} />
-      {:else if router.path === '/admin/pens'}
+      {:else if router.path === '/pens'}
         <Pens data={collection.data} />
-      {:else if router.path === '/admin/swatches'}
+      {:else if router.path === '/swatches'}
         <Swatches data={collection.data} />
-      {:else if router.path === '/admin/activity'}
+      {:else if router.path === '/activity'}
         <Activity data={collection.data} />
-      {:else if router.path === '/admin/settings'}
+      {:else if router.path === '/settings'}
         <Settings data={collection.data} />
-      {:else if router.path === '/admin/stats'}
+      {:else if router.path === '/stats'}
         <Stats data={collection.data} />
-      {:else if router.path === '/admin/more'}
-        <More data={collection.data} onsignout={signOut} />
+      {:else if router.path === '/more'}
+        <More data={collection.data} sections={visibleMore} swatches={allowed('/swatches')} {owner} {onsignout} {signInHref} />
       {:else}
         <h2>Page not found</h2>
-        <p class="muted"><a href="/admin">Go to the Desk</a></p>
+        <p class="muted"><a href="/">Go to the Desk</a></p>
       {/if}
     {/if}
   </main>
 
-  <nav class="tabbar" aria-label="Sections">
-    {@render tab(main[0]!)}
-    {@render tab(main[1]!)}
-    <button type="button" class="ink-tab" onclick={() => ui.openInkFlow()} disabled={!collection.data}>
-      <span><Icon name="drop" size={20} /></span>
-      Ink a pen
-    </button>
-    {@render tab(main[2]!)}
+  <nav class="tabbar" class:visitor={!owner} aria-label="Sections">
+    {#if owner}
+      {@render tab(main[0]!)}
+      {@render tab(main[1]!)}
+      <button type="button" class="ink-tab" onclick={() => ui.openInkFlow()} disabled={!collection.data}>
+        <span><Icon name="drop" size={20} /></span>
+        Ink a pen
+      </button>
+      {@render tab(main[2]!)}
+    {:else}
+      {#each visibleMain.filter((section) => section.path !== '/swatches') as section (section.path)}
+        {@render tab(section)}
+      {/each}
+    {/if}
     {@render tab(moreTab)}
   </nav>
 </div>
@@ -146,7 +196,7 @@
   </a>
 {/snippet}
 
-{#if collection.data}<InkFlow />{/if}
+{#if collection.data && owner}<InkFlow />{/if}
 <ConfirmDialog />
 <Notices />
 
@@ -258,6 +308,7 @@
       z-index: 10;
       display: grid;
       grid-template-columns: repeat(5, 1fr);
+      grid-auto-flow: column;
       padding: 7px 4px calc(10px + env(safe-area-inset-bottom));
       border-top: 1px solid var(--line);
       background: var(--surface);
@@ -272,6 +323,10 @@
     }
     .tabbar a[aria-current='page'] {
       color: var(--accent);
+    }
+    .tabbar.visitor {
+      grid-template-columns: none;
+      grid-auto-columns: 1fr;
     }
     .ink-tab {
       display: grid;

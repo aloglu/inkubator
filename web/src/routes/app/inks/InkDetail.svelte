@@ -38,7 +38,13 @@
   );
   const swatches = $derived(data.swatches.filter((swatch) => swatch.ink_id === ink.id));
   const photo = $derived(ink.images.find((image) => image.primary) ?? ink.images[0]);
-  const rows = $derived(properties(ink, data.settings.defaults.currency));
+  const owner = $derived(collection.canEdit);
+  // Visitors see only what is filled in (and no price unless prices are shown).
+  const rows = $derived(
+    properties(ink, data.settings.defaults.currency).filter(
+      (row) => owner || (row.value !== null && (row.label !== 'Price' || data.settings.showcase.show_prices)),
+    ),
+  );
 
   async function remove() {
     if (current.length) return;
@@ -73,6 +79,7 @@
 
 <Sheet open {onclose} kicker="Ink">
   {#snippet actions()}
+    {#if owner}
     <Button
       variant="ghost"
       size="sm"
@@ -82,9 +89,10 @@
       disabled={current.length > 0 || collection.saving}
       onclick={remove}
     />
-    <Button size="sm" icon="pencil-simple" onclick={() => router.navigate(`/admin/inks?ink=${encodeURIComponent(ink.id)}&edit`)}>
+    <Button size="sm" icon="pencil-simple" onclick={() => router.navigate(`/inks?ink=${encodeURIComponent(ink.id)}&edit`)}>
       Edit
     </Button>
+    {/if}
   {/snippet}
 
   <div class="hero">
@@ -115,10 +123,12 @@
       {#if ink.notes}
         <h4 class="kicker spaced">
           Notes
-          <span class="visibility">
-            <Icon name={ink.notes_public ? 'globe' : 'lock-simple'} size={12} />
-            {ink.notes_public ? 'Shown on showcase' : 'Private'}
-          </span>
+          {#if owner}
+            <span class="visibility">
+              <Icon name={ink.notes_public ? 'globe' : 'lock-simple'} size={12} />
+              {ink.notes_public ? 'Shown on showcase' : 'Private'}
+            </span>
+          {/if}
         </h4>
         <p class="notes">{ink.notes}</p>
       {/if}
@@ -140,21 +150,25 @@
         <div class="card">
           <Icon name="drop" size={18} />
           <p class="grow strong">Not in a pen</p>
-          <Button size="sm" icon="drop" onclick={() => ui.openInkFlow({ inkId: ink.id })}>Ink a pen</Button>
+          {#if owner}<Button size="sm" icon="drop" onclick={() => ui.openInkFlow({ inkId: ink.id })}>Ink a pen</Button>{/if}
         </div>
       {/each}
 
       <h4 class="kicker spaced">Swatches</h4>
       <div class="thumbs">
         {#each swatches as swatch (swatch.id)}
-          <a class="thumb" href="/admin/swatches?swatch={encodeURIComponent(swatch.id)}">
+          <a class="thumb" href="/swatches?swatch={encodeURIComponent(swatch.id)}">
             <SwatchMedia {swatch} {ink} />
             <span>{[swatch.paper, swatch.nib].filter(Boolean).join(' · ') || 'Swatch'}</span>
           </a>
         {/each}
-        <a class="add" href="/admin/swatches?new&ink={encodeURIComponent(ink.id)}">
-          <Icon name="plus" size={16} />{swatches.length ? 'Add' : 'Add a swatch'}
-        </a>
+        {#if owner}
+          <a class="add" href="/swatches?new&ink={encodeURIComponent(ink.id)}">
+            <Icon name="plus" size={16} />{swatches.length ? 'Add' : 'Add a swatch'}
+          </a>
+        {:else if !swatches.length}
+          <p class="notes">No swatches yet.</p>
+        {/if}
       </div>
 
       <h4 class="kicker spaced">Earlier pens</h4>

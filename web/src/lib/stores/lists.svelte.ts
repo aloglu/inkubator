@@ -11,6 +11,8 @@ export class ListState<S extends string> {
   query = $state('');
   filters: Selection = $state({});
   #sort: S = $state() as S;
+  /** True once this browser has a sort of its own for the list. */
+  #chosen = false;
 
   constructor(
     private readonly name: string,
@@ -23,7 +25,13 @@ export class ListState<S extends string> {
     } catch {
       /* storage unavailable */
     }
-    this.#sort = allowed.includes(saved as S) ? (saved as S) : fallback;
+    this.#chosen = allowed.includes(saved as S);
+    this.#sort = this.#chosen ? (saved as S) : fallback;
+  }
+
+  /** Uses `value` unless this browser already chose a sort, e.g. the showcase's default for visitors. */
+  prefer(value: S) {
+    if (!this.#chosen) this.#sort = value;
   }
 
   private get storageKey() {
@@ -36,6 +44,7 @@ export class ListState<S extends string> {
 
   set sort(value: S) {
     this.#sort = value;
+    this.#chosen = true;
     try {
       localStorage.setItem(this.storageKey, value);
     } catch {

@@ -171,7 +171,7 @@
   ];
   let current = $state('general');
 
-  // Links such as /admin/settings#backups open at that section.
+  // Links such as /settings#backups open at that section.
   $effect(() => {
     const id = location.hash.slice(1);
     if (id) document.getElementById(id)?.scrollIntoView({ block: 'start' });
@@ -340,6 +340,20 @@
 
       <section id="showcase">
         <h3>Showcase website</h3>
+        {#snippet enabled()}
+          <Switch
+            label="Public showcase"
+            checked={s.showcase.enabled}
+            onchange={(on) => update((next) => (next.showcase.enabled = on))}
+          />
+        {/snippet}
+        {@render row(
+          'Public showcase',
+          s.showcase.enabled
+            ? 'Anyone who can reach this address sees your collection without signing in, as chosen below. Private notes, purchase details and fill notes are never shown.'
+            : 'Off: people who are not signed in only see the sign-in page.',
+          enabled,
+        )}
         {#snippet title()}
           <input
             class="text"

@@ -21,11 +21,14 @@
   const ink = $derived(data.inks.find((i) => i.id === swatch.ink_id));
   const photo = $derived(swatch.images.find((i) => i.primary) ?? swatch.images[0]);
   const sampled = $derived(swatch.sampled_on ? fromDateInput(swatch.sampled_on) : null);
-  const rows = $derived([
-    { label: 'Paper', value: swatch.paper || null },
-    { label: 'Nib', value: swatch.nib || null },
-    { label: 'Date', value: sampled === null ? null : formatDate(sampled, dateFormat) },
-  ]);
+  const owner = $derived(collection.canEdit);
+  const rows = $derived(
+    [
+      { label: 'Paper', value: swatch.paper || null },
+      { label: 'Nib', value: swatch.nib || null },
+      { label: 'Date', value: sampled === null ? null : formatDate(sampled, dateFormat) },
+    ].filter((row) => owner || row.value !== null),
+  );
 
   async function remove() {
     const name = ink?.name ?? 'this ink';
@@ -52,14 +55,16 @@
 
 <Sheet open {onclose} kicker="Swatch" wide>
   {#snippet actions()}
+    {#if owner}
     <Button variant="ghost" size="sm" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
     <Button
       size="sm"
       icon="pencil-simple"
-      onclick={() => router.navigate(`/admin/swatches?swatch=${encodeURIComponent(swatch.id)}&edit`)}
+      onclick={() => router.navigate(`/swatches?swatch=${encodeURIComponent(swatch.id)}&edit`)}
     >
       Edit
     </Button>
+    {/if}
   {/snippet}
 
   <div class="layout">
@@ -78,7 +83,7 @@
             <p class="strong">{ink.name}</p>
             <p class="meta">{[inkMaker(ink), summary(ink, 2)].filter(Boolean).join(' · ')}</p>
           </div>
-          <a class="open" href="/admin/inks?ink={encodeURIComponent(ink.id)}">Open ink</a>
+          <a class="open" href="/inks?ink={encodeURIComponent(ink.id)}">Open ink</a>
         </div>
       {/if}
       <dl>
@@ -89,10 +94,12 @@
       {#if swatch.notes}
         <h4 class="kicker">
           Notes
-          <span class="visibility">
-            <Icon name={swatch.notes_public ? 'globe' : 'lock-simple'} size={12} />
-            {swatch.notes_public ? 'Shown on showcase' : 'Private'}
-          </span>
+          {#if owner}
+            <span class="visibility">
+              <Icon name={swatch.notes_public ? 'globe' : 'lock-simple'} size={12} />
+              {swatch.notes_public ? 'Shown on showcase' : 'Private'}
+            </span>
+          {/if}
         </h4>
         <p class="notes">{swatch.notes}</p>
       {/if}

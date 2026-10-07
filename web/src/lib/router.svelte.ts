@@ -1,7 +1,7 @@
 /**
- * A small history router. The admin lives under /admin; everything else is the
- * public showcase. Links with an `href` starting with "/" are handled by
- * `navigate`, so plain <a href> works.
+ * A small history router. Links with an `href` starting with "/" are handled
+ * by `navigate`, so plain <a href> works. Addresses from 2.x and early 3.0
+ * builds under /admin are redirected to the same page without it.
  */
 
 class Router {
@@ -9,6 +9,7 @@ class Router {
   query = $state(new URLSearchParams(location.search));
 
   constructor() {
+    this.sync();
     addEventListener('popstate', () => this.sync());
     document.addEventListener('click', (event) => {
       if (event.defaultPrevented || event.button !== 0) return;
@@ -30,6 +31,10 @@ class Router {
   }
 
   private sync() {
+    if (location.pathname === '/admin' || location.pathname.startsWith('/admin/')) {
+      const path = location.pathname.slice('/admin'.length) || '/';
+      history.replaceState(null, '', path + location.search + location.hash);
+    }
     this.path = location.pathname;
     this.query = new URLSearchParams(location.search);
   }

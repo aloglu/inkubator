@@ -12,6 +12,7 @@
   import { applyFilters, usefulFacets } from '../../../lib/filters';
   import { rank } from '../../../lib/search';
   import { sortSwatches, swatchSorts } from '../../../lib/sorting';
+  import { collection } from '../../../lib/stores/collection.svelte';
   import { lists } from '../../../lib/stores/lists.svelte';
   import type { ColorFamily } from '../../../lib/types/ColorFamily';
   import type { Collection } from '../../../lib/types/Collection';
@@ -41,11 +42,11 @@
 
   const selectedId = $derived(router.query.get('swatch'));
   const selected = $derived(selectedId ? data.swatches.find((swatch) => swatch.id === selectedId) : undefined);
-  const editing = $derived(router.query.has('new') || (!!selected && router.query.has('edit')));
+  const editing = $derived(collection.canEdit && (router.query.has('new') || (!!selected && router.query.has('edit'))));
 
-  const href = (swatch: Swatch, edit = data.settings.open_items_in_edit_mode) =>
-    `/admin/swatches?swatch=${encodeURIComponent(swatch.id)}${edit ? '&edit' : ''}`;
-  const close = () => router.navigate('/admin/swatches');
+  const href = (swatch: Swatch, edit = collection.canEdit && data.settings.open_items_in_edit_mode) =>
+    `/swatches?swatch=${encodeURIComponent(swatch.id)}${edit ? '&edit' : ''}`;
+  const close = () => router.navigate('/swatches');
 </script>
 
 <div class="page">
@@ -62,7 +63,7 @@
       swatch={(value) => familyColors[value as ColorFamily]}
     >
       {#snippet actions()}
-        <Button icon="plus" onclick={() => router.navigate('/admin/swatches?new')}>Add swatch</Button>
+        {#if collection.canEdit}<Button icon="plus" onclick={() => router.navigate('/swatches?new')}>Add swatch</Button>{/if}
       {/snippet}
     </ListTools>
   </header>
@@ -86,7 +87,7 @@
     <p class="muted">{data.swatches.length ? 'No swatches match.' : 'No swatches yet.'}</p>
   {/if}
 
-  {#if unswatched.length && !list.query.trim()}
+  {#if collection.canEdit && unswatched.length && !list.query.trim()}
     <div class="nudge">
       <span>
         <strong>{unswatched.length === 1 ? '1 ink has' : `${unswatched.length} inks have`} no swatch yet:</strong>
@@ -99,7 +100,7 @@
         variant="ghost"
         size="sm"
         icon="plus"
-        onclick={() => router.navigate(`/admin/swatches?new&ink=${encodeURIComponent(unswatched[0]!.id)}`)}
+        onclick={() => router.navigate(`/swatches?new&ink=${encodeURIComponent(unswatched[0]!.id)}`)}
       >
         Add a swatch
       </Button>

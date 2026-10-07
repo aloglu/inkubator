@@ -11,4 +11,4 @@ Working rules for the rework:
 - Update the Progress and Follow-ups sections of `docs/v3/PLAN.md` as work lands.
 - Rust checks: `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check`.
 - Web checks (in `web/`): `npm test`, `npm run check`, `npm run build`. After changing types in core, run `npm run types` and commit the regenerated `web/src/lib/types`.
-- Local dev: run the server on port 18080 against a scratch data folder (`INKUBATOR_DATA_DIR=<scratch> INKUBATOR_ADMIN_PASSWORD=<any> PORT=18080 cargo run -p inkubator-server`) and `npm run dev` in `web/`. The component gallery is at `/admin/_components` in dev only.
+- Local dev: run the server on port 18080 against a scratch data folder (`INKUBATOR_DATA_DIR=<scratch> INKUBATOR_ADMIN_PASSWORD=<any> PORT=18080 cargo run -p inkubator-server`) and `npm run dev` in `web/`. The component gallery is at `/_components` in dev only.

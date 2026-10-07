@@ -14,6 +14,7 @@
   import { router } from '../../../lib/router.svelte';
   import { rank } from '../../../lib/search';
   import { inkSorts, sortInks } from '../../../lib/sorting';
+  import { collection } from '../../../lib/stores/collection.svelte';
   import { lists } from '../../../lib/stores/lists.svelte';
   import { openFills } from '../../../lib/suggestions';
   import type { ColorFamily } from '../../../lib/types/ColorFamily';
@@ -63,12 +64,12 @@
 
   const selectedId = $derived(router.query.get('ink'));
   const selected = $derived(selectedId ? data.inks.find((ink) => ink.id === selectedId) : undefined);
-  const editing = $derived(router.query.has('new') || (!!selected && router.query.has('edit')));
+  const editing = $derived(collection.canEdit && (router.query.has('new') || (!!selected && router.query.has('edit'))));
 
   function open(ink: Ink) {
-    router.navigate(`/admin/inks?ink=${encodeURIComponent(ink.id)}${data.settings.open_items_in_edit_mode ? '&edit' : ''}`);
+    router.navigate(`/inks?ink=${encodeURIComponent(ink.id)}${collection.canEdit && data.settings.open_items_in_edit_mode ? '&edit' : ''}`);
   }
-  const close = () => router.navigate('/admin/inks');
+  const close = () => router.navigate('/inks');
 </script>
 
 <div class="page">
@@ -85,7 +86,7 @@
       swatch={(value) => familyColors[value as ColorFamily]}
     >
       {#snippet actions()}
-        <Button icon="plus" onclick={() => router.navigate('/admin/inks?new')}>Add ink</Button>
+        {#if collection.canEdit}<Button icon="plus" onclick={() => router.navigate('/inks?new')}>Add ink</Button>{/if}
       {/snippet}
     </ListTools>
   </header>

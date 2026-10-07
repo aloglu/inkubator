@@ -14,6 +14,7 @@
   import type { ActivityEntry } from '../../../lib/types/ActivityEntry';
   import type { Collection } from '../../../lib/types/Collection';
   import type { Subject } from '../../../lib/types/Subject';
+  import { collection } from '../../../lib/stores/collection.svelte';
 
   const PAGE = 100;
   const DAY = 24 * 60 * 60 * 1000;
@@ -45,14 +46,21 @@
     inkName: (id) => inks.get(id)?.name,
   });
 
-  /** The item's current name if it still exists, else the name it had then. */
+  const owner = $derived(collection.canEdit);
+  const filters = $derived(owner || data.settings.showcase.show_activity_filters);
+
+  /**
+   * The item's current name if it still exists, else the name it had then.
+   * Visitors are not told the names of items they cannot see.
+   */
   function name(entry: ActivityEntry): string {
+    const unnamed = { pen: 'a pen', ink: 'an ink', swatch: 'an ink' }[entry.subject];
     if (entry.subject === 'pen') {
       const pen = pens.get(entry.subject_id);
-      return pen ? [pen.brand, pen.model].filter(Boolean).join(' ') : entry.label;
+      return pen ? [pen.brand, pen.model].filter(Boolean).join(' ') : entry.label || unnamed;
     }
-    if (entry.subject === 'ink') return inks.get(entry.subject_id)?.name ?? entry.label;
-    return swatchInk(entry)?.name ?? entry.label;
+    if (entry.subject === 'ink') return inks.get(entry.subject_id)?.name ?? (entry.label || unnamed);
+    return swatchInk(entry)?.name ?? (entry.label || unnamed);
   }
 
   /** A swatch entry's ink: recorded for additions and deletions, looked up for edits. */
@@ -63,9 +71,9 @@
 
   function link(entry: ActivityEntry): string | null {
     const id = encodeURIComponent(entry.subject_id);
-    if (entry.subject === 'pen') return pens.has(entry.subject_id) ? `/admin/pens?pen=${id}` : null;
-    if (entry.subject === 'ink') return inks.has(entry.subject_id) ? `/admin/inks?ink=${id}` : null;
-    return swatches.has(entry.subject_id) ? `/admin/swatches?swatch=${id}` : null;
+    if (entry.subject === 'pen') return pens.has(entry.subject_id) ? `/pens?pen=${id}` : null;
+    if (entry.subject === 'ink') return inks.has(entry.subject_id) ? `/inks?ink=${id}` : null;
+    return swatches.has(entry.subject_id) ? `/swatches?swatch=${id}` : null;
   }
 
   const icons: Record<ActivityEntry['action'], IconName> = {
@@ -149,6 +157,7 @@
 <div class="page">
   <header class="head">
     <h2>Activity</h2>
+    {#if filters}
     <div class="tools">
       <SearchField bind:value={query} label="Search activity" />
       <Segmented
@@ -174,6 +183,7 @@
         {ranges.find((r) => r.value === range)?.label}
       </Button>
     </div>
+    {/if}
   </header>
 
   {#each days as group (group.day)}
@@ -239,12 +249,14 @@
     </div>
   {/if}
 
-  <p class="retention muted">
-    {retention.keep === 'forever'
-      ? 'Activity is kept forever.'
-      : `Activity older than ${plural(retention.days, 'day')} is removed, with the ink history it covers.`}
-    <a href="/admin/settings">Change</a>
-  </p>
+  {#if owner}
+    <p class="retention muted">
+      {retention.keep === 'forever'
+        ? 'Activity is kept forever.'
+        : `Activity older than ${plural(retention.days, 'day')} is removed, with the ink history it covers.`}
+      <a href="/settings">Change</a>
+    </p>
+  {/if}
 </div>
 
 {#snippet shown(value: { text: string } | { color: string })}

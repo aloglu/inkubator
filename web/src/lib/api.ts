@@ -135,14 +135,15 @@ export async function findInkswatch(query: string): Promise<{ image_url: string;
 
 const encodePath = (path: string) => path.split('/').map(encodeURIComponent).join('/');
 
-/** URL of a stored photo, for the admin views. */
-export function photoUrl(path: string, thumb = false): string {
-  return `/api/${thumb ? 'thumbs' : 'photos'}/${encodePath(path)}`;
+/** Visitors load photos from the public routes, which serve only what they may see. */
+let publicPhotos = false;
+export function usePublicPhotos(on: boolean) {
+  publicPhotos = on;
 }
 
-/** URL of a photo on the public showcase. */
-export function publicPhotoUrl(path: string, thumb = false): string {
-  return `/public/${thumb ? 'thumbs' : 'photos'}/${encodePath(path)}`;
+/** URL of a stored photo, from the routes that fit who is looking. */
+export function photoUrl(path: string, thumb = false): string {
+  return `/${publicPhotos ? 'public' : 'api'}/${thumb ? 'thumbs' : 'photos'}/${encodePath(path)}`;
 }
 
 // ---------- backups ----------

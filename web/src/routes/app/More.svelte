@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** Phones only: the sections that do not fit in the tab bar, and signing out. */
+  /** Phones only: the sections that do not fit in the tab bar, and signing in or out. */
   import { listBackups } from '../../lib/api';
   import Icon from '../../lib/components/Icon.svelte';
   import { formatDate } from '../../lib/format';
@@ -7,18 +7,32 @@
   import type { BackupFile } from '../../lib/types/BackupFile';
   import type { Collection } from '../../lib/types/Collection';
 
-  let { data, onsignout }: { data: Collection; onsignout: () => void } = $props();
+  let {
+    data,
+    sections,
+    swatches,
+    owner,
+    onsignout,
+    signInHref,
+  }: {
+    data: Collection;
+    /** The secondary sections this viewer may open (Stats, Activity). */
+    sections: { path: string; label: string; icon: IconName }[];
+    swatches: boolean;
+    owner: boolean;
+    onsignout: () => void;
+    signInHref: string;
+  } = $props();
 
-  const links: { href: string; label: string; icon: IconName; count?: number; external?: boolean }[] = $derived([
-    { href: '/admin/swatches', label: 'Swatches', icon: 'palette', count: data.swatches.length },
-    { href: '/admin/stats', label: 'Stats', icon: 'chart-line-up' },
-    { href: '/admin/activity', label: 'Activity', icon: 'clock-counter-clockwise' },
-    { href: '/admin/settings', label: 'Settings', icon: 'sliders-horizontal' },
-    { href: '/', label: 'View showcase website', icon: 'globe', external: true },
+  const links: { href: string; label: string; icon: IconName; count?: number }[] = $derived([
+    ...(swatches ? [{ href: '/swatches', label: 'Swatches', icon: 'palette' as const, count: data.swatches.length }] : []),
+    ...sections.map((section) => ({ href: section.path, label: section.label, icon: section.icon })),
+    ...(owner ? [{ href: '/settings', label: 'Settings', icon: 'sliders-horizontal' as const }] : []),
   ]);
 
   let last = $state<BackupFile | null | undefined>(undefined);
   $effect(() => {
+    if (!owner) return;
     listBackups().then(
       (result) => (last = result.scheduled.reduce<BackupFile | null>((a, b) => (!a || b.created_at > a.created_at ? b : a), null)),
       () => (last = null),
@@ -31,7 +45,7 @@
   <ul class="list">
     {#each links as link (link.href)}
       <li>
-        <a href={link.href} target={link.external ? '_blank' : undefined} rel={link.external ? 'noopener' : undefined}>
+        <a href={link.href}>
           <Icon name={link.icon} size={18} />
           <span class="grow">{link.label}</span>
           {#if link.count !== undefined}<span class="count">{link.count}</span>{/if}
@@ -40,15 +54,23 @@
       </li>
     {/each}
     <li>
-      <button type="button" onclick={onsignout}>
-        <Icon name="sign-out" size={18} />
-        <span class="grow">Log out</span>
-      </button>
+      {#if owner}
+        <button type="button" onclick={onsignout}>
+          <Icon name="sign-out" size={18} />
+          <span class="grow">Log out</span>
+        </button>
+      {:else}
+        <a href={signInHref}>
+          <Icon name="sign-out" size={18} />
+          <span class="grow">Sign in</span>
+          <Icon name="caret-right" size={14} />
+        </a>
+      {/if}
     </li>
   </ul>
 
   {#if last !== undefined}
-    <a class="backup" href="/admin/settings#backups">
+    <a class="backup" href="/settings#backups">
       <span class="ok" class:none={!last}><Icon name={last ? 'check' : 'warning'} size={14} /></span>
       <span>
         {#if last}Backed up {formatDate(last.created_at, data.settings.defaults.date_format, { short: true })}

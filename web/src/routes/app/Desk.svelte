@@ -9,6 +9,9 @@
   import { collection } from '../../lib/stores/collection.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
   import type { Collection } from '../../lib/types/Collection';
+  import { verb } from '../../lib/activity';
+  import Icon from '../../lib/components/Icon.svelte';
+  import type { ActivityEntry } from '../../lib/types/ActivityEntry';
   import ReinkMenu from './ReinkMenu.svelte';
 
   const WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -25,6 +28,25 @@
   });
 
   const dateFormat = $derived(data.settings.defaults.date_format);
+
+  // Visitors may see the latest few events here, when the showcase allows it.
+  const recent = $derived(
+    !collection.canEdit && data.settings.showcase.show_recent_activity ? data.activity.slice(0, 5) : [],
+  );
+  function recentText(entry: ActivityEntry): string {
+    const subject =
+      entry.subject === 'pen'
+        ? (() => {
+            const pen = pens.get(entry.subject_id);
+            return pen ? [pen.brand, pen.model].filter(Boolean).join(' ') : 'a pen';
+          })()
+        : (inks.get(entry.ink_id ?? entry.subject_id)?.name ?? 'an ink');
+    const ink = entry.ink_id && entry.subject === 'pen' ? inks.get(entry.ink_id)?.name : undefined;
+    const object = entry.subject === 'swatch' ? `of ${subject}` : subject;
+    return [verb(entry), object, ink && (entry.action === 'inked' || entry.action === 'reinked') ? `with ${ink}` : '']
+      .filter(Boolean)
+      .join(' ');
+  }
   const inks = $derived(new Map(data.inks.map((ink) => [ink.id, ink])));
   const pens = $derived(new Map(data.pens.map((pen) => [pen.id, pen])));
 
@@ -69,7 +91,9 @@
       <h2>Desk</h2>
       <p class="sub">{formatLongDay(now, dateFormat)}</p>
     </div>
-    <span class="head-action"><Button icon="drop" onclick={() => ui.openInkFlow()}>Ink a pen</Button></span>
+    {#if collection.canEdit}
+      <span class="head-action"><Button icon="drop" onclick={() => ui.openInkFlow()}>Ink a pen</Button></span>
+    {/if}
   </header>
 
   <dl class="ledger">
@@ -96,7 +120,7 @@
           <div class="ink">
             <Swab base={ink.base_color} sheen={swabSheen(ink)} />
             <div>
-              <a class="ink-name" href="/admin/inks?ink={encodeURIComponent(ink.id)}">{ink.name}</a>
+              <a class="ink-name" href="/inks?ink={encodeURIComponent(ink.id)}">{ink.name}</a>
               <p class="meta">{inkMaker(ink)}</p>
             </div>
           </div>
@@ -108,6 +132,7 @@
             {/if}
             <p class="meta">since {formatDate(fill.inked_at, dateFormat, { short: true })}</p>
           </div>
+          {#if collection.canEdit}
           <div class="actions">
             <ReinkMenu {pen} current={ink} />
             <Button
@@ -120,18 +145,38 @@
               Flush
             </Button>
           </div>
+          {/if}
         </li>
       {/each}
     </ul>
   {:else}
     <div class="empty">
       <p>No pens are inked right now.</p>
-      {#if data.pens.length && data.inks.length}
+      {#if !collection.canEdit}
+        <p class="muted">Check back later.</p>
+      {:else if data.pens.length && data.inks.length}
         <Button icon="drop" onclick={() => ui.openInkFlow()}>Ink a pen</Button>
       {:else}
         <p class="muted">Add a pen and an ink to get started.</p>
       {/if}
     </div>
+  {/if}
+  {#if recent.length}
+    <section class="recent" aria-labelledby="recent-title">
+      <h3 id="recent-title" class="kicker">Recent activity</h3>
+      <ul>
+        {#each recent as entry (entry.id)}
+          {@const ink = entry.ink_id ? inks.get(entry.ink_id) : undefined}
+          <li>
+            <span class="dot">
+              {#if ink}<Swab base={ink.base_color} sheen={swabSheen(ink)} size="xs" />{:else}<Icon name="pencil-simple" size={13} />{/if}
+            </span>
+            <span class="text">{recentText(entry)}</span>
+            <time>{formatDate(entry.at, dateFormat, { short: true })}</time>
+          </li>
+        {/each}
+      </ul>
+    </section>
   {/if}
 </div>
 
@@ -239,6 +284,36 @@
   .actions {
     display: flex;
     gap: 6px;
+  }
+  .recent {
+    display: grid;
+    gap: 6px;
+  }
+  h3.kicker {
+    font-family: var(--font-body);
+  }
+  .recent ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .recent li {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 13.5px;
+  }
+  .recent .dot {
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+  }
+  .recent time {
+    color: var(--muted);
+    font-size: 12px;
   }
   .empty {
     display: grid;

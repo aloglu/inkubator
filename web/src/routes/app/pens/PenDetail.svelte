@@ -51,7 +51,9 @@
       : new Date(ms).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   }
 
-  const rows = $derived([
+  const owner = $derived(collection.canEdit);
+  // Visitors see only what is filled in; the owner also sees what is missing.
+  const allRows = $derived([
     { label: 'Nib', value: pen.nib_size || null },
     { label: 'Nib material', value: pen.nib_material || null },
     { label: 'Filling', value: pen.filling_system || null },
@@ -61,6 +63,7 @@
     { label: 'Bought', value: purchased(pen.purchased_on) },
     { label: 'From', value: pen.purchased_from || null },
   ]);
+  const rows = $derived(owner ? allRows : allRows.filter((row) => row.value !== null));
 
   async function remove() {
     const { id, model } = pen;
@@ -89,10 +92,12 @@
 
 <Sheet open {onclose} kicker="Pen">
   {#snippet actions()}
-    <Button variant="ghost" size="sm" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
-    <Button size="sm" icon="pencil-simple" onclick={() => router.navigate(`/admin/pens?pen=${encodeURIComponent(pen.id)}&edit`)}>
-      Edit
-    </Button>
+    {#if owner}
+      <Button variant="ghost" size="sm" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
+      <Button size="sm" icon="pencil-simple" onclick={() => router.navigate(`/pens?pen=${encodeURIComponent(pen.id)}&edit`)}>
+        Edit
+      </Button>
+    {/if}
   {/snippet}
 
   <div class="hero" class:has-photo={!!photo}>
@@ -124,7 +129,7 @@
           {/each}
         </div>
       {/if}
-      {#if photo}<p class="meta small">The whole photo is shown here; cards use the crop set in the editor.</p>{/if}
+      {#if photo && owner}<p class="meta small">The whole photo is shown here; cards use the crop set in the editor.</p>{/if}
     </div>
   </div>
 
@@ -139,10 +144,10 @@
       {#if pen.notes}
         <h4 class="kicker spaced">
           Notes
-          <span class="visibility">
+          {#if owner}<span class="visibility">
             <Icon name={pen.notes_public ? 'globe' : 'lock-simple'} size={12} />
             {pen.notes_public ? 'Shown on showcase' : 'Private'}
-          </span>
+          </span>{/if}
         </h4>
         <p class="notes">{pen.notes}</p>
       {/if}
@@ -155,13 +160,14 @@
           <div class="row">
             <Swab base={ink.base_color} sheen={swabSheen(ink)} />
             <div class="grow">
-              <a class="strong" href="/admin/inks?ink={encodeURIComponent(ink.id)}">{ink.name}</a>
+              <a class="strong" href="/inks?ink={encodeURIComponent(ink.id)}">{ink.name}</a>
               <p class="meta">
                 Since {formatDate(fill.inked_at, dateFormat)} · {plural(daysBetween(fill.inked_at, Date.now()), 'day')}
               </p>
             </div>
           </div>
           {#if fill.note}<p class="meta">{fill.note}</p>{/if}
+          {#if owner}
           <div class="row actions">
             <ReinkMenu {pen} current={ink} />
             <Button
@@ -174,12 +180,13 @@
               Flush
             </Button>
           </div>
+          {/if}
         </div>
       {:else}
         <div class="card row">
           <Icon name="moon" size={18} />
           <p class="grow strong">Resting</p>
-          <Button size="sm" icon="drop" onclick={() => ui.openInkFlow({ penId: pen.id })}>Ink this pen</Button>
+          {#if owner}<Button size="sm" icon="drop" onclick={() => ui.openInkFlow({ penId: pen.id })}>Ink this pen</Button>{/if}
         </div>
       {/if}
 
@@ -189,7 +196,7 @@
           {#each earlier as { fill: past, ink: pastInk } (past.id)}
             <li>
               <Swab base={pastInk.base_color} sheen={swabSheen(pastInk)} size="xs" />
-              <a href="/admin/inks?ink={encodeURIComponent(pastInk.id)}">{pastInk.name}</a>
+              <a href="/inks?ink={encodeURIComponent(pastInk.id)}">{pastInk.name}</a>
               <small>
                 {formatDate(past.inked_at, dateFormat, { short: true })} – {formatDate(past.emptied_at ?? 0, dateFormat, {
                   short: true,

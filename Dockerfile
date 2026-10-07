@@ -15,6 +15,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /src/target/release/inkubator-server /usr/local/bin/inkubator-server
+COPY docker/entrypoint.sh /usr/local/bin/inkubator-entrypoint
 
 ENV PORT=8080 \
     INKUBATOR_DATA_DIR=/data \
@@ -22,4 +23,5 @@ ENV PORT=8080 \
 
 VOLUME ["/data"]
 EXPOSE 8080
-CMD ["inkubator-server"]
+# Runs the server as PUID:PGID (default 1000:1000), never as root.
+ENTRYPOINT ["inkubator-entrypoint"]

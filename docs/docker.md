@@ -17,7 +17,9 @@ The published image currently targets `linux/amd64` systems. Other CPU architect
 
 ## Container Security
 
-The current image does not select a non-root user, so the Inkubator process runs as root inside the container. This also keeps bind-mounted `/data` directories writable across common host configurations. It does not grant unrestricted host access by itself, but do not run the container with `--privileged`, mount the Docker socket, or mount unrelated host directories. The documented command exposes only Inkubator's port and data directory.
+The Inkubator server never runs as root. On start, the container gives the `/data` folder to the user set by `PUID` and `PGID` (default `1000:1000`), then drops to that user before starting the server; `PUID=0` is refused. Set `PUID`/`PGID` to the account that should own your data on the host (on Unraid, `99` and `100`). Starting the container with `docker run --user` also works: the server then runs as that user directly and the data folder must already be writable by it.
+
+Do not run the container with `--privileged`, mount the Docker socket, or mount unrelated host directories. The documented command exposes only Inkubator's port and data directory.
 
 ## Container
 
@@ -68,6 +70,8 @@ Only use the LAN binding on a trusted network or behind a firewall. The containe
 | `INKUBATOR_ADMIN_PASSWORD` | none | Password for the Docker admin login |
 | `INKUBATOR_DATA_DIR` | `/data` | Container path for app data, preferences, images, and backups |
 | `PORT` | `8080` | Internal HTTP port used by the server |
+| `PUID` | `1000` | User id the server runs as. It never runs as root; `0` is refused |
+| `PGID` | `1000` | Group id the server runs as |
 
 Most users should leave the internal port and backup safety limits at their defaults and only change the host-side port mapping. If you override `PORT`, the container side of the `-p` or Compose port mapping must use the same value.
 
@@ -89,6 +93,8 @@ services:
       INKUBATOR_ADMIN_USER: ${INKUBATOR_ADMIN_USER:-admin}
       INKUBATOR_ADMIN_PASSWORD: "${INKUBATOR_ADMIN_PASSWORD:?Set INKUBATOR_ADMIN_PASSWORD before starting Inkubator}"
       INKUBATOR_DATA_DIR: /data
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
     volumes:
       - ./inkubator-data:/data
 ```

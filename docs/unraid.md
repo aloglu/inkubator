@@ -54,6 +54,12 @@ standard Unraid systems.
    | --- | --- | --- |
    | Admin Username | `INKUBATOR_ADMIN_USER` | Your chosen username, such as `admin` |
    | Admin Password | `INKUBATOR_ADMIN_PASSWORD` | A long, unique password |
+   | User ID | `PUID` | `99` |
+   | Group ID | `PGID` | `100` |
+
+   `PUID` and `PGID` make the server run as Unraid's standard `nobody:users`
+   account, so files in the appdata share stay accessible. The container never
+   runs the server as root.
 
    `PORT` and `INKUBATOR_DATA_DIR` do not need to be added. The image already
    defaults to internal port `8080` and data path `/data`.

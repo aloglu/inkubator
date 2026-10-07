@@ -174,6 +174,24 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  @media (max-width: 600px) {
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .caption {
+      padding: 8px 10px;
+    }
+    .caption b {
+      font-size: 13px;
+    }
+    .caption span {
+      font-size: 11px;
+    }
+    .nudge {
+      flex-wrap: wrap;
+    }
+  }
   .nudge {
     display: flex;
     align-items: center;

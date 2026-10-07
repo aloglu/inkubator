@@ -65,7 +65,7 @@
         {@const ink = fill ? inks.get(fill.ink_id) : undefined}
         <li>
           <a class="card" href={href(pen)} aria-current={pen.id === selectedId ? 'true' : undefined}>
-            <PenMedia {pen} radius="0" />
+            <span class="media"><PenMedia {pen} radius="0" /></span>
             <div class="body">
               <p class="eyebrow">{pen.brand}</p>
               <h3>{pen.model}</h3>
@@ -78,7 +78,7 @@
                 <span class="days">{plural(daysBetween(fill.inked_at, Date.now()), 'day')}</span>
               {:else}
                 <Icon name="moon" size={14} />
-                <span>Resting</span>
+                <span class="resting">Resting</span>
               {/if}
             </div>
           </a>
@@ -184,5 +184,54 @@
     margin-left: auto;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+
+  /* Phones: a compact list, thumbnail on the left and the ink's swab on the right. */
+  @media (max-width: 600px) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+    li + li {
+      border-top: 1px solid var(--line);
+    }
+    .card {
+      grid-template-columns: 72px minmax(0, 1fr) auto;
+      grid-template-rows: auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 0;
+      border-radius: 0;
+    }
+    .media {
+      overflow: hidden;
+      border-radius: var(--radius-sm);
+    }
+    .body {
+      padding: 0;
+    }
+    .eyebrow {
+      display: none;
+    }
+    h3 {
+      font-size: 17px;
+    }
+    .meta {
+      margin-top: 2px;
+      font-size: 12px;
+    }
+    .foot {
+      padding: 0;
+      border: 0;
+    }
+    .foot .ink,
+    .foot .days,
+    .resting {
+      display: none;
+    }
   }
 </style>

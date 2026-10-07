@@ -291,6 +291,20 @@
     align-items: center;
     gap: 8px;
   }
+  @media (max-width: 600px) {
+    .tools {
+      width: 100%;
+    }
+    .tools > :global(.search) {
+      flex: 1 0 100%;
+      width: auto;
+    }
+    li {
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      gap: 10px;
+      font-size: 13px;
+    }
+  }
   .day h3 {
     padding-bottom: 6px;
     border-bottom: 1px solid var(--line-strong);

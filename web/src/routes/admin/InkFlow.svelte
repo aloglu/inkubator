@@ -108,7 +108,7 @@
   }
 </script>
 
-<Dialog open={ui.inkFlow !== null} onclose={close} title="Ink a pen">
+<Dialog open={ui.inkFlow !== null} onclose={close} title="Ink a pen" fullscreenOnPhone>
   <div class="sentence">
     <SlotButton
       label="Pen"
@@ -287,12 +287,18 @@
     display: flex;
     gap: 8px;
   }
-  @media (max-width: 560px) {
+  @media (max-width: 600px) {
     .sentence {
       grid-template-columns: minmax(0, 1fr);
+      justify-items: stretch;
     }
     .arrow {
-      display: none;
+      justify-self: center;
+      transform: rotate(90deg);
+    }
+    .buttons {
+      flex: 1;
+      justify-content: flex-end;
     }
   }
 </style>

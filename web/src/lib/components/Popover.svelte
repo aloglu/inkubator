@@ -29,8 +29,15 @@
   let panel: HTMLDivElement | undefined = $state();
   let position = $state('');
 
+  /** On phones the panel is a bottom sheet instead of hanging off its button. */
+  const phone = () => matchMedia('(max-width: 600px)').matches;
+
   function place() {
     if (!anchor || !panel) return;
+    if (phone()) {
+      position = 'left:0;right:0;bottom:0;top:auto;width:100%';
+      return;
+    }
     const box = anchor.getBoundingClientRect();
     const w = Math.min(width, innerWidth - 16);
     const height = panel.offsetHeight;
@@ -96,5 +103,16 @@
   }
   .popover:focus-visible {
     outline: none;
+  }
+  @media (max-width: 600px) {
+    .popover {
+      max-height: 85dvh;
+      padding-bottom: env(safe-area-inset-bottom);
+      border-width: 1px 0 0;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+    .popover::backdrop {
+      background: var(--scrim);
+    }
   }
 </style>

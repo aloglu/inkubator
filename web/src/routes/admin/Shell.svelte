@@ -17,7 +17,7 @@
   import Settings from './settings/Settings.svelte';
   import Stats from './stats/Stats.svelte';
   import Swatches from './swatches/Swatches.svelte';
-  import Placeholder from './Placeholder.svelte';
+  import More from './More.svelte';
 
   let { onsignedout }: { onsignedout: () => void } = $props();
 
@@ -41,6 +41,9 @@
   const all = [...main, ...more, settings];
 
   const current = $derived(all.find((section) => section.path === router.path));
+  /** On phones these live under More: its tab stays lit and they get a back link. */
+  const underMore = ['/admin/swatches', '/admin/stats', '/admin/activity', '/admin/settings'];
+  const moreTab: Section = { path: '/admin/more', label: 'More', icon: 'dots-three-outline' };
 
   // The theme setting: "auto" follows the system.
   $effect(() => {
@@ -78,7 +81,7 @@
 <div class="app">
   <div class="rail-column">
     <nav class="rail" aria-label="Sections">
-      <a href="/admin" class="brand"><img src="/nib.png" alt="" width="28" height="28" />Inkubator</a>
+      <a href="/admin" class="brand"><img src="/icons/nib-128.png" alt="" height="28" />Inkubator</a>
       {#each main as section (section.path)}{@render link(section)}{/each}
       <div class="sep"></div>
       {#each more as section (section.path)}{@render link(section)}{/each}
@@ -95,22 +98,30 @@
       <p role="alert">{collection.error?.message}</p>
     {:else if !collection.data}
       <p class="muted">Loading…</p>
-    {:else if router.path === '/admin'}
-      <Desk data={collection.data} />
-    {:else if router.path === '/admin/inks'}
-      <Inks data={collection.data} />
-    {:else if router.path === '/admin/pens'}
-      <Pens data={collection.data} />
-    {:else if router.path === '/admin/swatches'}
-      <Swatches data={collection.data} />
-    {:else if router.path === '/admin/activity'}
-      <Activity data={collection.data} />
-    {:else if router.path === '/admin/settings'}
-      <Settings data={collection.data} />
-    {:else if router.path === '/admin/stats'}
-      <Stats data={collection.data} />
     {:else}
-      <Placeholder title={current?.label ?? 'Not found'} />
+      {#if underMore.includes(router.path)}
+        <a class="back" href="/admin/more"><Icon name="caret-left" size={14} />More</a>
+      {/if}
+      {#if router.path === '/admin'}
+        <Desk data={collection.data} />
+      {:else if router.path === '/admin/inks'}
+        <Inks data={collection.data} />
+      {:else if router.path === '/admin/pens'}
+        <Pens data={collection.data} />
+      {:else if router.path === '/admin/swatches'}
+        <Swatches data={collection.data} />
+      {:else if router.path === '/admin/activity'}
+        <Activity data={collection.data} />
+      {:else if router.path === '/admin/settings'}
+        <Settings data={collection.data} />
+      {:else if router.path === '/admin/stats'}
+        <Stats data={collection.data} />
+      {:else if router.path === '/admin/more'}
+        <More data={collection.data} onsignout={signOut} />
+      {:else}
+        <h2>Page not found</h2>
+        <p class="muted"><a href="/admin">Go to the Desk</a></p>
+      {/if}
     {/if}
   </main>
 
@@ -122,12 +133,14 @@
       Ink a pen
     </button>
     {@render tab(main[2]!)}
-    {@render tab({ path: '/admin/more', label: 'More', icon: 'dots-three-outline' })}
+    {@render tab(moreTab)}
   </nav>
 </div>
 
 {#snippet tab(section: Section)}
-  <a href={section.path} aria-current={current === section ? 'page' : undefined}>
+  {@const active =
+    section === moreTab ? router.path === moreTab.path || underMore.includes(router.path) : current === section}
+  <a href={section.path} aria-current={active ? 'page' : undefined}>
     <Icon name={section.icon} size={20} />
     {section.label}
   </a>
@@ -215,6 +228,9 @@
   .tabbar {
     display: none;
   }
+  .back {
+    display: none;
+  }
 
   @media (max-width: 700px) {
     .app {
@@ -223,6 +239,15 @@
     }
     .rail-column {
       display: none;
+    }
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      text-decoration: none;
     }
     main {
       padding: 18px 16px;

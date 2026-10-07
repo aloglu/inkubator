@@ -210,7 +210,18 @@
   }
   @media (max-width: 700px) {
     .shelf {
-      grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .shelf button {
+      padding: 10px 4px;
+    }
+    .shelf :global(.swab.shelf) {
+      width: 72px;
+      height: 58px;
+    }
+    .shelf b {
+      margin-top: 6px;
+      font-size: 12.5px;
     }
   }
 </style>

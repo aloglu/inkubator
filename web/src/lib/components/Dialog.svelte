@@ -9,12 +9,15 @@
     title,
     footer,
     children,
+    fullscreenOnPhone = false,
   }: {
     open: boolean;
     onclose: () => void;
     title: string;
     footer?: Snippet;
     children: Snippet;
+    /** Fill the screen on phones (e.g. Ink a pen); small confirmations stay small. */
+    fullscreenOnPhone?: boolean;
   } = $props();
 
   let dialog: HTMLDialogElement | undefined = $state();
@@ -29,6 +32,7 @@
 <dialog
   bind:this={dialog}
   class="dialog"
+  class:fullscreen={fullscreenOnPhone}
   aria-label={title}
   onclose={onclose}
   onclick={(event) => {
@@ -55,6 +59,27 @@
     background: var(--surface);
     color: var(--fg);
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  }
+  @media (max-width: 600px) {
+    .dialog.fullscreen[open] {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      width: 100vw;
+      max-width: 100vw;
+      height: 100dvh;
+      max-height: none;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+    }
+    .dialog.fullscreen .body {
+      align-content: start;
+      overflow-y: auto;
+    }
+    .dialog.fullscreen footer {
+      flex-wrap: wrap;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
   }
   .dialog::backdrop {
     background: var(--scrim);

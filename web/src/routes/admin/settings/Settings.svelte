@@ -171,6 +171,12 @@
   ];
   let current = $state('general');
 
+  // Links such as /admin/settings#backups open at that section.
+  $effect(() => {
+    const id = location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView({ block: 'start' });
+  });
+
   $effect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -699,6 +705,12 @@
     }
     .status {
       flex-wrap: wrap;
+    }
+    .status .grow {
+      flex-basis: calc(100% - 50px);
+    }
+    .status .buttons {
+      width: 100%;
     }
   }
 </style>

@@ -136,5 +136,12 @@
       width: 100vw;
       border-left: 0;
     }
+    header {
+      padding: 10px 12px 10px 16px;
+    }
+    footer {
+      flex-wrap: wrap;
+      padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    }
   }
 </style>

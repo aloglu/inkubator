@@ -166,6 +166,15 @@
     align-items: center;
     gap: 8px;
   }
+  @media (max-width: 600px) {
+    .tools {
+      width: 100%;
+    }
+    .tools > :global(.search) {
+      flex: 1 0 100%;
+      width: auto;
+    }
+  }
   .badge {
     display: inline-grid;
     place-items: center;

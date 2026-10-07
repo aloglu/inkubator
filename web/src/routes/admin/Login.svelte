@@ -28,7 +28,7 @@
 <main>
   <form onsubmit={submit}>
     <div class="brand">
-      <img src="/nib.png" alt="" width="40" height="40" />
+      <img src="/icons/nib-128.png" alt="" height="40" />
       <h1>Inkubator</h1>
     </div>
     <TextField label="Username" bind:value={username} autocomplete="username" required />

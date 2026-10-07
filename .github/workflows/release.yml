@@ -10,6 +10,10 @@ on:
   push:
     tags:
       - "v*"
+    # TEMPORARY: test the workflow on the 3.0 branch before it reaches main.
+    # Pushes here build and test only; nothing is published. Remove before release.
+    branches:
+      - v3-rework
 
 permissions:
   contents: read

@@ -33,3 +33,6 @@ release-checklist.md
 # Local backups/archives created by app/users
 backups/
 *.zip
+
+# Rust workspace build output
+/target/

@@ -1,0 +1,17 @@
+[package]
+name = "inkubator-core"
+version = "3.0.0-alpha.0"
+description = "Data model, storage and import logic shared by the Inkubator desktop app and server."
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = ["crates/core", "src-tauri"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+authors = ["Abdullah Aloğlu <contact@alog.lu>"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }

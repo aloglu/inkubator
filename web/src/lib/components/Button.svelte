@@ -10,6 +10,7 @@
     icon,
     trailingIcon,
     active = false,
+    element = $bindable(),
     type = 'button',
     children,
     ...rest
@@ -20,11 +21,14 @@
     trailingIcon?: IconName;
     /** Highlight, e.g. while the button's menu is open. */
     active?: boolean;
+    /** The <button> element, e.g. to anchor a menu. */
+    element?: HTMLButtonElement;
     children?: Snippet;
   } = $props();
 </script>
 
 <button
+  bind:this={element}
   {type}
   class="btn {variant} {size}"
   class:active

@@ -5,7 +5,11 @@
   import Icon from '../../lib/components/Icon.svelte';
   import type { IconName } from '../../lib/icons';
   import { router } from '../../lib/router.svelte';
+  import Notices from '../../lib/components/Notices.svelte';
   import { collection } from '../../lib/stores/collection.svelte';
+  import { ui } from '../../lib/stores/ui.svelte';
+  import Desk from './Desk.svelte';
+  import InkFlow from './InkFlow.svelte';
   import Placeholder from './Placeholder.svelte';
 
   let { onsignedout }: { onsignedout: () => void } = $props();
@@ -30,6 +34,13 @@
   const all = [...main, ...more, settings];
 
   const current = $derived(all.find((section) => section.path === router.path));
+
+  // The theme setting: "auto" follows the system.
+  $effect(() => {
+    const theme = collection.data?.settings.theme;
+    if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+    else delete document.documentElement.dataset.theme;
+  });
 
   // The component gallery is a development aid and is left out of release builds.
   let gallery: Component | null = $state(null);
@@ -77,20 +88,34 @@
       <p role="alert">{collection.error?.message}</p>
     {:else if !collection.data}
       <p class="muted">Loading…</p>
+    {:else if router.path === '/admin'}
+      <Desk data={collection.data} />
     {:else}
       <Placeholder title={current?.label ?? 'Not found'} />
     {/if}
   </main>
 
   <nav class="tabbar" aria-label="Sections">
-    {#each [...main, { path: '/admin/more', label: 'More', icon: 'dots-three-outline' } as Section] as section (section.path)}
-      <a href={section.path} aria-current={current === section ? 'page' : undefined}>
-        <Icon name={section.icon} size={20} />
-        {section.label}
-      </a>
-    {/each}
+    {@render tab(main[0]!)}
+    {@render tab(main[1]!)}
+    <button type="button" class="ink-tab" onclick={() => ui.openInkFlow()} disabled={!collection.data}>
+      <span><Icon name="drop" size={20} /></span>
+      Ink a pen
+    </button>
+    {@render tab(main[2]!)}
+    {@render tab({ path: '/admin/more', label: 'More', icon: 'dots-three-outline' })}
   </nav>
 </div>
+
+{#snippet tab(section: Section)}
+  <a href={section.path} aria-current={current === section ? 'page' : undefined}>
+    <Icon name={section.icon} size={20} />
+    {section.label}
+  </a>
+{/snippet}
+
+{#if collection.data}<InkFlow />{/if}
+<Notices />
 
 <style>
   .app {
@@ -202,6 +227,26 @@
     }
     .tabbar a[aria-current='page'] {
       color: var(--accent);
+    }
+    .ink-tab {
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--fg);
+      font-size: 10px;
+    }
+    .ink-tab span {
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 28px;
+      margin-top: -4px;
+      border-radius: 99px;
+      background: var(--accent);
+      color: var(--accent-ink);
     }
   }
 </style>

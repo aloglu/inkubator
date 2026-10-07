@@ -19,7 +19,7 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 - Pens without a photo are drawn in their body colors.
 
 **App icon**
-- The owner-supplied gold nib with the burgundy band (`docs/v3/icon/` once added). Cream tile for desktop/installers; nib without tile in the sidebar; a flat simplified version for 24px and below.
+- The owner-supplied gold nib with the burgundy band (`docs/v3/icon/nib.png`). Cream tile for desktop/installers; nib without tile in the sidebar; a flat simplified version for 24px and below.
 
 **Desk** (replaces Dashboard)
 - Only inked pens, one row each: pen, ink, days since inked (plain info, no meters, no warnings, no flush reminders).

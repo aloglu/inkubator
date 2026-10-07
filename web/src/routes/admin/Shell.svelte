@@ -9,6 +9,7 @@
   import Notices from '../../lib/components/Notices.svelte';
   import { collection } from '../../lib/stores/collection.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
+  import Activity from './activity/Activity.svelte';
   import Desk from './Desk.svelte';
   import InkFlow from './InkFlow.svelte';
   import Inks from './inks/Inks.svelte';
@@ -100,6 +101,8 @@
       <Pens data={collection.data} />
     {:else if router.path === '/admin/swatches'}
       <Swatches data={collection.data} />
+    {:else if router.path === '/admin/activity'}
+      <Activity data={collection.data} />
     {:else}
       <Placeholder title={current?.label ?? 'Not found'} />
     {/if}

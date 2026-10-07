@@ -318,6 +318,18 @@ pub enum Action {
 }
 
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+/// One changed field of a pen, ink or swatch. The interface words it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Change {
+    /// The field's name as stored, e.g. `sheen` or `price`.
+    pub field: String,
+    /// The value before and after, recorded only with detailed activity and
+    /// never for notes or photos.
+    pub values: Option<(serde_json::Value, serde_json::Value)>,
+}
+
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActivityEntry {
@@ -332,8 +344,8 @@ pub struct ActivityEntry {
     /// For ink changes: the ink before and after.
     pub previous_ink_id: Option<String>,
     pub ink_id: Option<String>,
-    /// What changed, in plain words, when the detail level records it.
-    pub changes: Vec<String>,
+    /// What changed, when the detail level records it.
+    pub changes: Vec<Change>,
 }
 
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]

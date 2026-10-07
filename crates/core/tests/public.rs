@@ -37,7 +37,10 @@ fn showcase() -> Collection {
             label: "Pilot Custom 74".into(),
             previous_ink_id: None,
             ink_id: if n == 0 { Some("ink_1".into()) } else { None },
-            changes: vec!["notes".into()],
+            changes: vec![Change {
+                field: "notes".into(),
+                values: None,
+            }],
         });
     }
     c

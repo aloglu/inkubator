@@ -163,7 +163,23 @@ fn editing_records_what_changed_at_the_chosen_detail() {
 
     let mut c = sample();
     run(&mut c, Command::SavePen { pen: edited() }).unwrap();
-    assert_eq!(c.activity.last().unwrap().changes, vec!["price", "notes"]);
+    let fields = |c: &Collection| {
+        c.activity
+            .last()
+            .unwrap()
+            .changes
+            .iter()
+            .map(|ch| ch.field.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(fields(&c), vec!["price", "notes"]);
+    assert!(c
+        .activity
+        .last()
+        .unwrap()
+        .changes
+        .iter()
+        .all(|ch| ch.values.is_none()));
     assert_eq!(c.pens[0].created_at, T0, "creation time is kept");
     assert_eq!(c.pens[0].updated_at, LATER);
 
@@ -172,7 +188,16 @@ fn editing_records_what_changed_at_the_chosen_detail() {
     run(&mut c, Command::SavePen { pen: edited() }).unwrap();
     assert_eq!(
         c.activity.last().unwrap().changes,
-        vec!["price: 160.0 → 180.0", "notes"],
+        vec![
+            Change {
+                field: "price".into(),
+                values: Some((serde_json::json!(160.0), serde_json::json!(180.0))),
+            },
+            Change {
+                field: "notes".into(),
+                values: None
+            },
+        ],
         "notes are named but never quoted"
     );
 
@@ -337,7 +362,13 @@ fn an_ink_can_be_moved_to_another_color_family() {
     moved.color_family = Some(ColorFamily::BlackGrey);
     run(&mut c, Command::SaveInk { ink: moved }).unwrap();
     assert_eq!(c.inks[0].color_family, Some(ColorFamily::BlackGrey));
-    assert_eq!(c.activity.last().unwrap().changes, vec!["color family"]);
+    assert_eq!(
+        c.activity.last().unwrap().changes,
+        vec![Change {
+            field: "color_family".into(),
+            values: None,
+        }]
+    );
 
     // Stored as snake_case; leaving it out means "work it out from the color".
     let json = serde_json::to_value(&c.inks[0]).unwrap();

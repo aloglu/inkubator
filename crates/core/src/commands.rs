@@ -257,106 +257,92 @@ fn flush_pen(c: &mut Collection, pen_id: &str, at: Timestamp) -> Result<(), Comm
 
 /// Fields compared for activity details, with the words shown to the user.
 /// Anything not listed (ids, timestamps) is never reported.
-const PEN_FIELDS: &[(&str, &str)] = &[
-    ("brand", "brand"),
-    ("model", "model"),
-    ("color_name", "color"),
-    ("colors", "body colors"),
-    ("nib_size", "nib size"),
-    ("nib_material", "nib material"),
-    ("body_material", "body material"),
-    ("filling_system", "filling system"),
-    ("price", "price"),
-    ("purchased_on", "purchase date"),
-    ("purchased_from", "bought from"),
-    ("notes", "notes"),
-    ("notes_public", "note visibility"),
-    ("images", "photos"),
+const PEN_FIELDS: &[&str] = &[
+    "brand",
+    "model",
+    "color_name",
+    "colors",
+    "nib_size",
+    "nib_material",
+    "body_material",
+    "filling_system",
+    "price",
+    "purchased_on",
+    "purchased_from",
+    "notes",
+    "notes_public",
+    "images",
 ];
 
-const INK_FIELDS: &[(&str, &str)] = &[
-    ("brand", "brand"),
-    ("line", "line"),
-    ("name", "name"),
-    ("kind", "type"),
-    ("volume_ml", "volume"),
-    ("amount", "amount"),
-    ("price", "price"),
-    ("base_color", "color"),
-    ("sheen_color", "sheen color"),
-    ("color_family", "color family"),
-    ("shimmer", "shimmer"),
-    ("sheen", "sheen"),
-    ("shading", "shading"),
-    ("water_resistance", "water resistance"),
-    ("flow", "flow"),
-    ("lubrication", "lubrication"),
-    ("dry_time_seconds", "dry time"),
-    ("base_types", "base"),
-    ("paper", "paper behavior"),
-    ("notes", "notes"),
-    ("notes_public", "note visibility"),
-    ("images", "photos"),
+const INK_FIELDS: &[&str] = &[
+    "brand",
+    "line",
+    "name",
+    "kind",
+    "volume_ml",
+    "amount",
+    "price",
+    "base_color",
+    "sheen_color",
+    "color_family",
+    "shimmer",
+    "sheen",
+    "shading",
+    "water_resistance",
+    "flow",
+    "lubrication",
+    "dry_time_seconds",
+    "base_types",
+    "paper",
+    "notes",
+    "notes_public",
+    "images",
 ];
 
-const SWATCH_FIELDS: &[(&str, &str)] = &[
-    ("ink_id", "ink"),
-    ("paper", "paper"),
-    ("nib", "nib"),
-    ("sampled_on", "date"),
-    ("notes", "notes"),
-    ("notes_public", "note visibility"),
-    ("images", "photos"),
+const SWATCH_FIELDS: &[&str] = &[
+    "ink_id",
+    "paper",
+    "nib",
+    "sampled_on",
+    "notes",
+    "notes_public",
+    "images",
 ];
 
-/// Describes what changed between two versions of an item: field names, or with
-/// detailed activity also old and new values. Photos and notes are named but
-/// never quoted. An empty result means nothing worth recording changed.
+/// What changed between two versions of an item: the fields, and with detailed
+/// activity also their old and new values. Notes and photos are named but never
+/// quoted. An empty result means nothing worth recording changed.
 fn describe_changes<T: Serialize>(
     old: &T,
     new: &T,
-    fields: &[(&str, &str)],
+    fields: &[&str],
     detail: ActivityDetail,
-) -> Vec<String> {
+) -> Vec<Change> {
     let (old, new) = (
         serde_json::to_value(old).unwrap_or(Value::Null),
         serde_json::to_value(new).unwrap_or(Value::Null),
     );
     fields
         .iter()
-        .filter(|(key, _)| old.get(key) != new.get(key))
-        .map(|(key, label)| {
+        .filter(|key| old.get(**key) != new.get(**key))
+        .map(|key| {
             let quotable = !matches!(*key, "images" | "notes");
-            if detail == ActivityDetail::Detailed && quotable {
-                format!("{label}: {} → {}", show(old.get(key)), show(new.get(key)))
-            } else {
-                (*label).to_string()
+            let value = |v: &Value| v.get(*key).cloned().unwrap_or(Value::Null);
+            Change {
+                field: (*key).to_string(),
+                values: (detail == ActivityDetail::Detailed && quotable)
+                    .then(|| (value(&old), value(&new))),
             }
         })
         .collect()
 }
 
-/// Brief activity records that an item changed, not what.
-fn details(changes: Vec<String>, detail: ActivityDetail) -> Vec<String> {
+/// Brief activity keeps the entry but not what changed.
+fn details(changes: Vec<Change>, detail: ActivityDetail) -> Vec<Change> {
     if detail == ActivityDetail::Brief {
         Vec::new()
     } else {
         changes
-    }
-}
-
-fn show(value: Option<&Value>) -> String {
-    match value {
-        None | Some(Value::Null) => "none".to_string(),
-        Some(Value::String(s)) if s.is_empty() => "none".to_string(),
-        Some(Value::String(s)) => s.replace('_', " "),
-        Some(Value::Array(items)) if items.is_empty() => "none".to_string(),
-        Some(Value::Array(items)) => items
-            .iter()
-            .map(|item| show(Some(item)))
-            .collect::<Vec<_>>()
-            .join(", "),
-        Some(other) => other.to_string(),
     }
 }
 

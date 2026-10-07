@@ -56,6 +56,8 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 
 **Stats:** color spectrum of all inks, four headline numbers, a 90-day rotation timeline (which ink was in which pen), brand/spend bars in gold only.
 
+**Showcase = the app, signed out (decided 2026-10-07).** There is one app at one address. Visitors who are not signed in see the same screens read-only (Desk, Pens, Inks, Swatches, Stats, Activity as allowed), fed by the public projection (`/api/public`), which the server already strips of private notes, prices unless shown, purchase details and fill notes. Signing in (a "Sign in" link) reveals the editing controls on the same screens and the Settings page; `/admin` links redirect. A new showcase on/off setting: when off, visitors see only the sign-in page and the server refuses `/api/public` and public photos. Hiding controls is tidiness; privacy is enforced by the server.
+
 **Showcase notes:** private by default. Each pen, ink and swatch has a "Show on showcase" switch for its notes, and the showcase settings have a "Show notes" master switch that hides every note when off. Fill notes are never public. Imported 2.x notes start private.
 
 **Settings:** one column with a section index; label + help text on the left, control on the right; switches instead of checkboxes; backups lead with their status.
@@ -97,7 +99,7 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 3. **Collection** — pen cards, detail, editor with crop tool; swatches; filters and sort on all lists.
 4. **The rest** — Activity, Settings (with retention options), Stats from fills.
 5. **Mobile** — tab bar, full-screen details and sheets (same codebase, responsive).
-6. **Showcase** — read-only version of the same screens; privacy projection for new fields.
+6. **Showcase** — the signed-out view of the same screens (see "Showcase = the app, signed out"): one address with a Sign in link, screens that read from either the collection or the public projection with actions only when signed in, a showcase on/off setting enforced by the server, the existing showcase settings deciding what visitors see; check every screen signed out, including the projection covering every 3.0 field.
 7. **Release 3.0** — remove the 2.x code (desktop app, Node leftovers) and its CI; multi-architecture Docker images and plain server programs built and tested in CI; the documentation described above; version 3.0.0.
 
 ## Open items

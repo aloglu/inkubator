@@ -417,6 +417,7 @@ impl Context<'_> {
             price,
             base_color,
             sheen_color,
+            color_family: None,
             shimmer,
             sheen,
             shading,

@@ -3,7 +3,7 @@
    * Ink a pen: a sentence, [pen] → [ink]. Each side opens a search picker with a
    * few suggestions. Inking a pen that holds another ink records a re-ink.
    */
-  import { colorFamily } from '../../lib/color';
+  import { familyName, inkFamily } from '../../lib/color';
   import Button from '../../lib/components/Button.svelte';
   import Dialog from '../../lib/components/Dialog.svelte';
   import Icon from '../../lib/components/Icon.svelte';
@@ -80,7 +80,7 @@
   const searchPens = (query: string) =>
     rank(data?.pens ?? [], (p) => [p.model, p.brand, p.nib_size, p.color_name], query);
   const searchInks = (query: string) =>
-    rank(data?.inks ?? [], (i) => [i.name, i.brand, i.line, colorFamily(i.base_color)], query);
+    rank(data?.inks ?? [], (i) => [i.name, i.brand, i.line, familyName(inkFamily(i))], query);
 
   const sameInk = $derived(!!pen && !!ink && currentInk?.id === ink.id);
   const ready = $derived(!!pen && !!ink && !sameInk && !!fromDateInput(date) && date <= today);

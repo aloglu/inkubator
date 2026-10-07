@@ -329,3 +329,21 @@ fn the_store_applies_retention_after_each_command() {
         .unwrap();
     assert!(state.collection.fills.iter().all(|f| f.id != "fill_1"));
 }
+
+#[test]
+fn an_ink_can_be_moved_to_another_color_family() {
+    let mut c = sample();
+    let mut moved = c.inks[0].clone();
+    moved.color_family = Some(ColorFamily::BlackGrey);
+    run(&mut c, Command::SaveInk { ink: moved }).unwrap();
+    assert_eq!(c.inks[0].color_family, Some(ColorFamily::BlackGrey));
+    assert_eq!(c.activity.last().unwrap().changes, vec!["color family"]);
+
+    // Stored as snake_case; leaving it out means "work it out from the color".
+    let json = serde_json::to_value(&c.inks[0]).unwrap();
+    assert_eq!(json["color_family"], "black_grey");
+    let mut without = json.clone();
+    without.as_object_mut().unwrap().remove("color_family");
+    let ink: Ink = serde_json::from_value(without).unwrap();
+    assert_eq!(ink.color_family, None);
+}

@@ -4,6 +4,7 @@
    * paper" and "In the pen"; base type and paper behaviour are toggle chips.
    */
   import { untrack } from 'svelte';
+  import { colorFamily, familyName, families } from '../../../lib/color';
   import Button from '../../../lib/components/Button.svelte';
   import ChipToggles from '../../../lib/components/ChipToggles.svelte';
   import PhotoList from '../../../lib/components/PhotoList.svelte';
@@ -54,6 +55,7 @@
       price: null,
       base_color: '#2f4f7f',
       sheen_color: null,
+      color_family: null,
       shimmer: 'none',
       sheen: 'none',
       shading: 'none',
@@ -187,6 +189,13 @@
           <button type="button" class="link" onclick={() => (draft.sheen_color = '#b0423a')}>Add sheen color</button>
         {/if}
       </div>
+      <label class="family">
+        <span>Shelf group</span>
+        <select bind:value={draft.color_family}>
+          <option value={null}>Automatic ({familyName(colorFamily(draft.base_color))})</option>
+          {#each families as family (family)}<option value={family}>{familyName(family)}</option>{/each}
+        </select>
+      </label>
       {#if draft.sheen_color !== null && draft.sheen === 'none'}
         <p class="hint">The sheen color shows once Sheen is set above None.</p>
       {/if}
@@ -332,6 +341,20 @@
   input[type='color']::-moz-color-swatch {
     border: 0;
     border-radius: 50%;
+  }
+  .family {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .family select {
+    padding: 5px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--field);
+    font-size: 12.5px;
   }
   .link {
     padding: 0;

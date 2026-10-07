@@ -39,6 +39,7 @@ export function ink(id: string, name = id, base_color = '#1f3a5f'): Ink {
     price: null,
     base_color,
     sheen_color: null,
+    color_family: null,
     shimmer: 'none',
     sheen: 'none',
     shading: 'none',

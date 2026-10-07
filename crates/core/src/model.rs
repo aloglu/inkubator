@@ -147,6 +147,23 @@ pub enum Sheen {
 }
 
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+/// Color groups used for the ink shelf and search.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ColorFamily {
+    Red,
+    Orange,
+    Yellow,
+    Green,
+    Teal,
+    Blue,
+    Purple,
+    Pink,
+    Brown,
+    BlackGrey,
+}
+
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Shimmer {
@@ -221,6 +238,10 @@ pub struct Ink {
     pub base_color: String,
     /// Sheen color as `#rrggbb`, when the ink has a noticeably different one.
     pub sheen_color: Option<String>,
+    /// Where the ink sits on the shelf. `None` means it is worked out from
+    /// `base_color`; set it when the stored color misleads.
+    #[serde(default)]
+    pub color_family: Option<ColorFamily>,
     pub shimmer: Shimmer,
     pub sheen: Sheen,
     pub shading: Level,

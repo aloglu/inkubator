@@ -1,18 +1,38 @@
 /** Color families used to group and search inks. */
+import type { ColorFamily } from './types/ColorFamily';
+import type { Ink } from './types/Ink';
 
-export const families = [
-  'Red',
-  'Orange',
-  'Yellow',
-  'Green',
-  'Teal',
-  'Blue',
-  'Purple',
-  'Pink',
-  'Brown',
-  'Black & grey',
-] as const;
-export type ColorFamily = (typeof families)[number];
+/** Shelf order. */
+export const families: readonly ColorFamily[] = [
+  'red',
+  'orange',
+  'yellow',
+  'green',
+  'teal',
+  'blue',
+  'purple',
+  'pink',
+  'brown',
+  'black_grey',
+];
+
+const names: Record<ColorFamily, [one: string, many: string]> = {
+  red: ['Red', 'Reds'],
+  orange: ['Orange', 'Oranges'],
+  yellow: ['Yellow', 'Yellows'],
+  green: ['Green', 'Greens'],
+  teal: ['Teal', 'Teals'],
+  blue: ['Blue', 'Blues'],
+  purple: ['Purple', 'Purples'],
+  pink: ['Pink', 'Pinks'],
+  brown: ['Brown', 'Browns'],
+  black_grey: ['Black & grey', 'Blacks & greys'],
+};
+
+export const familyName = (family: ColorFamily) => names[family][0];
+
+/** Plural heading for a family on the shelf. */
+export const familyHeading = (family: ColorFamily) => names[family][1];
 
 /** Hue (0–360), saturation and lightness (0–1) of a `#rrggbb` color. */
 export function hsl(hex: string): { h: number; s: number; l: number } {
@@ -34,22 +54,23 @@ export function hsl(hex: string): { h: number; s: number; l: number } {
 }
 
 /**
- * The family an ink's base color belongs to. Tuned on real collections: muted
- * dark reds and oranges read as browns, dark magentas as purples.
+ * The family a color belongs to. Tuned on real collections: muted dark reds
+ * and oranges read as browns, dark magentas as purples.
  */
 export function colorFamily(hex: string): ColorFamily {
   const { h, s, l } = hsl(hex);
-  if (l < 0.13 || s < 0.12 || (s < 0.2 && l < 0.35) || (l < 0.22 && s < 0.35)) return 'Black & grey';
-  if (h < 15 || h >= 345) return s < 0.3 && l < 0.45 ? 'Brown' : l > 0.7 ? 'Pink' : 'Red';
-  if (h < 50 && l < 0.5 && s < 0.6) return 'Brown';
-  if (h < 42) return 'Orange';
-  if (h < 66) return l < 0.3 ? 'Brown' : 'Yellow';
-  if (h < 160) return 'Green';
-  if (h < 190) return 'Teal';
-  if (h < 255) return 'Blue';
-  if (h < 320) return l > 0.65 ? 'Pink' : 'Purple';
-  return l < 0.35 ? 'Purple' : 'Pink';
+  if (l < 0.13 || s < 0.12 || (s < 0.2 && l < 0.35) || (l < 0.22 && s < 0.35)) return 'black_grey';
+  if (h < 15 || h >= 345) return s < 0.3 && l < 0.45 ? 'brown' : l > 0.7 ? 'pink' : 'red';
+  if (h < 50 && l < 0.5 && s < 0.6) return 'brown';
+  if (h < 42) return 'orange';
+  if (h < 66) return l < 0.3 ? 'brown' : 'yellow';
+  if (h < 160) return 'green';
+  if (h < 190) return 'teal';
+  if (h < 255) return 'blue';
+  if (h < 320) return l > 0.65 ? 'pink' : 'purple';
+  return l < 0.35 ? 'purple' : 'pink';
 }
 
-/** Plural heading for a family on the shelf. */
-export const familyHeading = (family: ColorFamily) => (family === 'Black & grey' ? 'Blacks & greys' : `${family}s`);
+/** An ink's family: the one chosen for it, or else the one its base color suggests. */
+export const inkFamily = (ink: Pick<Ink, 'color_family' | 'base_color'>) =>
+  ink.color_family ?? colorFamily(ink.base_color);

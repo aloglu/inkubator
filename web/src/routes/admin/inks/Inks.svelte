@@ -4,7 +4,7 @@
    * a side panel addressed by the URL (?ink=<id>, &edit, ?new), so links and the
    * back button work.
    */
-  import { colorFamily, families, familyHeading } from '../../../lib/color';
+  import { familyHeading, familyName, families, inkFamily } from '../../../lib/color';
   import Button from '../../../lib/components/Button.svelte';
   import SearchField from '../../../lib/components/SearchField.svelte';
   import Swab from '../../../lib/components/Swab.svelte';
@@ -36,7 +36,7 @@
   const shown = $derived(
     query.trim()
       ? new Set(
-          rank(data.inks, (ink) => [ink.name, ink.brand, ink.line, colorFamily(ink.base_color)], query, Infinity).map(
+          rank(data.inks, (ink) => [ink.name, ink.brand, ink.line, familyName(inkFamily(ink))], query, Infinity).map(
             (ink) => ink.id,
           ),
         )
@@ -48,7 +48,7 @@
       .map((family) => ({
         family,
         inks: data.inks
-          .filter((ink) => colorFamily(ink.base_color) === family && (!shown || shown.has(ink.id)))
+          .filter((ink) => inkFamily(ink) === family && (!shown || shown.has(ink.id)))
           .sort((a, b) => hueKey(a.base_color) - hueKey(b.base_color)),
       }))
       .filter((group) => group.inks.length > 0),
@@ -74,8 +74,8 @@
   </header>
 
   {#each groups as group (group.family)}
-    <section class="group" aria-labelledby="family-{group.family.replace(/\W+/g, '-')}">
-      <h3 class="kicker" id="family-{group.family.replace(/\W+/g, '-')}">{familyHeading(group.family)}<span>{group.inks.length}</span></h3>
+    <section class="group" aria-labelledby="family-{group.family}">
+      <h3 class="kicker" id="family-{group.family}">{familyHeading(group.family)}<span>{group.inks.length}</span></h3>
       <ul class="shelf">
         {#each group.inks as ink (ink.id)}
           {@const holders = inPens.get(ink.id) ?? []}

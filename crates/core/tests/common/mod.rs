@@ -40,6 +40,7 @@ pub fn ink(id: &str) -> Ink {
         price: None,
         base_color: "#1e6b6e".into(),
         sheen_color: Some("#b03a72".into()),
+        color_family: None,
         shimmer: Shimmer::None,
         sheen: Sheen::High,
         shading: Level::Medium,

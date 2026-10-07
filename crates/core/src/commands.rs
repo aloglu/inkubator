@@ -284,6 +284,7 @@ const INK_FIELDS: &[(&str, &str)] = &[
     ("price", "price"),
     ("base_color", "color"),
     ("sheen_color", "sheen color"),
+    ("color_family", "color family"),
     ("shimmer", "shimmer"),
     ("sheen", "sheen"),
     ("shading", "shading"),

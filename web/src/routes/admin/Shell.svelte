@@ -15,6 +15,7 @@
   import Inks from './inks/Inks.svelte';
   import Pens from './pens/Pens.svelte';
   import Settings from './settings/Settings.svelte';
+  import Stats from './stats/Stats.svelte';
   import Swatches from './swatches/Swatches.svelte';
   import Placeholder from './Placeholder.svelte';
 
@@ -106,6 +107,8 @@
       <Activity data={collection.data} />
     {:else if router.path === '/admin/settings'}
       <Settings data={collection.data} />
+    {:else if router.path === '/admin/stats'}
+      <Stats data={collection.data} />
     {:else}
       <Placeholder title={current?.label ?? 'Not found'} />
     {/if}

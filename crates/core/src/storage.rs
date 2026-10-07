@@ -146,7 +146,7 @@ impl Store {
         self.load_unlocked()
     }
 
-    fn load_unlocked(&self) -> Result<Loaded> {
+    pub(crate) fn load_unlocked(&self) -> Result<Loaded> {
         let path = self.collection_path();
         let bytes = match fs::read(&path) {
             Ok(bytes) => bytes,

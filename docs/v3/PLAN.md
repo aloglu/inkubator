@@ -75,14 +75,20 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 
 ## Architecture
 
-- **Frontend:** rewrite in Svelte + Vite. One small API client with two transports (Tauri `invoke` on desktop, `fetch` in Docker).
+**3.0 is server-only (decided 2026-10-07).** No desktop app: no known users depend on the desktop builds, and a desktop app costs ongoing work out of proportion to its value (three different system web engines to test, per-platform installers, signing and updates). Inkubator runs as a server and is used in a browser; the browser's "install as app" gives it its own window and icon. Docker is the main way to run it; the same server is also offered as a plain program for people without Docker. The architecture keeps a desktop wrapper possible later without rework, if ever wanted.
+
+- **Frontend:** Svelte + Vite in `web/`, served by the server; one small `fetch` API client.
 - **Backend: one, in Rust.**
   - `crates/core` — data store and schema, images, backups, showcase export, ink swatch fetch.
-  - `src-tauri` — thin desktop shell (native dialogs, window) over core.
-  - `crates/server` — small HTTP server (axum) for Docker: API, auth, public showcase, scheduled backups, serving the Svelte build.
-  - The Node server (`server/`, `lib/`) is ported and then deleted.
+  - `crates/server` — HTTP server (axum): API, auth, public showcase, scheduled backups, serving the web build.
+  - The Node server and the 2.x desktop app (`src-tauri/`, `app/`, remaining Node files) are removed as part of the 3.0 cleanup.
 - Schema defined once in Rust; TypeScript types generated for the frontend.
-- Docker image becomes a small single binary instead of a Node runtime.
+- The Docker image is a small single binary plus the web build.
+
+**Requirements for the server release (owner, 2026-10-07):**
+- The Docker setup must be rock solid and run on different servers: regular PCs and NAS boxes (amd64) and ARM devices such as a Raspberry Pi or Apple Silicon machines (arm64). Images built for both, tested on both in CI (start, sign in, write, back up, restart, upgrade with existing data), with a health check, clean shutdown, correct file ownership (PUID/PGID), and data that survives container upgrades.
+- The plain server program is released for Linux, macOS and Windows.
+- Documentation must be excellent and written for people who have never used Docker: what Inkubator and Docker are, installing Docker, starting Inkubator step by step (Docker Compose, plain `docker run`, Unraid, Synology and similar NAS, Raspberry Pi), the plain program without Docker, opening it and installing it as an app, using it from a phone, passwords and safety (keeping it at home vs. exposing it with HTTPS), backups and restoring, updating, moving from 2.x, and troubleshooting.
 
 ## Phases
 
@@ -92,7 +98,7 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 4. **The rest** — Activity, Settings (with retention options), Stats from fills.
 5. **Mobile** — tab bar, full-screen details and sheets (same codebase, responsive).
 6. **Showcase** — read-only version of the same screens; privacy projection for new fields.
-7. **Release 3.0.**
+7. **Release 3.0** — remove the 2.x code (desktop app, Node leftovers) and its CI; multi-architecture Docker images and plain server programs built and tested in CI; the documentation described above; version 3.0.0.
 
 ## Open items
 
@@ -112,21 +118,20 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 - **Phase 4, step 1 — done.** Activity screen: newest first, grouped by day (Today, Yesterday, then dates), one sentence per entry with the ink's swab or an action icon, links to items that still exist, flushes with the ink and how long it was in, re-inks with the ink flushed first; one row of filters (search, All/Pens/Inks/Swatches, date range); 100 at a time with "Show older"; retention note linking to Settings. Activity changes are now structured in core (`Change { field, values: [before, after] | null }`; values only at the detailed level and never for notes or photos), and the interface words them with its own labels ("Sheen: Medium → High", prices as money, colors as dots). `lib/activity.ts` is tested.
 - **Phase 4, step 2 — done.** Settings: one column with a section index (General, Backups, Showcase website, Activity log, Defaults for new items, About); label and help on the left, control on the right; switches; changes save as they are made through a queue so quick changes never collide, text fields on leaving them. Backups lead with their status (last automatic backup, frequency, how many kept, size) with Restore… (confirmation, safety backup first) and Export backup. Shortening "Keep activity for" first says exactly what would be removed ("238 activity entries and 5 finished fills"), computed by `lib/retention.ts` with core's rule. Checked in a browser against a scratch copy, including export then restore of the same file. Restoring the owner's 6.7 MB backup takes about 1 s on a release build (24 s on a debug build, which checks each photo slowly).
 - **Phase 4, step 3 — done.** Stats with a period switch (30 days, 90 days, year, all): the ink spectrum (every ink in hue order, marked when in a pen; links to the ink), four figures (pens inked now, average finished fill in the period, inks swatched, tracked spend), the rotation timeline (a lane per pen, a bar per fill in the ink's color, month grid, tooltip with pen, dates and days; repeated models labelled with their nib) and gold bars for pen spend and ink bottles by brand. Every chart has a hover/focus tooltip and a "View as table". Chart gold has its own token (`--chart-mark`, darker in dark mode) checked with the dataviz palette validator against both surfaces. Calculations in `lib/stats.ts`, tested.
-- **Next:** Phase 5 (mobile). Known gap: the phone tab bar's "More" goes to `/admin/more`, which does not exist yet (it should list Swatches, Stats, Activity, Settings and Log out). The desktop shell (`src-tauri`) on core is still to do; see the transport follow-up below.
+- **Next:** Phase 5 (mobile). Known gap: the phone tab bar's "More" goes to `/admin/more`, which does not exist yet (it should list Swatches, Stats, Activity, Settings and Log out).
 
 ## Follow-ups (do not lose)
 
-- **CI paths:** the workspace moved Rust build output from `src-tauri/target` to `target/`. Update `.github/workflows/build-desktop.yml` (bundle paths, `--manifest-path`), `.dockerignore` and `package.json` scripts when the release builds are reworked.
+- **CI:** the desktop workflow (`.github/workflows/build-desktop.yml`) goes with the desktop app; release CI is rebuilt for the Docker images and plain server programs (phase 7).
 - **2.x quirks handled by `import-v2`** (both covered by tests in `crates/core/tests/import_v2.rs`; neither can occur in 3.0):
   - 2.x copied each ink's swatch photo into the ink's own `image` field; the importer skips those duplicates.
   - 2.x kept a pen's first inking date after a re-ink; the importer uses the later of that date and the logged re-ink.
 - **Docker image — resolved.** Built and smoke-tested by the owner. The server never runs as root: `docker/entrypoint.sh` gives `/data` to `PUID:PGID` (default `1000:1000`, Unraid `99:100`) and drops privileges with `setpriv`; `PUID=0` is refused; `docker run --user` is honored. Verified: refusal message, root-owned data folder re-owned, all files written by the server owned by the unprivileged user.
 - **Orphaned uploads:** a photo uploaded in an editor that is then cancelled stays in `images/` unreferenced. Add a cleanup (e.g. on startup and daily) that retires unreferenced photos older than a day.
 - **Zip timestamps:** backup zip entries carry no modification time (shown as 1980-01-01). Set real times (zip crate `time` feature) — cosmetic.
-- **Versions:** the new crates are `3.0.0-alpha.0` while `package.json`/`src-tauri` stay `2.2.0`; align everything to `3.0.0` at release (`scripts/sync-version.mjs`).
+- **Versions:** the new crates are `3.0.0-alpha.0` while the root `package.json` stays `2.2.0`; align everything to `3.0.0` at release, and simplify `scripts/sync-version.mjs` and its test once the desktop app is gone.
 - **Photo encoding:** photos and thumbnails are lossy WebP (quality 82) via the `webp` crate (builds libwebp from source; needs a C compiler in build environments). The `image` crate alone only writes lossless WebP, which made thumbnails larger than photos.
-- **Test builds next to the real install (owner's request, 2026-10-07):** after 3.0 is in daily use, the owner needs to test changes without touching the main installation. Plan: an "Inkubator Dev" desktop build from the same code through a Tauri config override — its own identifier (e.g. `com.aloglu.inkubator.dev`), name and data folder, a visible "Dev" marker in the title and icon, so it installs and runs alongside the real app; optionally a data-folder override to point it at a copy of real data. Docker is already isolated by its data folder and port. Do this together with the desktop shell work, before release. Until then a 3.0 desktop build would share the 2.x app's identifier and data folder (acceptable to the owner for now; 2.1 can be uninstalled).
-- **Desktop transport:** the plan says the API client gets a second transport (Tauri `invoke`). Simpler option to weigh when the desktop shell is done: the desktop app runs the same axum router on a private localhost port and the webview keeps using `fetch`, so there is one API and no second transport. Needs a per-launch secret so other local programs cannot use it.
+- **Test setups next to the real install (owner's request, 2026-10-07):** once 3.0 is in daily use, the owner tests changes without touching the main installation. With the server-only decision this is a second container (or plain program) with its own data folder and port, optionally started from a copy of the real data. The documentation should show how.
 - **Vite dev proxy:** Vite 8 rewrites `Host` to the target, which tripped the server's same-origin check; `web/vite.config.ts` forwards the original host as `X-Forwarded-Host`. Keep this if the proxy config changes.
 - **Portrait pen photos:** all 32 of the owner's pen photos are portrait (pen standing upright), so a 16:9 card shows only the middle of the pen until each is rotated in the crop tool (done for one in testing: one Rotate click makes a full card). Possible later help: suggest rotating when a portrait photo is added to a pen. `import-v2` should not guess orientation silently.
 - **Generated types drift:** nothing yet fails when `web/src/lib/types` is stale. Add a check (regenerate and `git diff --exit-code`) to CI when CI is reworked.

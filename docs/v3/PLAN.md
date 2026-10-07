@@ -27,6 +27,8 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 - Actions per row: **Re-ink** and **Flush**.
 - **Re-ink = switch to a different ink.** It opens a menu: the pen's most recent earlier inks first, then inks not in a pen for a while, then "Choose another ink…" (opens Ink a pen with the pen prefilled). A footer line says the current ink is flushed first.
 
+**Ink line:** shown exactly as entered, "Standard" included. The owner uses "Standard" for a brand's regular range; it is a real value, not a placeholder to hide or clear (decided 2026-10-07).
+
 **Ink a pen**
 - Small dialog that reads as a sentence: [pen] → [ink]. Each side is a search field with a few suggestions; never a full list (must scale to 30+ pens/inks).
 - Pen suggestions: resting pens, most recently used. Ink suggestions: last inks in this pen, inks not in a pen for a while.
@@ -95,7 +97,6 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 
 - Nib size/material and filling system option lists (pen editor).
 - Whether the showcase keeps every current toggle.
-- Ink line "Standard": the owner typed it on 22 of 43 inks to mean "no special line". The prototype hides it; the app currently shows it ("Diamine · Standard"). Options: leave as is, hide "Standard" on display, or have `import-v2` clear it. Asked the owner.
 
 ## Progress
 

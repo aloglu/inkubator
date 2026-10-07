@@ -3,6 +3,8 @@
 
 pub mod auth;
 pub mod config;
+pub mod password;
+mod web;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -210,10 +212,8 @@ pub fn router(state: AppState) -> Router {
             auth::require_admin,
         ));
 
-    let web = state.config.web_dir.clone();
-    let spa = ServeDir::new(&web).fallback(ServeFile::new(web.join("index.html")));
-
-    Router::new()
+    let web_dir = state.config.web_dir.clone();
+    let app = Router::new()
         .route("/api/health", get(|| async { Json(json!({ "ok": true })) }))
         .route(
             "/api/app-info",
@@ -231,9 +231,14 @@ pub fn router(state: AppState) -> Router {
             any(|| async {
                 ApiError::new(StatusCode::NOT_FOUND, "not_found", "No such endpoint.")
             }),
-        )
-        .fallback_service(spa)
-        .layer(DefaultBodyLimit::max(MAX_JSON_BYTES))
+        );
+    // The interface built into the program, or a folder given for development.
+    let app = match web_dir {
+        Some(dir) => app
+            .fallback_service(ServeDir::new(&dir).fallback(ServeFile::new(dir.join("index.html")))),
+        None => app.fallback(web::serve),
+    };
+    app.layer(DefaultBodyLimit::max(MAX_JSON_BYTES))
         .layer(middleware::from_fn(auth::same_origin_only))
         .layer(SetResponseHeaderLayer::overriding(
             header::X_CONTENT_TYPE_OPTIONS,

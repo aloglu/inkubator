@@ -1,5 +1,5 @@
-//! Signing in: session cookies for the browser, Basic auth for scripts, a limit
-//! on failed attempts, and refusal of cross-site requests that change data.
+//! Signing in: session cookies for the browser, a limit on failed attempts, and
+//! refusal of cross-site requests that change data.
 
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
@@ -14,6 +14,7 @@ use axum::Json;
 use base64::Engine;
 use serde::Deserialize;
 
+use crate::config::Credentials;
 use crate::{ApiError, AppState};
 
 pub const SESSION_COOKIE: &str = "inkubator_session";
@@ -84,8 +85,17 @@ fn same(a: &str, b: &str) -> bool {
     diff == 0
 }
 
-fn credentials_ok(state: &AppState, user: &str, password: &str) -> bool {
-    same(user, &state.config.admin_user) & same(password, &state.config.admin_password)
+/// Checks a sign-in. A stored password is an argon2 hash, deliberately slow
+/// to check, so callers run this off the async threads.
+fn credentials_ok(credentials: &Credentials, user: &str, password: &str) -> bool {
+    match credentials {
+        Credentials::Given {
+            user: expected_user,
+            password: expected,
+        } => same(user, expected_user) & same(password, expected),
+        Credentials::Stored(stored) => stored.verify(user, password),
+        Credentials::Insecure => true,
+    }
 }
 
 fn cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
@@ -123,26 +133,8 @@ fn session_cookie(token: &str, max_age: u64, secure: bool) -> String {
 }
 
 pub fn is_authorized(state: &AppState, headers: &HeaderMap) -> bool {
-    if state.config.insecure {
-        return true;
-    }
-    if cookie(headers, SESSION_COOKIE).is_some_and(|token| state.sessions.is_valid(token)) {
-        return true;
-    }
-    let basic = headers
-        .get(header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Basic "))
-        .and_then(|v| {
-            base64::engine::general_purpose::STANDARD
-                .decode(v.trim())
-                .ok()
-        })
-        .and_then(|bytes| String::from_utf8(bytes).ok());
-    basic
-        .as_deref()
-        .and_then(|pair| pair.split_once(':'))
-        .is_some_and(|(user, password)| credentials_ok(state, user, password))
+    state.config.insecure()
+        || cookie(headers, SESSION_COOKIE).is_some_and(|token| state.sessions.is_valid(token))
 }
 
 /// Requires a signed-in admin.
@@ -213,7 +205,13 @@ pub async fn login(
         )
         .into_response();
     }
-    if !state.config.insecure && !credentials_ok(&state, &login.username, &login.password) {
+    let credentials = state.config.credentials.clone();
+    let ok = tokio::task::spawn_blocking(move || {
+        credentials_ok(&credentials, &login.username, &login.password)
+    })
+    .await
+    .unwrap_or(false);
+    if !ok {
         state.sessions.record_failure(ip);
         return ApiError::new(
             StatusCode::UNAUTHORIZED,

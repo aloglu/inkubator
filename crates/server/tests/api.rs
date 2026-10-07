@@ -5,7 +5,6 @@ use axum::body::Body;
 use axum::extract::connect_info::MockConnectInfo;
 use axum::http::{header, Request, StatusCode};
 use axum::Router;
-use base64::Engine;
 use http_body_util::BodyExt;
 use inkubator_server::{router, AppState, Config};
 use serde_json::{json, Value};
@@ -187,17 +186,6 @@ async fn admin_endpoints_need_a_sign_in() {
         s.send(get("/api/collection", Some(&cookie))).await.status,
         StatusCode::UNAUTHORIZED
     );
-}
-
-#[tokio::test]
-async fn basic_auth_works_for_scripts() {
-    let s = server();
-    let token = base64::engine::general_purpose::STANDARD.encode(format!("admin:{PASSWORD}"));
-    let request = Request::get("/api/collection")
-        .header(header::AUTHORIZATION, format!("Basic {token}"))
-        .body(Body::empty())
-        .unwrap();
-    assert_eq!(s.send(request).await.status, StatusCode::OK);
 }
 
 #[tokio::test]

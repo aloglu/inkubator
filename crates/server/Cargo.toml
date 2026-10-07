@@ -1,0 +1,28 @@
+[package]
+name = "inkubator-server"
+version = "3.0.0-alpha.0"
+description = "Self-hosted Inkubator: admin API, public showcase and scheduled backups."
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+
+[[bin]]
+name = "inkubator-server"
+path = "src/main.rs"
+
+[dependencies]
+inkubator-core = { path = "../core" }
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "fs", "time", "net"] }
+tower-http = { version = "0.6", features = ["fs", "set-header"] }
+serde.workspace = true
+serde_json.workspace = true
+base64 = "0.22"
+getrandom = "0.3"
+tempfile = "3"
+http-body-util = "0.1"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+image = { version = "0.25", default-features = false, features = ["png"] }

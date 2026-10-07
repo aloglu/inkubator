@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const require = createRequire(import.meta.url);
-const { normalizeAppData } = require('../lib/data-schema');
+const { normalizeAppData } = require('../app/renderer/data-schema');
 const sharp = require('sharp');
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));

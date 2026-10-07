@@ -14,14 +14,14 @@
     "build:linux": "npm run clean:bundles && tauri build --bundles deb,rpm",
     "build:linux:deb": "npm run clean:bundles && tauri build --bundles deb",
     "build:linux:rpm": "npm run clean:bundles && tauri build --bundles rpm",
-    "docker:start": "node server/docker-server.js",
+    "docker:start": "cargo run -p inkubator-server",
     "docker:build": "docker build -t inkubator:local .",
     "check:node": "node scripts/check-node-version.mjs",
     "check:syntax": "node scripts/check-js-syntax.mjs",
     "check:version": "node scripts/check-version.mjs",
-    "check:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo check --locked --manifest-path src-tauri/Cargo.toml && cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings && cargo test --locked --manifest-path src-tauri/Cargo.toml",
+    "check:rust": "cargo fmt --all -- --check && cargo clippy --locked --workspace --all-targets -- -D warnings && cargo test --locked --workspace",
     "test:renderer": "node scripts/check-renderer-flows.mjs",
-    "test": "node --test tests/critical-persistence.test.js tests/data-schema.test.js tests/public-data.test.js tests/release-version.test.js tests/version-consistency.test.js tests/arch-package.test.js tests/linux-package.test.js tests/docker-cache.test.js tests/docker-backup-route.test.js tests/docker-public-privacy.test.js tests/docker-image-retention-route.test.js tests/backup-archive.test.js tests/backup-schedule.test.js",
+    "test": "node --test tests/data-schema.test.js tests/release-version.test.js tests/version-consistency.test.js tests/arch-package.test.js tests/linux-package.test.js",
     "verify": "npm run check:node && npm run check:syntax && npm run check:version && git diff --check && npm test && npm run test:renderer && npm run check:rust"
   },
   "keywords": [
@@ -44,12 +44,9 @@
   "license": "MIT",
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
-    "fs-extra": "^11.4.0"
+    "sharp": "^0.35.5"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.11.1",
-    "sharp": "^0.35.3",
-    "yauzl": "^3.4.0",
-    "yazl": "^3.3.1"
+    "@tauri-apps/api": "^2.11.1"
   }
 }

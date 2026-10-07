@@ -42,7 +42,7 @@ cargoToml = cargoToml.replace(
 );
 fs.writeFileSync(cargoTomlPath, cargoToml);
 
-const cargoLockPath = path.join(root, 'src-tauri/Cargo.lock');
+const cargoLockPath = path.join(root, 'Cargo.lock');
 if (fs.existsSync(cargoLockPath)) {
   let cargoLock = fs.readFileSync(cargoLockPath, 'utf8');
   cargoLock = cargoLock.replace(

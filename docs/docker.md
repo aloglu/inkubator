@@ -67,10 +67,7 @@ Only use the LAN binding on a trusted network or behind a firewall. The containe
 | `INKUBATOR_ADMIN_USER` | `admin` | Username for the Docker admin login |
 | `INKUBATOR_ADMIN_PASSWORD` | none | Password for the Docker admin login |
 | `INKUBATOR_DATA_DIR` | `/data` | Container path for app data, preferences, images, and backups |
-| `PORT` | `8080` | Internal HTTP port used by the Node server |
-| `INKUBATOR_MAX_BACKUP_BYTES` | `1073741824` | Maximum compressed backup upload size (1 GiB) |
-| `INKUBATOR_MAX_BACKUP_EXPANDED_BYTES` | `2147483648` | Maximum total extracted backup size (2 GiB) |
-| `INKUBATOR_MAX_BACKUP_ENTRIES` | `20000` | Maximum files and directories accepted from a backup |
+| `PORT` | `8080` | Internal HTTP port used by the server |
 
 Most users should leave the internal port and backup safety limits at their defaults and only change the host-side port mapping. If you override `PORT`, the container side of the `-p` or Compose port mapping must use the same value.
 

@@ -98,7 +98,8 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 ## Progress
 
 - **Phase 1, step 1 — done.** Cargo workspace; `crates/core` with the 3.0 model, validation, storage (`inkubator.json`, atomic writes, lock, revisions), retention, and `import-v2` (binary `inkubator-import-v2 <2.x folder> <new folder>`). Tested on the owner's real 2.2 data in a scratch folder: 32 pens, 43 inks, 43 swatches, 90 photos, 11 fills, 242 activity entries, no adjustments. The real 2.2 data (`~/.local/share/com.aloglu.inkubator`) has not been converted for use yet.
-- **Next:** move `src-tauri` onto `inkubator-core`; port the Docker-only Node logic (auth, public showcase projection, scheduled backups, safe writes) into `crates/server`; delete `server/` and `lib/`.
+- **Phase 1, step 2 — done.** Core gained `commands` (ink, re-ink, flush, save/delete with activity per settings; `Store::apply`), `photos` (lossy WebP 1200px + 480px thumbnails, safe paths, retiring unused photos), `remote` (https-only downloads pinned to public addresses; inkswatch.com lookup), `backup` (single-zip backups, verified restore with a safety backup first, scheduled backups) and `public` (showcase privacy projection). New `crates/server` (axum) replaces the Node server: session + Basic auth, failed-login lockout, cross-site refusal, `/api/commands`, uploads, backups, public showcase and photo routes, hourly backup check. Node `server/` and server-only `lib/` modules and tests deleted; Dockerfile now builds the Rust server. Smoke-tested against the converted real collection.
+- **Next:** the Svelte + Vite frontend scaffold (design tokens, shared components) talking to the server; then the desktop shell (`src-tauri`) switched to the core with the same API.
 
 ## Follow-ups (do not lose)
 
@@ -106,4 +107,7 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 - **2.x quirks handled by `import-v2`** (both covered by tests in `crates/core/tests/import_v2.rs`; neither can occur in 3.0):
   - 2.x copied each ink's swatch photo into the ink's own `image` field; the importer skips those duplicates.
   - 2.x kept a pen's first inking date after a re-ink; the importer uses the later of that date and the logged re-ink.
+- **Verify the Docker image builds and runs** (`docker build -t inkubator:v3-test .`): not yet tested locally because the user account lacks Docker socket access. Also decide whether the container should run as a non-root user (2.x ran as root; changing it affects existing volume permissions, e.g. on Unraid).
+- **Versions:** the new crates are `3.0.0-alpha.0` while `package.json`/`src-tauri` stay `2.2.0`; align everything to `3.0.0` at release (`scripts/sync-version.mjs`).
+- **Photo encoding:** photos and thumbnails are lossy WebP (quality 82) via the `webp` crate (builds libwebp from source; needs a C compiler in build environments). The `image` crate alone only writes lossless WebP, which made thumbnails larger than photos.
 - **Converting the real collection:** run `import-v2` on the owner's data only when the 3.0 app can open it, into a new folder; keep the 2.x folder untouched as a fallback.

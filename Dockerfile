@@ -1,24 +1,25 @@
-FROM node:24.18.0-alpine
+# Build the server.
+FROM rust:1.97.1-bookworm AS build
+WORKDIR /src
+COPY rust-toolchain.toml Cargo.toml Cargo.lock ./
+COPY crates ./crates
+# The desktop app is a workspace member; Cargo needs its manifest and sources
+# to resolve the workspace, but only the server is compiled.
+COPY src-tauri/Cargo.toml src-tauri/build.rs ./src-tauri/
+COPY src-tauri/src ./src-tauri/src
+RUN cargo build --release --locked -p inkubator-server
 
-WORKDIR /app
+# Run it.
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=build /src/target/release/inkubator-server /usr/local/bin/inkubator-server
 
-ARG INKUBATOR_RELEASE_TAG=""
-ARG INKUBATOR_IMAGE=""
-
-ENV NODE_ENV=production
-ENV PORT=8080
-ENV INKUBATOR_DATA_DIR=/data
-ENV INKUBATOR_RELEASE_TAG=${INKUBATOR_RELEASE_TAG}
-ENV INKUBATOR_IMAGE=${INKUBATOR_IMAGE}
-
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-
-COPY app ./app
-COPY lib ./lib
-COPY server ./server
+ENV PORT=8080 \
+    INKUBATOR_DATA_DIR=/data \
+    INKUBATOR_WEB_DIR=/app/web
 
 VOLUME ["/data"]
 EXPOSE 8080
-
-CMD ["node", "server/docker-server.js"]
+CMD ["inkubator-server"]

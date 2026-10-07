@@ -9,13 +9,15 @@ use std::fs;
 use std::io::{self, Cursor};
 use std::path::{Component, Path, PathBuf};
 
-use image::{ImageFormat, ImageReader, Limits};
+use image::{ImageReader, Limits};
 
 use crate::images::{is_managed_image_path, ImageSection};
 use crate::storage::{atomic_write, Store, StoreError};
 
 pub const PHOTO_MAX_EDGE: u32 = 1200;
 pub const THUMB_MAX_EDGE: u32 = 480;
+/// Lossy WebP quality, 0–100.
+const WEBP_QUALITY: f32 = 82.0;
 /// Largest upload accepted, before re-encoding.
 pub const MAX_UPLOAD_BYTES: usize = 25 * 1024 * 1024;
 const MAX_DECODE_PIXELS: u64 = 100_000_000;
@@ -90,11 +92,16 @@ pub fn encode_webp(bytes: &[u8], max_edge: u32) -> Result<Vec<u8>> {
     } else {
         image
     };
-    let mut out = Cursor::new(Vec::new());
-    image
-        .write_to(&mut out, ImageFormat::WebP)
-        .map_err(|e| PhotoError::Unreadable(e.to_string()))?;
-    Ok(out.into_inner())
+    // Lossy WebP: photos stay a fraction of the size of lossless encoding.
+    let (width, height) = (image.width(), image.height());
+    let encoded = if image.color().has_alpha() {
+        let rgba = image.to_rgba8();
+        webp::Encoder::from_rgba(&rgba, width, height).encode(WEBP_QUALITY)
+    } else {
+        let rgb = image.to_rgb8();
+        webp::Encoder::from_rgb(&rgb, width, height).encode(WEBP_QUALITY)
+    };
+    Ok(encoded.to_vec())
 }
 
 /// A filename-safe version of `text`: lowercase ASCII letters, digits and dashes.

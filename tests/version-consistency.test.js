@@ -28,7 +28,7 @@ async function writeFixture(rootDir, version = '1.2.3') {
     `[package]\nname = "inkubator"\nversion = "${version}"\n\n[dependencies]\n`
   );
   await fs.writeFile(
-    path.join(rootDir, 'src-tauri', 'Cargo.lock'),
+    path.join(rootDir, 'Cargo.lock'),
     `version = 4\n\n[[package]]\nname = "inkubator"\nversion = "${version}"\n`
   );
   await fs.writeFile(

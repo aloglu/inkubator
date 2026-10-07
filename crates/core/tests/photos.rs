@@ -40,6 +40,18 @@ fn uploads_are_resized_and_get_a_thumbnail() {
     let thumb = store.thumbnail_file(&path).unwrap();
     assert_eq!(dimensions(&thumb), (THUMB_MAX_EDGE, THUMB_MAX_EDGE / 2));
     assert_eq!(&std::fs::read(&file).unwrap()[8..12], b"WEBP");
+    let (photo_bytes, thumb_bytes) = (
+        std::fs::metadata(&file).unwrap().len(),
+        std::fs::metadata(&thumb).unwrap().len(),
+    );
+    assert!(
+        thumb_bytes < photo_bytes,
+        "thumbnail {thumb_bytes}B vs photo {photo_bytes}B"
+    );
+    assert!(
+        photo_bytes < 300_000,
+        "lossy encoding keeps photos small: {photo_bytes}B"
+    );
 }
 
 #[test]

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeAppData } = require('../lib/data-schema');
+const { normalizeAppData } = require('../app/renderer/data-schema');
 
 test('normalizeAppData returns empty canonical shape for invalid input', () => {
     const data = normalizeAppData(null);

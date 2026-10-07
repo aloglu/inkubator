@@ -1,10 +1,10 @@
 <script lang="ts">
   /**
-   * A menu that opens under a button. Uses the popover API, so a click outside
-   * or Esc closes it, and it sits above everything else. Items are elements with
-   * role="menuitem"; arrow keys move between them.
+   * A menu that opens under a button. Items are elements with role="menuitem"
+   * (or menuitemradio); arrow keys move between them.
    */
   import type { Snippet } from 'svelte';
+  import Popover from './Popover.svelte';
 
   let {
     anchor,
@@ -22,45 +22,12 @@
     children: Snippet;
   } = $props();
 
-  let menu: HTMLDivElement | undefined = $state();
-  let position = $state('');
-
-  const items = () => [...(menu?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? [])];
-
-  function place() {
-    if (!anchor || !menu) return;
-    const box = anchor.getBoundingClientRect();
-    const height = menu.offsetHeight;
-    const left = Math.max(8, Math.min(box.right - width, innerWidth - width - 8));
-    const below = box.bottom + 6;
-    const top = below + height > innerHeight - 8 && box.top - height - 6 > 8 ? box.top - height - 6 : below;
-    position = `left:${left}px;top:${top}px;width:${width}px`;
-  }
-
-  $effect(() => {
-    if (!menu) return;
-    if (open && !menu.matches(':popover-open')) {
-      menu.showPopover();
-      place();
-      items()[0]?.focus();
-    } else if (!open && menu.matches(':popover-open')) {
-      menu.hidePopover();
-    }
-  });
-
-  $effect(() => {
-    if (!open) return;
-    const update = () => place();
-    addEventListener('resize', update);
-    addEventListener('scroll', update, true);
-    return () => {
-      removeEventListener('resize', update);
-      removeEventListener('scroll', update, true);
-    };
-  });
+  const items = (menu: HTMLElement) => [
+    ...menu.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([disabled])'),
+  ];
 
   function onkeydown(event: KeyboardEvent) {
-    const list = items();
+    const list = items(event.currentTarget as HTMLElement);
     const index = list.indexOf(document.activeElement as HTMLElement);
     let next = -1;
     if (event.key === 'ArrowDown') next = (index + 1) % list.length;
@@ -75,43 +42,26 @@
   }
 </script>
 
-<div
-  bind:this={menu}
-  popover="auto"
+<Popover
+  {anchor}
+  {open}
+  {onclose}
+  {width}
   role="menu"
   aria-label={label}
-  class="menu"
-  style={position}
-  tabindex="-1"
   {onkeydown}
-  ontoggle={(event) => {
-    if ((event as ToggleEvent).newState === 'closed') {
-      if (open) onclose();
-      if (menu?.contains(document.activeElement)) anchor?.focus();
-    }
-  }}
+  onopen={(panel) => (items(panel).find((item) => item.getAttribute('aria-checked') === 'true') ?? items(panel)[0])?.focus()}
 >
-  {#if open}{@render children()}{/if}
-</div>
+  <div class="items">{@render children()}</div>
+</Popover>
 
 <style>
-  .menu {
-    position: fixed;
-    inset: auto;
-    margin: 0;
-    padding: 6px;
-    display: none;
-    gap: 1px;
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius);
-    background: var(--raised);
-    color: var(--fg);
-    box-shadow: var(--shadow-pop);
-  }
-  .menu:popover-open {
+  .items {
     display: grid;
+    gap: 1px;
+    padding: 6px;
   }
-  .menu :global([role='menuitem']) {
+  .items :global([role^='menuitem']) {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -125,26 +75,26 @@
     text-align: left;
     cursor: pointer;
   }
-  .menu :global([role='menuitem']:hover),
-  .menu :global([role='menuitem']:focus-visible) {
+  .items :global([role^='menuitem']:hover),
+  .items :global([role^='menuitem']:focus-visible) {
     background: var(--accent-soft);
     outline: none;
   }
-  .menu :global([role='menuitem'] small) {
+  .items :global([role^='menuitem'] small) {
     margin-left: auto;
     color: var(--muted);
     font-size: 11.5px;
     white-space: nowrap;
   }
-  .menu :global(.kicker) {
+  .items :global(.kicker) {
     padding: 6px 8px 4px;
   }
-  .menu :global(hr) {
+  .items :global(hr) {
     margin: 4px 0;
     border: 0;
     border-top: 1px solid var(--line);
   }
-  .menu :global(.note) {
+  .items :global(.note) {
     padding: 4px 8px 2px;
     color: var(--muted);
     font-size: 11.5px;

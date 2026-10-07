@@ -5,10 +5,15 @@
    * side panel addressed by the URL (?swatch=<id>, &edit, ?new[&ink=<id>]).
    */
   import Button from '../../../lib/components/Button.svelte';
-  import SearchField from '../../../lib/components/SearchField.svelte';
+  import ListTools from '../../../lib/components/ListTools.svelte';
   import SwatchMedia from '../../../lib/components/SwatchMedia.svelte';
   import { router } from '../../../lib/router.svelte';
+  import { familyColors, swatchFacets } from '../../../lib/facets';
+  import { applyFilters, usefulFacets } from '../../../lib/filters';
   import { rank } from '../../../lib/search';
+  import { sortSwatches, swatchSorts } from '../../../lib/sorting';
+  import { lists } from '../../../lib/stores/lists.svelte';
+  import type { ColorFamily } from '../../../lib/types/ColorFamily';
   import type { Collection } from '../../../lib/types/Collection';
   import type { Swatch } from '../../../lib/types/Swatch';
   import SwatchDetail from './SwatchDetail.svelte';
@@ -16,15 +21,18 @@
 
   let { data }: { data: Collection } = $props();
 
-  let query = $state('');
+  const list = lists.swatches;
 
   const inks = $derived(new Map(data.inks.map((ink) => [ink.id, ink])));
   const fields = (swatch: Swatch) => {
     const ink = inks.get(swatch.ink_id);
     return [ink?.name ?? '', ink?.brand ?? '', swatch.paper, swatch.nib];
   };
+  const facets = $derived(usefulFacets(swatchFacets(inks), data.swatches));
   const swatches = $derived(
-    query.trim() ? rank(data.swatches, fields, query, Infinity) : [...data.swatches].sort((a, b) => b.created_at - a.created_at),
+    list.query.trim()
+      ? applyFilters(rank(data.swatches, fields, list.query, Infinity), facets, list.filters)
+      : sortSwatches(applyFilters(data.swatches, facets, list.filters), list.sort, inks),
   );
   const unswatched = $derived.by(() => {
     const swatched = new Set(data.swatches.map((swatch) => swatch.ink_id));
@@ -43,10 +51,20 @@
 <div class="page">
   <header class="head">
     <h2>Swatches</h2>
-    <div class="tools">
-      <SearchField bind:value={query} label="Search swatches" />
-      <Button icon="plus" onclick={() => router.navigate('/admin/swatches?new')}>Add swatch</Button>
-    </div>
+    <ListTools
+      {list}
+      {facets}
+      items={data.swatches}
+      shown={swatches.length}
+      noun="swatches"
+      searchLabel="Search swatches"
+      sorts={swatchSorts}
+      swatch={(value) => familyColors[value as ColorFamily]}
+    >
+      {#snippet actions()}
+        <Button icon="plus" onclick={() => router.navigate('/admin/swatches?new')}>Add swatch</Button>
+      {/snippet}
+    </ListTools>
   </header>
 
   {#if swatches.length}
@@ -65,10 +83,10 @@
       {/each}
     </ul>
   {:else}
-    <p class="muted">{data.swatches.length ? `No swatches match “${query}”.` : 'No swatches yet.'}</p>
+    <p class="muted">{data.swatches.length ? 'No swatches match.' : 'No swatches yet.'}</p>
   {/if}
 
-  {#if unswatched.length && !query.trim()}
+  {#if unswatched.length && !list.query.trim()}
     <div class="nudge">
       <span>
         <strong>{unswatched.length === 1 ? '1 ink has' : `${unswatched.length} inks have`} no swatch yet:</strong>
@@ -119,12 +137,6 @@
   }
   .head h2 {
     font-size: 32px;
-  }
-  .tools {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
   }
   .grid {
     display: grid;

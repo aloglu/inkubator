@@ -6,12 +6,17 @@
    */
   import { familyHeading, familyName, families, inkFamily } from '../../../lib/color';
   import Button from '../../../lib/components/Button.svelte';
-  import SearchField from '../../../lib/components/SearchField.svelte';
+  import ListTools from '../../../lib/components/ListTools.svelte';
   import Swab from '../../../lib/components/Swab.svelte';
-  import { hueKey, swabSheen } from '../../../lib/ink';
+  import { familyColors, inkFacets } from '../../../lib/facets';
+  import { applyFilters, usefulFacets } from '../../../lib/filters';
+  import { swabSheen } from '../../../lib/ink';
   import { router } from '../../../lib/router.svelte';
   import { rank } from '../../../lib/search';
+  import { inkSorts, sortInks } from '../../../lib/sorting';
+  import { lists } from '../../../lib/stores/lists.svelte';
   import { openFills } from '../../../lib/suggestions';
+  import type { ColorFamily } from '../../../lib/types/ColorFamily';
   import type { Collection } from '../../../lib/types/Collection';
   import type { Ink } from '../../../lib/types/Ink';
   import type { Pen } from '../../../lib/types/Pen';
@@ -20,7 +25,7 @@
 
   let { data }: { data: Collection } = $props();
 
-  let query = $state('');
+  const list = lists.inks;
 
   const pens = $derived(new Map(data.pens.map((pen) => [pen.id, pen])));
   /** Pens each ink is in right now. */
@@ -33,25 +38,27 @@
     return map;
   });
 
-  const shown = $derived(
-    query.trim()
-      ? new Set(
-          rank(data.inks, (ink) => [ink.name, ink.brand, ink.line, familyName(inkFamily(ink))], query, Infinity).map(
-            (ink) => ink.id,
-          ),
+  const facets = $derived(usefulFacets(inkFacets(data), data.inks));
+  const searching = $derived(list.query.trim() !== '');
+  const inks = $derived(
+    searching
+      ? applyFilters(
+          rank(data.inks, (ink) => [ink.name, ink.brand, ink.line, familyName(inkFamily(ink))], list.query, Infinity),
+          facets,
+          list.filters,
         )
-      : null,
+      : sortInks(applyFilters(data.inks, facets, list.filters), list.sort),
   );
 
-  const groups = $derived(
-    families
-      .map((family) => ({
-        family,
-        inks: data.inks
-          .filter((ink) => inkFamily(ink) === family && (!shown || shown.has(ink.id)))
-          .sort((a, b) => hueKey(a.base_color) - hueKey(b.base_color)),
-      }))
-      .filter((group) => group.inks.length > 0),
+  /** By hue, the shelf is grouped by color family; any other order is one shelf. */
+  const groups: { family: ColorFamily | null; inks: Ink[] }[] = $derived(
+    !searching && list.sort === 'hue'
+      ? families
+          .map((family) => ({ family, inks: inks.filter((ink) => inkFamily(ink) === family) }))
+          .filter((group) => group.inks.length > 0)
+      : inks.length
+        ? [{ family: null, inks }]
+        : [],
   );
 
   const selectedId = $derived(router.query.get('ink'));
@@ -67,15 +74,27 @@
 <div class="page">
   <header class="head">
     <h2>Inks</h2>
-    <div class="tools">
-      <SearchField bind:value={query} label="Search inks" />
-      <Button icon="plus" onclick={() => router.navigate('/admin/inks?new')}>Add ink</Button>
-    </div>
+    <ListTools
+      {list}
+      {facets}
+      items={data.inks}
+      shown={inks.length}
+      noun="inks"
+      searchLabel="Search inks"
+      sorts={inkSorts}
+      swatch={(value) => familyColors[value as ColorFamily]}
+    >
+      {#snippet actions()}
+        <Button icon="plus" onclick={() => router.navigate('/admin/inks?new')}>Add ink</Button>
+      {/snippet}
+    </ListTools>
   </header>
 
-  {#each groups as group (group.family)}
-    <section class="group" aria-labelledby="family-{group.family}">
-      <h3 class="kicker" id="family-{group.family}">{familyHeading(group.family)}<span>{group.inks.length}</span></h3>
+  {#each groups as group (group.family ?? 'all')}
+    <section class="group" aria-labelledby={group.family ? `family-${group.family}` : undefined} aria-label={group.family ? undefined : 'Inks'}>
+      {#if group.family}
+        <h3 class="kicker" id="family-{group.family}">{familyHeading(group.family)}<span>{group.inks.length}</span></h3>
+      {/if}
       <ul class="shelf">
         {#each group.inks as ink (ink.id)}
           {@const holders = inPens.get(ink.id) ?? []}
@@ -97,7 +116,7 @@
     </section>
   {:else}
     <p class="muted">
-      {#if data.inks.length}No inks match “{query}”.{:else}No inks yet. Add your first one.{/if}
+      {#if data.inks.length}No inks match.{:else}No inks yet. Add your first one.{/if}
     </p>
   {/each}
 </div>
@@ -123,12 +142,6 @@
   }
   .head h2 {
     font-size: 32px;
-  }
-  .tools {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
   }
   .group {
     display: grid;

@@ -7,12 +7,16 @@
   import Button from '../../../lib/components/Button.svelte';
   import Icon from '../../../lib/components/Icon.svelte';
   import PenMedia from '../../../lib/components/PenMedia.svelte';
-  import SearchField from '../../../lib/components/SearchField.svelte';
+  import ListTools from '../../../lib/components/ListTools.svelte';
   import Swab from '../../../lib/components/Swab.svelte';
   import { daysBetween, plural } from '../../../lib/format';
   import { swabSheen } from '../../../lib/ink';
   import { router } from '../../../lib/router.svelte';
+  import { penFacets } from '../../../lib/facets';
+  import { applyFilters, usefulFacets } from '../../../lib/filters';
   import { rank } from '../../../lib/search';
+  import { penSorts, sortPens } from '../../../lib/sorting';
+  import { lists } from '../../../lib/stores/lists.svelte';
   import { openFills } from '../../../lib/suggestions';
   import type { Collection } from '../../../lib/types/Collection';
   import type { Pen } from '../../../lib/types/Pen';
@@ -21,14 +25,18 @@
 
   let { data }: { data: Collection } = $props();
 
-  let query = $state('');
+  const list = lists.pens;
 
   const inks = $derived(new Map(data.inks.map((ink) => [ink.id, ink])));
   const open = $derived(openFills(data.fills));
 
   const fields = (pen: Pen) => [pen.model, pen.brand, pen.color_name, pen.nib_size, pen.nib_material, pen.filling_system];
+  const facets = $derived(usefulFacets(penFacets(data), data.pens));
+  // A search ranks by relevance; otherwise the chosen sort applies.
   const pens = $derived(
-    query.trim() ? rank(data.pens, fields, query, Infinity) : [...data.pens].sort((a, b) => b.created_at - a.created_at),
+    list.query.trim()
+      ? applyFilters(rank(data.pens, fields, list.query, Infinity), facets, list.filters)
+      : sortPens(applyFilters(data.pens, facets, list.filters), list.sort, data.fills),
   );
 
   const selectedId = $derived(router.query.get('pen'));
@@ -43,10 +51,11 @@
 <div class="page">
   <header class="head">
     <h2>Pens</h2>
-    <div class="tools">
-      <SearchField bind:value={query} label="Search pens" />
-      <Button icon="plus" onclick={() => router.navigate('/admin/pens?new')}>Add pen</Button>
-    </div>
+    <ListTools {list} {facets} items={data.pens} shown={pens.length} noun="pens" searchLabel="Search pens" sorts={penSorts}>
+      {#snippet actions()}
+        <Button icon="plus" onclick={() => router.navigate('/admin/pens?new')}>Add pen</Button>
+      {/snippet}
+    </ListTools>
   </header>
 
   {#if pens.length}
@@ -77,7 +86,7 @@
       {/each}
     </ul>
   {:else}
-    <p class="muted">{data.pens.length ? `No pens match “${query}”.` : 'No pens yet. Add your first one.'}</p>
+    <p class="muted">{data.pens.length ? 'No pens match.' : 'No pens yet. Add your first one.'}</p>
   {/if}
 </div>
 
@@ -110,12 +119,6 @@
   }
   .head h2 {
     font-size: 32px;
-  }
-  .tools {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
   }
   .grid {
     display: grid;

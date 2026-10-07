@@ -1,16 +1,18 @@
 #!/bin/sh
-# Starts the server as an unprivileged user.
+# Starts Inkubator as an unprivileged user.
 #
 # Started as root (the default), the container takes the user from PUID and
 # PGID (default 1000:1000), makes sure everything in the data folder belongs to
-# that user, then drops to it before starting the server. Started with
-# `docker run --user`, it starts the server directly as that user.
+# that user, then drops to it. Started with `docker run --user`, it runs
+# directly as that user. Arguments go to the program, so one-off commands such
+# as `set-password` or `import-v2 /import` also run as that user and the files
+# they write stay readable by the server.
 set -eu
 
 DATA_DIR="${INKUBATOR_DATA_DIR:-/data}"
 
 if [ "$(id -u)" != "0" ]; then
-    exec inkubator-server
+    exec inkubator "$@"
 fi
 
 PUID="${PUID:-1000}"
@@ -34,4 +36,4 @@ if [ -n "$(find "$DATA_DIR" \( ! -user "$PUID" -o ! -group "$PGID" \) -print -qu
     chown -R "$PUID:$PGID" "$DATA_DIR"
 fi
 
-exec setpriv --reuid="$PUID" --regid="$PGID" --clear-groups --no-new-privs -- inkubator-server
+exec setpriv --reuid="$PUID" --regid="$PGID" --clear-groups --no-new-privs -- inkubator "$@"

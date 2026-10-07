@@ -74,6 +74,7 @@ fn zip_error(error: zip::result::ZipError) -> BackupError {
     BackupError::Damaged(error.to_string())
 }
 
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Manifest {
     pub kind: String,
@@ -88,6 +89,7 @@ pub struct Manifest {
     pub photos: usize,
 }
 
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 /// A backup file found in the scheduled-backups folder.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct BackupFile {

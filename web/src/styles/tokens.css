@@ -1,0 +1,121 @@
+/* Design tokens from docs/v3/prototype.html. Components use these variables only. */
+
+@font-face {
+  font-family: 'Peachi';
+  src: url('/fonts/peachi.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin-ext-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin-500-normal.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin-ext-500-normal.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin-600-normal.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin-ext-600-normal.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  --bg: #eceae3;
+  --surface: #f6f4ee;
+  --raised: #fffdf8;
+  --field: #fffdf8;
+  --line: rgba(44, 44, 44, 0.12);
+  --line-strong: rgba(44, 44, 44, 0.22);
+  --fg: #2c2c2c;
+  --muted: #68645c;
+  --accent: #a8841f;
+  --accent-ink: #fffaf0;
+  --accent-soft: rgba(168, 132, 31, 0.14);
+  --ok: #3d7a52;
+  --danger: #a83a32;
+  --scrim: rgba(44, 40, 30, 0.28);
+  --paper: #f3efe4;
+  --paper-line: rgba(0, 0, 0, 0.05);
+
+  --font-display: 'Peachi', Georgia, serif;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow-pop: 0 18px 40px rgba(0, 0, 0, 0.28);
+
+  color-scheme: light;
+}
+
+/* Dark: follows the system unless the app chose light or dark explicitly. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #14171b;
+    --surface: #1a1e24;
+    --raised: #20252c;
+    --field: #161a1f;
+    --line: rgba(255, 255, 255, 0.09);
+    --line-strong: rgba(255, 255, 255, 0.18);
+    --fg: #e9edf2;
+    --muted: #9aa5b2;
+    --accent: #c8a94f;
+    --accent-ink: #1b1608;
+    --accent-soft: rgba(200, 169, 79, 0.16);
+    --ok: #7fbf92;
+    --danger: #e07a70;
+    --scrim: rgba(0, 0, 0, 0.5);
+    --paper: #e9e4d6;
+    --paper-line: rgba(0, 0, 0, 0.06);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #14171b;
+  --surface: #1a1e24;
+  --raised: #20252c;
+  --field: #161a1f;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --fg: #e9edf2;
+  --muted: #9aa5b2;
+  --accent: #c8a94f;
+  --accent-ink: #1b1608;
+  --accent-soft: rgba(200, 169, 79, 0.16);
+  --ok: #7fbf92;
+  --danger: #e07a70;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --paper: #e9e4d6;
+  --paper-line: rgba(0, 0, 0, 0.06);
+  color-scheme: dark;
+}

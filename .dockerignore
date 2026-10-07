@@ -3,6 +3,8 @@
 target
 src-tauri/target
 node_modules
+web/node_modules
+web/dist
 app
 docs
 packaging

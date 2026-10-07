@@ -15,6 +15,7 @@ use crate::model::*;
 /// Entries shown when only recent activity is public.
 pub const RECENT_ACTIVITY_LIMIT: usize = 5;
 
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct PublicCollection {
     pub title: String,
@@ -35,6 +36,7 @@ pub struct PublicCollection {
     pub activity: Vec<PublicActivity>,
 }
 
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 /// An activity entry stripped to what happened, when, and to which visible item.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct PublicActivity {

@@ -9,6 +9,7 @@ use serde_json::Value;
 use crate::model::*;
 use crate::new_id;
 
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 /// One change requested by the interface.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -51,6 +52,7 @@ pub enum Command {
     },
 }
 
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 /// What a command changed besides the collection itself.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Outcome {
@@ -58,6 +60,7 @@ pub struct Outcome {
     pub unused_images: Vec<String>,
 }
 
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error, Serialize)]
 #[serde(tag = "code", rename_all = "snake_case")]
 pub enum CommandError {

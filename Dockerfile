@@ -1,3 +1,12 @@
+# Build the interface. The TypeScript types generated from inkubator-core are
+# committed in web/src/lib/types, so this stage needs no Rust toolchain.
+FROM node:24-bookworm-slim AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web ./
+RUN npm run build
+
 # Build the server.
 FROM rust:1.97.1-bookworm AS build
 WORKDIR /src
@@ -16,6 +25,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /src/target/release/inkubator-server /usr/local/bin/inkubator-server
 COPY docker/entrypoint.sh /usr/local/bin/inkubator-entrypoint
+COPY --from=web /web/dist /app/web
 
 ENV PORT=8080 \
     INKUBATOR_DATA_DIR=/data \

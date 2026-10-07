@@ -1,0 +1,4 @@
+# TypeScript bindings generated from the core model (`npm run types` in web/).
+[env]
+TS_RS_LARGE_INT = "number"
+TS_RS_EXPORT_DIR = { value = "web/src/lib/types", relative = true }

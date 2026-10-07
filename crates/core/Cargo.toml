@@ -19,9 +19,13 @@ url = "2"
 urlencoding = "2"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 webp = { version = "0.3.1", default-features = false }
+ts-rs = { version = "12", optional = true }
+
+[features]
+# Generates TypeScript types for the web interface.
+ts = ["dep:ts-rs"]
 
 [dev-dependencies]
 tempfile = "3"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
-webp = { version = "0.3.1", default-features = false }
 tokio = { version = "1", features = ["macros", "rt"] }

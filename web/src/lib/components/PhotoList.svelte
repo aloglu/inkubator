@@ -16,6 +16,8 @@
     name,
     ratio,
     label = 'Add a photo',
+    selected = $bindable(),
+    selectable = false,
   }: {
     images?: Image[];
     section: PhotoSection;
@@ -23,6 +25,10 @@
     name: string;
     ratio: number;
     label?: string;
+    /** When bound, clicking a photo selects it (e.g. for cropping). */
+    selected?: string;
+    /** Photos can be picked for cropping. */
+    selectable?: boolean;
   } = $props();
 
   let uploading = $state(0);
@@ -45,6 +51,7 @@
           zoom: 1,
         };
         images = [...images, image];
+        if (selectable) selected = image.id;
       } catch (failure) {
         error = describeError(failure);
       } finally {
@@ -58,6 +65,7 @@
     const rest = images.filter((image) => image.id !== id);
     if (rest.length && !rest.some((image) => image.primary)) rest[0] = { ...rest[0]!, primary: true };
     images = rest;
+    if (selected === id) selected = (rest.find((image) => image.primary) ?? rest[0])?.id;
   }
 
   function makePrimary(id: string) {
@@ -67,8 +75,20 @@
 
 <div class="photos">
   {#each images as image (image.id)}
-    <figure class:primary={image.primary}>
-      <PhotoFrame src={photoUrl(image.path, true)} {image} {ratio} mode="fit" radius="var(--radius-sm)" />
+    <figure class:primary={image.primary} class:selected={selected === image.id}>
+      {#if selectable}
+        <button
+          type="button"
+          class="pick"
+          aria-label="Crop this photo"
+          aria-pressed={selected === image.id}
+          onclick={() => (selected = image.id)}
+        >
+          <PhotoFrame src={photoUrl(image.path, true)} {image} {ratio} mode="fit" radius="var(--radius-sm)" />
+        </button>
+      {:else}
+        <PhotoFrame src={photoUrl(image.path, true)} {image} {ratio} mode="fit" radius="var(--radius-sm)" />
+      {/if}
       <div class="actions">
         {#if images.length > 1}
           <button
@@ -106,7 +126,18 @@
     position: relative;
     margin: 0;
   }
+  .pick {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
   figure.primary :global(.frame) {
+    box-shadow: 0 0 0 1px var(--line-strong);
+  }
+  figure.selected :global(.frame) {
     box-shadow: 0 0 0 2px var(--accent);
   }
   .actions {

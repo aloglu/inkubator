@@ -12,6 +12,7 @@
   import Desk from './Desk.svelte';
   import InkFlow from './InkFlow.svelte';
   import Inks from './inks/Inks.svelte';
+  import Pens from './pens/Pens.svelte';
   import Placeholder from './Placeholder.svelte';
 
   let { onsignedout }: { onsignedout: () => void } = $props();
@@ -94,6 +95,8 @@
       <Desk data={collection.data} />
     {:else if router.path === '/admin/inks'}
       <Inks data={collection.data} />
+    {:else if router.path === '/admin/pens'}
+      <Pens data={collection.data} />
     {:else}
       <Placeholder title={current?.label ?? 'Not found'} />
     {/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
   /** The Desk: every inked pen, with what's in it and for how long. */
+  import { flushPen } from '../../lib/actions';
   import Button from '../../lib/components/Button.svelte';
   import PenMedia from '../../lib/components/PenMedia.svelte';
   import Swab from '../../lib/components/Swab.svelte';
@@ -8,7 +9,6 @@
   import { collection } from '../../lib/stores/collection.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
   import type { Collection } from '../../lib/types/Collection';
-  import type { Pen } from '../../lib/types/Pen';
   import ReinkMenu from './ReinkMenu.svelte';
 
   const WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -61,14 +61,6 @@
     };
   });
 
-  async function flush(pen: Pen, inkName: string) {
-    try {
-      await collection.run({ type: 'flush_pen', pen_id: pen.id, at: null });
-      ui.notify(`Flushed ${inkName} from ${pen.model}.`);
-    } catch (error) {
-      ui.fail(error);
-    }
-  }
 </script>
 
 <div class="page">
@@ -123,7 +115,7 @@
               size="sm"
               icon="arrows-counter-clockwise"
               disabled={collection.saving}
-              onclick={() => flush(pen, ink.name)}
+              onclick={() => flushPen(pen, ink.name)}
             >
               Flush
             </Button>

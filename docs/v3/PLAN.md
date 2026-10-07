@@ -93,3 +93,16 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 
 - Nib size/material and filling system option lists (pen editor).
 - Whether the showcase keeps every current toggle.
+
+## Progress
+
+- **Phase 1, step 1 — done.** Cargo workspace; `crates/core` with the 3.0 model, validation, storage (`inkubator.json`, atomic writes, lock, revisions), retention, and `import-v2` (binary `inkubator-import-v2 <2.x folder> <new folder>`). Tested on the owner's real 2.2 data in a scratch folder: 32 pens, 43 inks, 43 swatches, 90 photos, 11 fills, 242 activity entries, no adjustments. The real 2.2 data (`~/.local/share/com.aloglu.inkubator`) has not been converted for use yet.
+- **Next:** move `src-tauri` onto `inkubator-core`; port the Docker-only Node logic (auth, public showcase projection, scheduled backups, safe writes) into `crates/server`; delete `server/` and `lib/`.
+
+## Follow-ups (do not lose)
+
+- **CI paths:** the workspace moved Rust build output from `src-tauri/target` to `target/`. Update `.github/workflows/build-desktop.yml` (bundle paths, `--manifest-path`), `.dockerignore` and `package.json` scripts when the release builds are reworked.
+- **2.x quirks handled by `import-v2`** (both covered by tests in `crates/core/tests/import_v2.rs`; neither can occur in 3.0):
+  - 2.x copied each ink's swatch photo into the ink's own `image` field; the importer skips those duplicates.
+  - 2.x kept a pen's first inking date after a re-ink; the importer uses the later of that date and the logged re-ink.
+- **Converting the real collection:** run `import-v2` on the owner's data only when the 3.0 app can open it, into a new folder; keep the 2.x folder untouched as a fallback.

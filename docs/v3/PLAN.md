@@ -108,7 +108,9 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 - **2.x quirks handled by `import-v2`** (both covered by tests in `crates/core/tests/import_v2.rs`; neither can occur in 3.0):
   - 2.x copied each ink's swatch photo into the ink's own `image` field; the importer skips those duplicates.
   - 2.x kept a pen's first inking date after a re-ink; the importer uses the later of that date and the logged re-ink.
-- **Verify the Docker image builds and runs** (`docker build -t inkubator:v3-test .`): not yet tested locally because the user account lacks Docker socket access. Also decide whether the container should run as a non-root user (2.x ran as root; changing it affects existing volume permissions, e.g. on Unraid).
+- **Docker image:** built by the owner and smoke-tested (auth, commands, photo upload with libwebp, backup export, showcase, download protection) — works. Still to decide whether the container should run as a non-root user (2.x ran as root; changing it affects existing volume permissions, e.g. on Unraid).
+- **Orphaned uploads:** a photo uploaded in an editor that is then cancelled stays in `images/` unreferenced. Add a cleanup (e.g. on startup and daily) that retires unreferenced photos older than a day.
+- **Zip timestamps:** backup zip entries carry no modification time (shown as 1980-01-01). Set real times (zip crate `time` feature) — cosmetic.
 - **Versions:** the new crates are `3.0.0-alpha.0` while `package.json`/`src-tauri` stay `2.2.0`; align everything to `3.0.0` at release (`scripts/sync-version.mjs`).
 - **Photo encoding:** photos and thumbnails are lossy WebP (quality 82) via the `webp` crate (builds libwebp from source; needs a C compiler in build environments). The `image` crate alone only writes lossless WebP, which made thumbnails larger than photos.
 - **Converting the real collection:** run `import-v2` on the owner's data only when the 3.0 app can open it, into a new folder; keep the 2.x folder untouched as a fallback.

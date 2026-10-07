@@ -57,8 +57,8 @@ pub fn section_of(path: &str) -> Option<ImageSection> {
         .find(|section| is_managed_image_path(path, *section))
 }
 
-/// Re-encodes `bytes` as WebP whose long side is at most `max_edge`.
-pub fn encode_webp(bytes: &[u8], max_edge: u32) -> Result<Vec<u8>> {
+/// Decodes a photo, refusing oversized or unreadable files.
+pub fn decode(bytes: &[u8]) -> Result<image::DynamicImage> {
     if bytes.len() > MAX_UPLOAD_BYTES {
         return Err(PhotoError::TooLarge);
     }
@@ -77,9 +77,14 @@ pub fn encode_webp(bytes: &[u8], max_edge: u32) -> Result<Vec<u8>> {
     limits.max_alloc = Some(MAX_DECODE_ALLOC);
     let mut decoder = reader()?;
     decoder.limits(limits);
-    let image = decoder
+    decoder
         .decode()
-        .map_err(|e| PhotoError::Unreadable(e.to_string()))?;
+        .map_err(|e| PhotoError::Unreadable(e.to_string()))
+}
+
+/// Re-encodes `bytes` as WebP whose long side is at most `max_edge`.
+pub fn encode_webp(bytes: &[u8], max_edge: u32) -> Result<Vec<u8>> {
+    let image = decode(bytes)?;
     let image = if image.width() > max_edge || image.height() > max_edge {
         image.thumbnail(max_edge, max_edge)
     } else {

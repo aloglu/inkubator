@@ -1,85 +1,59 @@
-# Docker Deployment
+# Running Inkubator with Docker
 
-Docker mode serves two surfaces from the same container:
+This guide sets Inkubator up with Docker on any computer or server: Windows,
+macOS or Linux, on a regular PC (amd64) or an ARM machine such as a Raspberry
+Pi or an Apple Silicon Mac. If you use Unraid or Synology, their own guides
+([Unraid](unraid.md), [Synology](synology.md)) are easier.
 
-- `/` is the public, read-only showcase.
-- `/admin/` is the authenticated management interface.
+## What you will end up with
 
-The public surface is generated from the showcase visibility settings rather than serving the full admin collection files. Data and managed images that are not required by enabled public views are unavailable from public routes. Hiding inks also hides linked swatches, current-ink relationships, and related activity. The authenticated admin routes continue to use the complete collection.
+- Inkubator running in the background, starting again by itself after a
+  restart.
+- A folder called `inkubator-data` that holds your whole collection: the list
+  of pens, inks and swatches, the photos, and the automatic backups. As long as
+  you keep this folder, you keep your collection.
+- Inkubator open in your browser at `http://localhost:8080`.
 
-The container listens on plain HTTP. For anything beyond local testing, put it behind an HTTPS reverse proxy. Do not expose the admin interface over public HTTP because login credentials and session cookies need transport encryption.
+## Step 1: Install Docker
 
-## Prerequisites
+- **Windows or macOS:** install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+  and start it. Wait until it says Docker is running.
+- **Linux:** follow Docker's guide for your distribution
+  ([docs.docker.com/engine/install](https://docs.docker.com/engine/install/)).
+  On Debian, Ubuntu and Raspberry Pi OS, the short way is:
 
-Install Docker Engine or Docker Desktop. The Docker Compose instructions also require the current `docker compose` plugin. Cloning the Inkubator repository is not required when using the published image.
+  ```bash
+  curl -fsSL https://get.docker.com | sh
+  sudo usermod -aG docker "$USER"
+  ```
 
-The published image currently targets `linux/amd64` systems. Other CPU architectures are not part of the release build coverage yet.
+  Then log out and back in, so your account may use Docker without `sudo`.
 
-## Container Security
-
-The Inkubator server never runs as root. On start, the container gives the `/data` folder to the user set by `PUID` and `PGID` (default `1000:1000`), then drops to that user before starting the server; `PUID=0` is refused. Set `PUID`/`PGID` to the account that should own your data on the host (on Unraid, `99` and `100`). Starting the container with `docker run --user` also works: the server then runs as that user directly and the data folder must already be writable by it.
-
-Do not run the container with `--privileged`, mount the Docker socket, or mount unrelated host directories. The documented command exposes only Inkubator's port and data directory.
-
-## Container
-
-Set the admin password in your shell before starting the container:
-
-```bash
-read -rsp "Inkubator admin password: " INKUBATOR_ADMIN_PASSWORD
-echo
-export INKUBATOR_ADMIN_PASSWORD
-```
-
-```bash
-docker run \
-  --name inkubator \
-  --restart unless-stopped \
-  -p 127.0.0.1:8080:8080 \
-  -e INKUBATOR_ADMIN_USER='admin' \
-  -e INKUBATOR_ADMIN_PASSWORD \
-  -v "$PWD/inkubator-data:/data" \
-  ghcr.io/aloglu/inkubator:latest
-```
-
-This exposes Inkubator only at `http://127.0.0.1:8080`, which is the safer default for a reverse proxy running on the same host. The container refuses to start without a password and also rejects the published `change-this-password` placeholder.
-
-The `latest` tag tracks the newest published release. If you prefer controlled upgrades, pin a specific release instead, such as `ghcr.io/aloglu/inkubator:2.1.0`.
-
-The first port after the host address is the host port. The second is the container's internal port. If host port `8080` is already occupied, change only the first port:
+Check that it works. Open a terminal (on Windows: PowerShell; on macOS: the
+Terminal app) and run:
 
 ```bash
--p 127.0.0.1:8090:8080
+docker compose version
 ```
 
-With that mapping, Inkubator is available on the host at `http://127.0.0.1:8090`, and the container still listens internally on `8080`.
+You should see a version number. If you see "command not found", Docker is
+not installed or not running yet.
 
-For deliberate LAN access, or for a reverse proxy running on another machine, bind the host port to every interface:
+## Step 2: Make a folder for Inkubator
+
+Make a folder that will hold Inkubator's settings and data, for example
+`inkubator` in your home folder, and open a terminal in it:
 
 ```bash
--p 0.0.0.0:8080:8080
+mkdir inkubator
+cd inkubator
 ```
 
-Only use the LAN binding on a trusted network or behind a firewall. The container itself serves plain HTTP.
+## Step 3: Describe the setup
 
-## Configuration
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `INKUBATOR_ADMIN_USER` | `admin` | Username for the Docker admin login |
-| `INKUBATOR_ADMIN_PASSWORD` | none | Password for the Docker admin login |
-| `INKUBATOR_DATA_DIR` | `/data` | Container path for app data, preferences, images, and backups |
-| `PORT` | `8080` | Internal HTTP port used by the server |
-| `PUID` | `1000` | User id the server runs as. It never runs as root; `0` is refused |
-| `PGID` | `1000` | Group id the server runs as |
-
-Most users should leave the internal port and backup safety limits at their defaults and only change the host-side port mapping. If you override `PORT`, the container side of the `-p` or Compose port mapping must use the same value.
-
-Manual image URLs must point to a supported raster image on a public HTTPS address. Docker mode rejects URL credentials, private or local network destinations, unsafe redirects, unsupported media types, and responses larger than 25 MiB.
-
-## Docker Compose
-
-Save the following as `compose.yml` in an Inkubator deployment directory. If you cloned this repository, you can instead copy `docker-compose.example.yml` to `compose.yml`.
+Create a file called `compose.yml` in that folder with this content (or copy
+[`docker-compose.example.yml`](../docker-compose.example.yml) from this
+repository):
 
 ```yaml
 services:
@@ -92,140 +66,136 @@ services:
     environment:
       INKUBATOR_ADMIN_USER: ${INKUBATOR_ADMIN_USER:-admin}
       INKUBATOR_ADMIN_PASSWORD: "${INKUBATOR_ADMIN_PASSWORD:?Set INKUBATOR_ADMIN_PASSWORD before starting Inkubator}"
-      INKUBATOR_DATA_DIR: /data
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
     volumes:
       - ./inkubator-data:/data
 ```
 
-Example `.env` file for Docker Compose:
+Then create a second file called `.env` (the name starts with a dot) next to
+it. This is where your password lives:
 
 ```dotenv
-INKUBATOR_BIND_ADDRESS=127.0.0.1
-INKUBATOR_HOST_PORT=8080
-INKUBATOR_ADMIN_USER=your-username
-INKUBATOR_ADMIN_PASSWORD=choose-a-long-unique-password
+INKUBATOR_ADMIN_USER=admin
+INKUBATOR_ADMIN_PASSWORD=choose-a-long-password-of-your-own
 ```
 
-Keep `.env` private and do not commit it. This repository ignores `.env`; on systems with POSIX file permissions, `chmod 600 .env` prevents other local users from reading it.
+Use a password you do not use anywhere else. On Linux and macOS, make the file
+readable only by you:
 
-Start Inkubator from the directory containing `compose.yml` and `.env`:
+```bash
+chmod 600 .env
+```
+
+**What these lines mean**
+
+- `image` is the Inkubator program Docker downloads.
+- `ports` decides who can open Inkubator. `127.0.0.1` means only this computer.
+  See [Using Inkubator from your phone](#using-inkubator-from-your-phone) to
+  change it.
+- `PUID` and `PGID` are the user that owns your data folder. On most Linux
+  systems your own user is `1000`; run `id` to check. Inkubator never runs as
+  the administrator (root).
+- `./inkubator-data:/data` is your collection. Docker creates the folder the
+  first time.
+
+## Step 4: Start Inkubator
+
+In the same folder, run:
 
 ```bash
 docker compose up -d
 ```
 
-Docker Compose pulls the published image automatically. Open `http://localhost:8080`, or use the host port selected in `.env`.
+The first time, Docker downloads Inkubator, which takes a moment. When it finishes,
+open **http://localhost:8080** in your browser and sign in with the user name
+and password from your `.env` file.
 
-Set `INKUBATOR_BIND_ADDRESS=0.0.0.0` only when another machine must reach the container directly.
+To see what Inkubator is doing, run `docker compose logs inkubator`. Docker
+also checks on it every 30 seconds: `docker compose ps` shows it as
+`(healthy)` when all is well.
 
-## Unraid
+## Everyday commands
 
-Unraid users can deploy the published image through the native Docker custom-container form. See [Unraid Deployment](unraid.md) for the exact image, port, appdata path, and environment-variable settings.
+Run these in the folder with `compose.yml`:
 
-## Caddy Example
+| To | Run |
+| --- | --- |
+| Stop Inkubator | `docker compose stop` |
+| Start it again | `docker compose start` |
+| See its messages | `docker compose logs inkubator` |
+| Change the password | Edit `.env`, then `docker compose up -d` |
+| Update to a new version | See [Updating](updating.md) |
 
-If Caddy runs on the same host as Docker:
+## Using Inkubator from your phone
 
-```caddyfile
-inkubator.example.com {
-  reverse_proxy 127.0.0.1:8080
-}
+At first only the computer running Inkubator can open it. To use it from your
+phone, tablet or other computers at home:
+
+1. Add this line to `.env`:
+
+   ```dotenv
+   INKUBATOR_BIND_ADDRESS=0.0.0.0
+   ```
+
+2. Run `docker compose up -d` again.
+3. Find your computer's address on your home network. It looks like
+   `192.168.1.20`. On Windows run `ipconfig`, on macOS open System Settings →
+   Wi-Fi → Details, on Linux run `hostname -I`.
+4. On your phone, open `http://192.168.1.20:8080` (with your address).
+
+Your phone must be on the same Wi-Fi. Only do this on a network you trust; to
+use Inkubator away from home, see [Remote access](remote-access.md).
+
+## If port 8080 is taken
+
+If another program already uses port 8080, Docker says "port is already
+allocated". Choose another port in `.env`:
+
+```dotenv
+INKUBATOR_HOST_PORT=8090
 ```
 
-If Caddy runs on another machine, use the Docker host IP instead:
+Run `docker compose up -d` and open `http://localhost:8090` instead. (Only the
+first number changes; Inkubator itself keeps using 8080 inside its box.)
 
-```caddyfile
-inkubator.example.com {
-  reverse_proxy YOUR-SERVER-IP:8080
-}
-```
+## Without Compose
 
-## Nginx Example
-
-If Nginx runs on the same host as Docker:
-
-```nginx
-server {
-  listen 443 ssl http2;
-  server_name inkubator.example.com;
-  client_max_body_size 1g;
-
-  ssl_certificate /path/to/fullchain.pem;
-  ssl_certificate_key /path/to/privkey.pem;
-
-  location / {
-    proxy_pass http://127.0.0.1:8080;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-}
-```
-
-If Nginx runs on another machine, replace `proxy_pass http://127.0.0.1:8080;` with:
-
-```nginx
-proxy_pass http://YOUR-SERVER-IP:8080;
-```
-
-## Public-Domain Smoke Test
-
-After DNS and HTTPS are configured:
-
-1. Visit `https://your-domain.example/` and confirm the public showcase loads without login.
-2. Confirm the public showcase has no add, edit, delete, import, export, backup, or settings controls.
-3. Visit `https://your-domain.example/admin/` and confirm the login modal appears.
-4. Log in and confirm Manage changes to Logout.
-5. Refresh from Dashboard, Pens, Inks, Swatches, Activity, and Settings; each page should remain on the same section.
-6. Add a pen or swatch with an image and confirm it appears on the public showcase after saving.
-7. Export a full backup and confirm the browser saves or downloads a `.zip`.
-8. Log out and confirm `/admin/` requires login again.
-
-## Caching And Compression
-
-Docker mode sends cache validators for app assets and managed images, supports conditional `304 Not Modified` responses, fingerprints app-shell asset URLs, and compresses text-like responses with Brotli or gzip when the browser supports them. Fingerprinted app-shell assets can be cached immutably. ZIP backups and already-compressed image formats are not compressed.
-
-Authenticated collection images are marked private so shared reverse-proxy caches do not store them. Public showcase images retain public cache validators.
-
-If you place Nginx, Caddy, Cloudflare, or another reverse proxy in front of the container, avoid overriding these response headers unless you are deliberately taking over caching there. For exported static showcase folders, use the same policy on your static host:
-
-- Revalidate `index.html` and `data.js`.
-- Compress HTML, CSS, JavaScript, JSON, SVG, and font responses.
-- Cache fingerprinted CSS, JavaScript, fonts, and icons immutably; cache collection images with validators.
-- Do not cache backup ZIP downloads if you expose any private download route outside Docker.
-
-## Data And Backups
-
-Keep the `/data` mount stable across upgrades. It contains app data, preferences, images, and automated backups. Updating the container should not replace this directory.
-
-Run only one Inkubator container against a given `/data` directory. Save ordering and stale-write protection coordinate operations inside one container; they do not coordinate multiple containers sharing the same mount.
-
-Manual full backups are saved as ZIP files through the browser. When the browser permits direct file saving, it opens a save dialog; otherwise it uses its configured download behavior. Automated backups remain inside `/data/backups/auto`.
-
-Docker backup uploads send ZIP bytes directly rather than encoding the archive inside JSON. The server writes the upload to temporary storage, validates and extracts entries with bounded memory, generates thumbnails, and only then replaces the active collection. Invalid imports and commit failures restore the previous collection. A reverse proxy must permit request bodies at least as large as the backups you intend to restore; the Nginx example above matches Inkubator's default 1 GiB compressed-backup limit.
-
-Docker admin saves and backup imports use collection revisions. If an older admin tab tries to replace data after another tab has saved, the stale operation is rejected and the newer collection remains unchanged.
-
-For restore steps and backup settings, see [Backups And Data Safety](backups.md).
-
-## Updating
-
-For `docker run`:
+If you prefer a single command, this starts the same setup:
 
 ```bash
-docker pull ghcr.io/aloglu/inkubator:latest
-docker stop inkubator
-docker rm inkubator
-# Re-run the original docker run command with the same /data mount.
+docker run -d --name inkubator --restart unless-stopped \
+  -p 127.0.0.1:8080:8080 \
+  -e INKUBATOR_ADMIN_PASSWORD='choose-a-long-password-of-your-own' \
+  -e PUID=1000 -e PGID=1000 \
+  -v "$PWD/inkubator-data:/data" \
+  ghcr.io/aloglu/inkubator:latest
 ```
 
-For Docker Compose:
+On Windows PowerShell, put the whole command on one line and use
+`${PWD}/inkubator-data` for the folder.
 
-```bash
-docker compose pull
-docker compose up -d
-```
+## All settings
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `INKUBATOR_ADMIN_PASSWORD` | none (required) | The password you sign in with |
+| `INKUBATOR_ADMIN_USER` | `admin` | The user name you sign in with |
+| `PUID`, `PGID` | `1000`, `1000` | The user that owns the data folder (Unraid: `99`, `100`). `0` (root) is refused |
+| `PORT` | `8080` | The port inside the container. Leave it; change the host port instead |
+| `INKUBATOR_DATA_DIR` | `/data` | The folder inside the container. Leave it |
+
+Images are published for regular PCs and servers (`amd64`) and ARM machines
+(`arm64`); Docker picks the right one by itself. `latest` is always the newest
+release; to stay on one version, use its number instead, such as
+`ghcr.io/aloglu/inkubator:3.0.0`.
+
+## Safety
+
+- Inkubator speaks plain HTTP. That is fine at home, but never open it to the
+  internet by forwarding a port on your router. To reach it from outside, use
+  one of the safe ways in [Remote access](remote-access.md).
+- Keep `.env` private, and back up the `inkubator-data` folder (see
+  [Backups](backups.md)).
+- The container needs nothing special: no privileged mode and no access to
+  Docker itself.

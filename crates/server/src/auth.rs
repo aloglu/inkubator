@@ -172,12 +172,20 @@ pub async fn same_origin_only(request: Request, next: Next) -> Response {
             return forbidden();
         }
     }
+    // The page's host must be the one the request was sent to. Only the host
+    // is compared: behind an HTTPS proxy that does not say so, the browser's
+    // origin is https while the server sees http, yet it is the same site.
     if let Some(origin) = first_value(headers, "origin") {
         let host =
             first_value(headers, "x-forwarded-host").or_else(|| first_value(headers, "host"));
-        let scheme = if uses_https(headers) { "https" } else { "http" };
-        let expected = host.map(|host| format!("{scheme}://{host}"));
-        if expected.as_deref() != Some(origin) {
+        let origin_host = origin
+            .strip_prefix("https://")
+            .or_else(|| origin.strip_prefix("http://"));
+        let same = match (origin_host, host) {
+            (Some(a), Some(b)) => a.eq_ignore_ascii_case(b),
+            _ => false,
+        };
+        if !same {
             return forbidden();
         }
     }

@@ -71,7 +71,8 @@ impl Args {
         let mut folder = None;
         let mut options = HashMap::new();
         let mut raw = raw.peekable();
-        let mut first = true;
+        // The command may come before or after the options.
+        let mut chosen = false;
         while let Some(arg) = raw.next() {
             let key = match arg.as_str() {
                 "-h" | "--help" | "help" => {
@@ -86,9 +87,9 @@ impl Args {
                 "--port" => "PORT",
                 "--host" => "INKUBATOR_HOST",
                 "--user" => "INKUBATOR_ADMIN_USER",
-                "serve" | "set-password" | "import-v2" | "healthcheck" if first => {
+                "serve" | "set-password" | "import-v2" | "healthcheck" if !chosen => {
                     command = arg;
-                    first = false;
+                    chosen = true;
                     continue;
                 }
                 other if !other.starts_with('-') && command == "import-v2" && folder.is_none() => {
@@ -97,7 +98,6 @@ impl Args {
                 }
                 other => return Err(format!("Unknown option or command: {other}")),
             };
-            first = false;
             let value = raw.next().ok_or_else(|| format!("{arg} needs a value."))?;
             options.insert(key, value);
         }
@@ -332,5 +332,48 @@ fn healthcheck(args: &Args) -> ExitCode {
             eprintln!("Unhealthy: {error}");
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Args;
+
+    fn parse(args: &[&str]) -> Result<Args, String> {
+        Args::parse(args.iter().map(|a| a.to_string()))
+    }
+
+    #[test]
+    fn commands_and_options_go_in_any_order() {
+        let a = parse(&["set-password", "--data-dir", "/x"]).unwrap();
+        let b = parse(&["--data-dir", "/x", "set-password"]).unwrap();
+        for args in [a, b] {
+            assert_eq!(args.command, "set-password");
+            assert_eq!(
+                args.options.get("INKUBATOR_DATA_DIR").map(String::as_str),
+                Some("/x")
+            );
+        }
+        let import = parse(&["--data-dir", "/new", "import-v2", "/old"]).unwrap();
+        assert_eq!(
+            (import.command.as_str(), import.folder.as_deref()),
+            ("import-v2", Some("/old"))
+        );
+        assert_eq!(parse(&[]).unwrap().command, "serve");
+        assert_eq!(
+            parse(&["--port", "9000"])
+                .unwrap()
+                .options
+                .get("PORT")
+                .map(String::as_str),
+            Some("9000")
+        );
+    }
+
+    #[test]
+    fn mistakes_are_reported() {
+        assert!(parse(&["--port"]).is_err(), "an option without its value");
+        assert!(parse(&["--colour", "blue"]).is_err());
+        assert!(parse(&["serve", "set-password"]).is_err(), "two commands");
     }
 }

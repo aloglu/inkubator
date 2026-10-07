@@ -1,67 +1,51 @@
 # Inkubator
 
-Inkubator is an app for cataloging fountain pens, inks, and swatches. It stores your collection in files, supports images and backups, and can run either as a desktop app or as a self-hosted Docker web app.
+Inkubator keeps track of your fountain pens, inks and swatches: which ink is
+in which pen and for how long, every ink with its sheen, shading and swatches,
+and photos of it all. It runs on a computer you own (a home server, a NAS, a
+Raspberry Pi or your own computer) and you use it in your browser, on the
+computer or on your phone. Your collection stays with you; there is no account
+and nothing in the cloud.
 
-## Features
+- **Desk:** the pens that are inked now, how long they have been, and re-inking
+  or flushing in two clicks.
+- **Inks** on a shelf grouped by color, **pens** with photos, **swatches**, and
+  the ink history of every pen.
+- **Stats:** your inks across the spectrum, the rotation of the last months,
+  and what went where.
+- **Activity:** everything that changed, day by day.
+- An optional **public showcase**: the same screens, read-only, for others to
+  see, showing only what you choose.
+- Automatic **backups**, light and dark mode, and an app you can install from
+  the browser.
 
-- Manage pens, inks, swatches, images, status history, and activity logs
-- Store data locally without a hosted account or external database
-- Import and export full ZIP backups, including referenced images
-- Generate a read-only showcase website from the desktop app
-- Run a browser-based Docker version with public showcase and authenticated admin mode
-- Use light or dark mode across the app and website
+## Get started
 
-## Quick Start
+Read the **[guides](docs/README.md)**: they help you choose a setup and go
+through it step by step, also if you have never used Docker.
 
-### Desktop App
-
-Download the latest installer from [Releases](https://github.com/aloglu/inkubator/releases).
-
-- Windows: use the `.exe` installer
-- macOS: use the `.dmg` installer
-- Linux: use the `.deb` or `.rpm` package
-- Arch-based Linux: build from the PKGBUILD template in `packaging/arch`
-
-See [Desktop Install](docs/desktop-install.md) for more detail.
-
-### Docker
-
-Docker mode serves the public showcase at `/` and the authenticated admin interface at `/admin/`.
+The quickest start with Docker:
 
 ```bash
-read -rsp "Inkubator admin password: " INKUBATOR_ADMIN_PASSWORD
-echo
-export INKUBATOR_ADMIN_PASSWORD
+mkdir inkubator && cd inkubator
+curl -fsSLO https://raw.githubusercontent.com/aloglu/inkubator/main/docker-compose.example.yml
+mv docker-compose.example.yml compose.yml
+echo "INKUBATOR_ADMIN_PASSWORD=choose-a-long-password" > .env
+docker compose up -d
 ```
 
-```bash
-docker run \
-  --name inkubator \
-  --restart unless-stopped \
-  -p 127.0.0.1:8080:8080 \
-  -e INKUBATOR_ADMIN_USER='admin' \
-  -e INKUBATOR_ADMIN_PASSWORD \
-  -v "$PWD/inkubator-data:/data" \
-  ghcr.io/aloglu/inkubator:latest
-```
+Then open http://localhost:8080 and sign in as `admin`.
 
-Open `http://localhost:8080`. See the Docker guide before exposing the port to a LAN or the internet.
+Prefer not to use Docker? Download the program for Windows, macOS or Linux from
+the [releases](https://github.com/aloglu/inkubator/releases/latest) and follow
+[Without Docker](docs/without-docker.md).
 
-See [Docker Deployment](docs/docker.md) for configuration, reverse proxy examples, and update instructions.
+## Coming from 2.x
 
-## Backups
-
-Manual full backups export as `.zip` files and include collection data, preferences, images, and replaced-image archives when enabled. Import accepts these ZIP backups in both desktop and Docker admin mode. See [Backups And Data Safety](docs/backups.md) for data locations, automated backups, and restore steps.
-
-Pre-2.0 folder backups remain usable after you compress the backup folder into a ZIP and import that ZIP.
-
-## Documentation
-
-- [Desktop Install](docs/desktop-install.md)
-- [Docker Deployment](docs/docker.md)
-- [Backups and Data Safety](docs/backups.md)
-- [Build From Source](docs/build-from-source.md)
+Inkubator 3 replaces the 2.x desktop app with a single app for the browser.
+[Moving from 2.x](docs/moving-from-2x.md) brings your collection over; your 2.x
+data is only read, never changed.
 
 ## License
 
-Released under the [MIT License](LICENSE).
+[MIT](LICENSE)

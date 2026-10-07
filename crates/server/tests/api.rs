@@ -236,6 +236,32 @@ async fn cross_site_changes_are_refused() {
         .body(Body::empty())
         .unwrap();
     assert_eq!(s.send(request).await.status, StatusCode::FORBIDDEN);
+
+    // Another site with the same host name on a different port is still another site.
+    let request = Request::post("/auth/logout")
+        .header(header::COOKIE, &cookie)
+        .header(header::HOST, "inkubator.local")
+        .header(header::ORIGIN, "http://inkubator.local:9999")
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(s.send(request).await.status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn signing_in_works_behind_an_https_proxy() {
+    // Such as `tailscale serve`: the browser is on https, the proxy forwards
+    // plain http with the original host and no X-Forwarded-Proto.
+    let s = server();
+    let request = Request::post("/auth/login")
+        .header(header::HOST, "box.tailnet.ts.net")
+        .header(header::ORIGIN, "https://box.tailnet.ts.net")
+        .header("sec-fetch-site", "same-origin")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(
+            json!({ "username": "admin", "password": PASSWORD }).to_string(),
+        ))
+        .unwrap();
+    assert_eq!(s.send(request).await.status, StatusCode::OK);
 }
 
 #[tokio::test]

@@ -1,105 +1,86 @@
-# Build From Source
+# Building from source
 
-These steps are for development, local testing, or building your own copy of Inkubator.
+For people who want to change Inkubator or build it themselves.
 
-## Prerequisites
+## What it is made of
 
-- Node.js 24 or newer; official verification uses the exact LTS version in `.nvmrc`
-- npm (included with Node.js)
-- Rust 1.97.1 and Cargo
-- Chromium or a Chromium-based browser for renderer verification
-- Tauri system dependencies for your operating system
-- Docker Engine or Docker Desktop only when building the Docker image
+| Part | Folder | Language |
+| --- | --- | --- |
+| Core: the collection, storage, photos, backups, import | `crates/core` | Rust |
+| Server: the `inkubator` program and its web API | `crates/server` | Rust |
+| Web interface | `web` | Svelte 5, TypeScript, Vite |
 
-For Linux, install the Tauri prerequisites that match your distribution before building.
+The program has the web interface built into it: `crates/server` embeds
+`web/dist` when it is compiled.
 
-## Setup
+## Requirements
+
+- Rust (the version in `rust-toolchain.toml` is installed automatically by
+  [rustup](https://rustup.rs)) and a C compiler (for the photo and HTTPS
+  libraries).
+- Node.js 24 or later (`web/.nvmrc`).
+
+## Build the program
 
 ```bash
-git clone https://github.com/aloglu/inkubator.git
-cd inkubator
+cd web
 npm ci
+npm run build
+cd ..
+cargo build --release -p inkubator-server
 ```
 
-## Desktop Development
+The program is `target/release/inkubator`. Build the web interface first;
+otherwise the program starts but says it was built without its interface.
+
+## Build the Docker image
 
 ```bash
-npm start
+docker build -t inkubator:local .
+docker/smoke-test.sh inkubator:local
 ```
 
-This launches the Tauri desktop app in development mode.
+The smoke test runs the image through its whole life and cleans up after
+itself.
 
-The desktop development app uses the same operating-system app data location as a normal Inkubator install unless you override it. To test this working tree without touching an installed copy, use an isolated data directory:
+## Develop
+
+Run the server on a scratch data folder, and the web interface with live
+reloading:
 
 ```bash
-npm run start:isolated
+INKUBATOR_DATA_DIR=/tmp/inkubator-dev INKUBATOR_ADMIN_PASSWORD=dev PORT=18080 \
+  cargo run -p inkubator-server
 ```
 
-This is equivalent to:
-
 ```bash
-INKUBATOR_DATA_DIR=/tmp/inkubator-desktop-dev npm start
+cd web
+npm run dev
 ```
 
-With this override, `data.json`, preferences, images, thumbnails, replaced images, and backups are stored under `/tmp/inkubator-desktop-dev`.
+Open the address Vite prints (`http://localhost:5173`). It forwards API calls
+to the server on port 18080. In development, a page of all shared components is
+at `/_components`.
 
-## Desktop Build
+## Checks
 
 ```bash
+cargo fmt --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+
+cd web
+npm test
+npm run check
 npm run build
 ```
 
-This builds a desktop artifact for your current platform.
+The TypeScript types in `web/src/lib/types` are generated from the Rust model.
+After changing the model, run `npm run types` in `web/` and commit the result.
 
-Linux package builds can be run with:
+## Releases
 
-```bash
-npm run build:linux
-```
-
-## Docker Build
-
-This section requires Docker Engine or Docker Desktop.
-
-```bash
-npm run docker:build
-read -rsp "Inkubator admin password: " INKUBATOR_ADMIN_PASSWORD
-echo
-export INKUBATOR_ADMIN_PASSWORD
-docker run \
-  --name inkubator-local \
-  --rm \
-  -p 127.0.0.1:8080:8080 \
-  -e INKUBATOR_ADMIN_USER='admin' \
-  -e INKUBATOR_ADMIN_PASSWORD \
-  -v "$PWD/inkubator-data:/data" \
-  inkubator:local
-```
-
-Open `http://localhost:8080`. See [Docker Deployment](docker.md) before exposing the port to a LAN or the internet.
-
-## Verification
-
-```bash
-npm run verify
-```
-
-This runs the Node version, JavaScript syntax, release-version consistency, Node, renderer, Rust formatting, Cargo check, Clippy, and Rust test checks. It does not install dependencies or modify collection data.
-
-The active Node version must match `.nvmrc`. With `nvm`, run `nvm use` first. If the Chromium executable is not named `chromium`, provide its path:
-
-```bash
-INKUBATOR_CHROMIUM_BIN=/path/to/chromium npm run verify
-```
-
-Individual test suites remain available:
-
-```bash
-npm test
-npm run test:renderer
-cargo test --locked --manifest-path src-tauri/Cargo.toml
-```
-
-## Version Synchronization
-
-Use `npm run sync-version -- X.Y.Z` when development moves to a new app version. This updates the application metadata only. The Arch PKGBUILD remains on the latest published release until the new tag exists and its checksum can be calculated; follow the [Arch release-maintenance checklist](../packaging/arch/README.md#release-maintenance) after publishing the tag.
+`.github/workflows/release.yml` builds and tests everything. On a version tag
+(`v3.0.0`) it also publishes the Docker images for amd64 and arm64 and drafts
+a GitHub release with the programs for Linux, macOS and Windows. The version in
+`crates/server/Cargo.toml` and `web/package.json` must match the tag.

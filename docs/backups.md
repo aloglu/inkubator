@@ -1,174 +1,69 @@
-# Backups And Data Safety
+# Backups
 
-Inkubator stores your collection on the machine where it runs. A desktop install stores data in your user profile. A Docker install stores data in the container data directory, which should be mounted to a host folder.
+Your whole collection lives in Inkubator's **data folder**: the list of pens,
+inks, swatches and inkings, all photos, and the backups themselves. Inkubator
+makes backups by itself, and you can make one whenever you like.
 
-## Stored Files
+A backup is a single `.zip` file with the collection, the photos and the
+settings. It works on any Inkubator 3 setup: Docker, Unraid, Synology or the
+plain program.
 
-Inkubator keeps these files and folders in its data directory:
+## Automatic backups
 
-- `data.json`: pens, inks, swatches, currently inked pens, and activity log entries.
-- `preferences.json`: app settings, collection defaults, backup settings, and showcase settings.
-- `images/`: current managed images referenced by your collection.
-- `replaced-images/`: old managed images, only when replaced-photo retention is enabled.
-- `backups/auto/`: automated backup snapshots.
-- `backups/manual/`: temporary working folders used while creating or importing manual backups.
+**Settings → Backups** starts with when the last backup was made. Below it you
+choose:
 
-Manual full backups are ZIP files. They include `data.json`, `preferences.json`, `manifest.json`, current referenced images, and `replaced-images/` when replaced-photo retention is enabled.
+- **Automatic backups:** off, daily (the default), weekly or monthly.
+- **Keep:** how many automatic backups to keep (30 by default). Older ones are
+  deleted.
 
-Thumbnails are derived cache files and are not stored in full backups. Inkubator regenerates them from the restored images. Docker completes this work before replacing the active collection; desktop regeneration continues in the background after a successful restore.
+Automatic backups are saved in the data folder, in `backups/auto`. They protect
+you from mistakes inside Inkubator (such as deleting the wrong pen), but not
+from losing the disk they are on. For that, also keep a copy elsewhere: export
+one now and then (below), or let your NAS backup tool or cloud sync include
+the data folder.
 
-## Desktop Data Location
+## Making a backup yourself
 
-The desktop app uses the app data directory for the app identifier `com.aloglu.inkubator`.
+**Settings → Backups → Export backup** downloads a `.zip` of everything. Keep it
+somewhere safe, such as another disk or cloud storage.
 
-| Platform | Data directory |
+## Restoring a backup
+
+**Settings → Backups → Restore…**, then choose a backup `.zip`.
+
+Restoring **replaces your whole collection** with the one in the backup.
+Inkubator asks first, checks the backup before using it, and saves a backup of
+your current collection just before replacing it (in `backups/auto`), so a
+restore can be undone by restoring that one.
+
+Backups can be up to 1 GB.
+
+## Moving to another computer or server
+
+1. On the old setup: **Export backup**.
+2. Set Inkubator up on the new one (see the [guides](README.md)).
+3. On the new one: **Restore…** with that file.
+
+## What is in the data folder
+
+| Item | What it is |
 | --- | --- |
-| Windows | `%APPDATA%\com.aloglu.inkubator\` |
-| macOS | `$HOME/Library/Application Support/com.aloglu.inkubator/` |
-| Linux | `$XDG_DATA_HOME/com.aloglu.inkubator/` |
+| `inkubator.json` | Your collection and settings |
+| `images/` | Your photos (`images/.thumbs/` holds smaller copies, made again when needed) |
+| `backups/auto/` | Automatic backups and safety copies made before a restore |
+| `replaced-photos/` | Photos you replaced or removed, if **Keep replaced photos** is on |
+| `password.json` | Only without Docker: your password, stored as a one-way hash |
 
-On Linux, if `XDG_DATA_HOME` is not set, the directory is:
+Where the data folder is:
 
-```text
-$HOME/.local/share/com.aloglu.inkubator/
-```
+| Setup | Data folder |
+| --- | --- |
+| Docker (the guide's setup) | `inkubator-data`, next to `compose.yml` |
+| Unraid | `/mnt/user/appdata/inkubator` |
+| Synology | `docker/inkubator/data` |
+| Raspberry Pi | `~/inkubator/inkubator-data` |
+| Without Docker | see [the table there](without-docker.md#where-your-collection-is-kept) |
 
-On a default Windows profile, `%APPDATA%` expands to:
-
-```text
-C:\Users\<your-user-name>\AppData\Roaming
-```
-
-Desktop automated backups are stored under the data directory:
-
-```text
-backups/auto/
-```
-
-## Docker Data Location
-
-Docker stores data inside the container path set by `INKUBATOR_DATA_DIR`. The default is:
-
-```text
-/data
-```
-
-Mount that path to a stable host folder. Example:
-
-```bash
--v "$PWD/inkubator-data:/data"
-```
-
-With that example, the host folder is:
-
-```text
-$PWD/inkubator-data
-```
-
-Inside the container, automated backups are stored in:
-
-```text
-/data/backups/auto/
-```
-
-On the host, the same files are under the folder you mounted to `/data`:
-
-```text
-<your-mounted-folder>/backups/auto/
-```
-
-## Exporting A Full Backup
-
-Use **Settings > Data & Safety > Export Full Backup**.
-
-Desktop app:
-
-- Inkubator opens a save dialog.
-- Choose where to save the `.zip` file.
-- Keep the ZIP outside the Inkubator data directory if you are preparing for migration, uninstalling, or testing a new build.
-
-Docker admin:
-
-- Open `/admin/`.
-- Use **Export Full Backup**.
-- When the browser permits direct file saving, it opens a save dialog so you can choose the ZIP name and location.
-- Other browsers use their normal download behavior. Their download settings determine whether they ask for a location.
-
-Full backup ZIPs are the portable backup format for moving between machines, restoring after an install, or moving between desktop and Docker.
-
-## Importing A Full Backup
-
-Use **Import Full Backup**.
-
-Importing is a restore operation. It overwrites the current collection, preferences, and managed images with the selected ZIP backup.
-
-The flow is:
-
-1. Inkubator warns that the import will overwrite current data.
-2. Choose **Import** to continue, or **Cancel** to stop.
-3. Select the backup ZIP.
-4. Inkubator validates and restores the selected ZIP.
-5. Inkubator regenerates image thumbnails.
-
-If the ZIP is invalid or fails validation, Inkubator reports an error instead of treating it as a successful restore.
-
-The desktop app validates and stages the collection, preferences, and managed images before replacing the active files. Desktop imports accept at most 1 GiB of compressed ZIP data, 2 GiB after extraction, and 20,000 archive entries. If validation or replacement fails, the previous collection and images are restored. If rollback itself cannot finish, Inkubator reports the recovery-folder location and leaves the recoverable files there. Missing thumbnails are regenerated in the background after a successful import.
-
-Docker mode stages the complete import and only replaces active data after validation and thumbnail generation succeed. It also creates automated restore snapshots immediately before and after a successful replacement. Invalid Docker imports and commit failures restore the previous collection.
-
-## Concurrent Windows
-
-Inkubator saves complete collection snapshots. Saves within one window are processed in order.
-
-If another Docker tab or desktop app process saves a newer snapshot first, Inkubator rejects the stale save or backup import instead of overwriting the newer collection. The stale window keeps its unsaved changes visible and shows a message asking you to preserve anything needed and reload.
-
-## Automated Backups
-
-Automated backups are folders, not downloaded ZIP files. Each snapshot contains the same core files as a full backup folder: collection data, preferences, manifest, and referenced images.
-
-Desktop app behavior:
-
-- Default frequency: daily.
-- Default retention: keep the latest 30 automated snapshots.
-- Frequency options: Off, Daily, Weekly, Monthly.
-- Retention range: 1 to 365 snapshots.
-- Save-triggered automated backups follow the selected frequency.
-- Older automated backups are pruned according to the retention setting.
-
-Docker behavior:
-
-- Save-triggered automated backups follow the selected frequency.
-- Forced restore snapshots are created before and after imports even when frequency is Off.
-- The configured retention count is applied to both scheduled and restore snapshots.
-- They are stored in `/data/backups/auto/`.
-- Docker automated backups are not downloaded automatically.
-
-## Replaced Images
-
-Current referenced images are included in full backups and automated backups.
-
-When **Keep replaced photos in backups** is enabled, old managed images are moved into `replaced-images/` instead of being deleted when a photo is replaced. Those archived files are included in full backups. Showcase exports never include replaced photos.
-
-## Restoring An Automated Backup
-
-The import button expects a ZIP file. To restore an automated backup folder, first make a ZIP from that folder.
-
-The ZIP must contain:
-
-- `data.json`
-- `preferences.json`
-- `manifest.json`
-- `images/`
-- `replaced-images/`, if that backup has it
-
-Then use **Import Full Backup** and select the ZIP.
-
-For Docker, copy the automated backup folder from the host-mounted data directory, make the ZIP, then import it from `/admin/`.
-
-For the desktop app, copy the automated backup folder from the app data directory, make the ZIP, then import it from the desktop app.
-
-## Showcase Export Is Not A Backup
-
-Desktop **Export Showcase** creates a static website folder named `showcase`. It includes public website files plus a filtered copy of the display data and images required by the enabled showcase views. Hidden data and unreferenced private media are not copied. Hiding inks also omits their linked swatches, current-ink relationships, and related activity from the public copy. The export does not include restore snapshots, replaced-image archives, or backup metadata intended for restoring the app.
-
-Docker does not export a separate showcase folder. The public showcase is served directly at `/`, applies the same public-data filtering, and updates when the collection is saved.
+You can also back up by copying the whole data folder while Inkubator is
+stopped.

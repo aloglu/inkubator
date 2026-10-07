@@ -20,8 +20,10 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use crate::commands::{self, Command, CommandError, Outcome};
 use crate::images::ImageSection;
-use crate::model::{Collection, SCHEMA_VERSION};
+use crate::model::{Collection, Timestamp, SCHEMA_VERSION};
+use crate::retention::apply_retention;
 use crate::validate::{validate, ValidationError};
 
 pub const COLLECTION_FILE: &str = "inkubator.json";
@@ -50,6 +52,8 @@ pub enum StoreError {
     Invalid(#[from] ValidationError),
     #[error("the collection changed since it was loaded (now at revision {current})")]
     Conflict { current: String },
+    #[error(transparent)]
+    Command(#[from] CommandError),
 }
 
 type Result<T> = std::result::Result<T, StoreError>;
@@ -177,6 +181,38 @@ impl Store {
         }
         atomic_write(&self.collection_path(), &bytes)?;
         Ok(revision_of(&bytes))
+    }
+
+    /// Applies one command to the stored collection: checks the revision, applies
+    /// the change, prunes history past the retention limit, validates and writes,
+    /// all under the storage lock. Returns the new state and what the command
+    /// left unused.
+    pub fn apply(
+        &self,
+        command: Command,
+        expected_revision: &str,
+        now: Timestamp,
+    ) -> Result<(Loaded, Outcome)> {
+        let _lock = self.lock()?;
+        let Loaded {
+            mut collection,
+            revision,
+        } = self.load_unlocked()?;
+        if revision != expected_revision {
+            return Err(StoreError::Conflict { current: revision });
+        }
+        let outcome = commands::apply(&mut collection, command, now)?;
+        apply_retention(&mut collection, now);
+        validate(&collection)?;
+        let bytes = serde_json::to_vec_pretty(&collection).expect("collection serializes");
+        atomic_write(&self.collection_path(), &bytes)?;
+        Ok((
+            Loaded {
+                collection,
+                revision: revision_of(&bytes),
+            },
+            outcome,
+        ))
     }
 
     fn current_revision(&self) -> Result<String> {

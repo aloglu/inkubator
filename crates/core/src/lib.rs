@@ -1,6 +1,7 @@
 //! Shared core of Inkubator 3.0: the data model, validation, storage and the
 //! one-time import from 2.x. Used by the desktop app and the server.
 
+pub mod commands;
 pub mod images;
 pub mod import_v2;
 pub mod model;
@@ -8,6 +9,7 @@ pub mod retention;
 pub mod storage;
 pub mod validate;
 
+pub use commands::{apply, Command, CommandError, Outcome};
 pub use model::*;
 pub use storage::{Loaded, Store, StoreError};
 pub use validate::{validate, Problem, ValidationError};

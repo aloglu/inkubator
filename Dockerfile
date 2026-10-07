@@ -12,10 +12,6 @@ FROM rust:1.97.1-bookworm AS build
 WORKDIR /src
 COPY rust-toolchain.toml Cargo.toml Cargo.lock ./
 COPY crates ./crates
-# The desktop app is a workspace member; Cargo needs its manifest and sources
-# to resolve the workspace, but only the server is compiled.
-COPY src-tauri/Cargo.toml src-tauri/build.rs ./src-tauri/
-COPY src-tauri/src ./src-tauri/src
 RUN cargo build --release --locked -p inkubator-server
 
 # Run it.

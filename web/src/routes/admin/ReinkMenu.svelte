@@ -7,6 +7,7 @@
   import Icon from '../../lib/components/Icon.svelte';
   import Menu from '../../lib/components/Menu.svelte';
   import Swab from '../../lib/components/Swab.svelte';
+  import { swabSheen } from '../../lib/ink';
   import { formatDate } from '../../lib/format';
   import { collection } from '../../lib/stores/collection.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
@@ -56,7 +57,7 @@
   <div class="kicker">Switch {pen.model} to</div>
   {#each earlier as { ink, fill }, index (ink.id)}
     <button type="button" role="menuitem" onclick={() => switchTo(ink)}>
-      <Swab base={ink.base_color} sheen={ink.sheen_color} size="sm" />
+      <Swab base={ink.base_color} sheen={swabSheen(ink)} size="sm" />
       <span>{ink.name}</span>
       <small>{index === 0 ? 'Last ink · ' : ''}until {formatDate(fill.emptied_at ?? 0, dateFormat, { short: true })}</small>
     </button>
@@ -67,7 +68,7 @@
     <div class="kicker">Not in a pen for a while</div>
     {#each resting as ink (ink.id)}
       <button type="button" role="menuitem" onclick={() => switchTo(ink)}>
-        <Swab base={ink.base_color} sheen={ink.sheen_color} size="sm" />
+        <Swab base={ink.base_color} sheen={swabSheen(ink)} size="sm" />
         <span>{ink.name}</span>
         <small>{ink.brand}</small>
       </button>

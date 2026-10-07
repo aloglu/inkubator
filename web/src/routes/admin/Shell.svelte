@@ -5,11 +5,13 @@
   import Icon from '../../lib/components/Icon.svelte';
   import type { IconName } from '../../lib/icons';
   import { router } from '../../lib/router.svelte';
+  import ConfirmDialog from '../../lib/components/ConfirmDialog.svelte';
   import Notices from '../../lib/components/Notices.svelte';
   import { collection } from '../../lib/stores/collection.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
   import Desk from './Desk.svelte';
   import InkFlow from './InkFlow.svelte';
+  import Inks from './inks/Inks.svelte';
   import Placeholder from './Placeholder.svelte';
 
   let { onsignedout }: { onsignedout: () => void } = $props();
@@ -90,6 +92,8 @@
       <p class="muted">Loading…</p>
     {:else if router.path === '/admin'}
       <Desk data={collection.data} />
+    {:else if router.path === '/admin/inks'}
+      <Inks data={collection.data} />
     {:else}
       <Placeholder title={current?.label ?? 'Not found'} />
     {/if}
@@ -115,6 +119,7 @@
 {/snippet}
 
 {#if collection.data}<InkFlow />{/if}
+<ConfirmDialog />
 <Notices />
 
 <style>

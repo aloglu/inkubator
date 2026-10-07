@@ -11,6 +11,7 @@
   import SearchPicker from '../../lib/components/SearchPicker.svelte';
   import SlotButton from '../../lib/components/SlotButton.svelte';
   import Swab from '../../lib/components/Swab.svelte';
+  import { swabSheen } from '../../lib/ink';
   import TextField from '../../lib/components/TextField.svelte';
   import { formatDate, fromDateInput, inkMaker, penName, toDateInput } from '../../lib/format';
   import { rank } from '../../lib/search';
@@ -131,7 +132,7 @@
       onclick={() => (picking = picking === 'ink' ? null : 'ink')}
     >
       {#snippet media()}
-        {#if ink}<Swab base={ink.base_color} sheen={ink.sheen_color} size="sm" />{:else}<span class="empty-ink"></span>{/if}
+        {#if ink}<Swab base={ink.base_color} sheen={swabSheen(ink)} size="sm" />{:else}<span class="empty-ink"></span>{/if}
       {/snippet}
     </SlotButton>
   </div>
@@ -155,7 +156,7 @@
         {@const holding = inks.get(open.get(p.id)?.ink_id ?? '')}
         <span class="pen-thumb small"><PenMedia pen={p} radius="4px" /></span>
         <span>{penName(p)}</span>
-        {#if holding}<Swab base={holding.base_color} sheen={holding.sheen_color} size="xs" label="Inked with {holding.name}" />{/if}
+        {#if holding}<Swab base={holding.base_color} sheen={swabSheen(holding)} size="xs" label="Inked with {holding.name}" />{/if}
         <small>{p.nib_size}</small>
       {/snippet}
     </SearchPicker>
@@ -176,7 +177,7 @@
     >
       {#snippet item(i)}
         {@const until = lastInPen.get(i.id)}
-        <Swab base={i.base_color} sheen={i.sheen_color} size="sm" />
+        <Swab base={i.base_color} sheen={swabSheen(i)} size="sm" />
         <span>{i.name}</span>
         <small>{until ? `until ${formatDate(until, dateFormat, { short: true })}` : inkMaker(i)}</small>
       {/snippet}

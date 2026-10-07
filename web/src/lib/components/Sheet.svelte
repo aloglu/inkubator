@@ -31,13 +31,18 @@
 
   $effect(() => {
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      // Focus the panel itself, not its first button (often Delete).
+      dialog.focus();
+    }
     if (!open && dialog.open) dialog.close();
   });
 </script>
 
 <dialog
   bind:this={dialog}
+  tabindex="-1"
   class="sheet"
   class:wide
   aria-label={title ?? kicker}
@@ -80,6 +85,9 @@
   }
   .sheet.wide {
     width: min(860px, 82vw);
+  }
+  .sheet:focus-visible {
+    outline: none;
   }
   .sheet::backdrop {
     background: var(--scrim);

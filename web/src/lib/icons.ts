@@ -19,6 +19,7 @@ import funnelSimple from '@phosphor-icons/core/regular/funnel-simple.svg?raw';
 import globe from '@phosphor-icons/core/regular/globe.svg?raw';
 import image from '@phosphor-icons/core/regular/image.svg?raw';
 import lamp from '@phosphor-icons/core/regular/lamp.svg?raw';
+import lockSimple from '@phosphor-icons/core/regular/lock-simple.svg?raw';
 import magnifyingGlass from '@phosphor-icons/core/regular/magnifying-glass.svg?raw';
 import magnifyingGlassMinus from '@phosphor-icons/core/regular/magnifying-glass-minus.svg?raw';
 import magnifyingGlassPlus from '@phosphor-icons/core/regular/magnifying-glass-plus.svg?raw';
@@ -57,6 +58,7 @@ export const icons = {
   'globe': globe,
   'image': image,
   'lamp': lamp,
+  'lock-simple': lockSimple,
   'magnifying-glass': magnifyingGlass,
   'magnifying-glass-minus': magnifyingGlassMinus,
   'magnifying-glass-plus': magnifyingGlassPlus,

@@ -13,6 +13,7 @@
   import Sheet from '../../lib/components/Sheet.svelte';
   import SlotButton from '../../lib/components/SlotButton.svelte';
   import Swab from '../../lib/components/Swab.svelte';
+  import { swabSheen } from '../../lib/ink';
   import Switch from '../../lib/components/Switch.svelte';
   import TextField from '../../lib/components/TextField.svelte';
   import { collection } from '../../lib/stores/collection.svelte';
@@ -214,7 +215,7 @@
       onclick={() => (picking = picking === 'ink' ? null : 'ink')}
     >
       {#snippet media()}
-        {#if chosenInk}<Swab base={chosenInk.base_color} sheen={chosenInk.sheen_color} size="sm" />{:else}<span class="empty-dot"></span>{/if}
+        {#if chosenInk}<Swab base={chosenInk.base_color} sheen={swabSheen(chosenInk)} size="sm" />{:else}<span class="empty-dot"></span>{/if}
       {/snippet}
     </SlotButton>
   </div>
@@ -247,7 +248,7 @@
       onclose={() => (picking = null)}
     >
       {#snippet item(ink)}
-        <Swab base={ink.base_color} sheen={ink.sheen_color} size="sm" /><span>{ink.name}</span><small>{ink.brand}</small>
+        <Swab base={ink.base_color} sheen={swabSheen(ink)} size="sm" /><span>{ink.name}</span><small>{ink.brand}</small>
       {/snippet}
     </SearchPicker>
   {/if}

@@ -76,10 +76,14 @@
   button:last-child {
     border-right: 0;
   }
+  .seg.equal {
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(78px, 1fr);
+  }
   .equal button {
-    width: 78px;
     text-align: center;
-    padding-inline: 4px;
+    padding-inline: 8px;
   }
   .on {
     background: var(--accent-soft);

@@ -3,6 +3,13 @@ import { ApiError } from '../api';
 
 export type Notice = { id: number; text: string; tone: 'info' | 'error' };
 
+export type ConfirmRequest = {
+  title: string;
+  message: string;
+  confirm: string;
+  danger?: boolean;
+};
+
 const messages: Record<string, string> = {
   conflict: 'The collection changed in another window. It has been reloaded; please try again.',
   already_inked: 'That pen already holds this ink.',
@@ -22,7 +29,22 @@ class Ui {
   /** Ink a pen: closed, or open with either side prefilled. */
   inkFlow: { penId: string | null; inkId: string | null } | null = $state(null);
   notices: Notice[] = $state([]);
+  /** The open confirmation, if any; answered through `answer`. */
+  confirming: (ConfirmRequest & { resolve: (ok: boolean) => void }) | null = $state(null);
   private next = 1;
+
+  /** Asks the user to confirm; resolves to false if they cancel. */
+  confirm(request: ConfirmRequest): Promise<boolean> {
+    this.confirming?.resolve(false);
+    return new Promise((resolve) => {
+      this.confirming = { ...request, resolve };
+    });
+  }
+
+  answer(ok: boolean) {
+    this.confirming?.resolve(ok);
+    this.confirming = null;
+  }
 
   openInkFlow({ penId = null, inkId = null }: { penId?: string | null; inkId?: string | null } = {}) {
     this.inkFlow = { penId, inkId };

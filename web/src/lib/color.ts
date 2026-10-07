@@ -33,17 +33,23 @@ export function hsl(hex: string): { h: number; s: number; l: number } {
   return { h: (h * 60 + 360) % 360, s, l };
 }
 
-/** The family an ink's base color belongs to. */
+/**
+ * The family an ink's base color belongs to. Tuned on real collections: muted
+ * dark reds and oranges read as browns, dark magentas as purples.
+ */
 export function colorFamily(hex: string): ColorFamily {
   const { h, s, l } = hsl(hex);
-  if (l < 0.13 || s < 0.12 || (l < 0.2 && s < 0.3)) return 'Black & grey';
-  if (h >= 15 && h < 50 && l < 0.4) return 'Brown';
-  if (h < 15 || h >= 345) return l > 0.65 ? 'Pink' : 'Red';
-  if (h < 40) return 'Orange';
+  if (l < 0.13 || s < 0.12 || (s < 0.2 && l < 0.35) || (l < 0.22 && s < 0.35)) return 'Black & grey';
+  if (h < 15 || h >= 345) return s < 0.3 && l < 0.45 ? 'Brown' : l > 0.7 ? 'Pink' : 'Red';
+  if (h < 50 && l < 0.5 && s < 0.6) return 'Brown';
+  if (h < 42) return 'Orange';
   if (h < 66) return l < 0.3 ? 'Brown' : 'Yellow';
   if (h < 160) return 'Green';
-  if (h < 195) return 'Teal';
+  if (h < 190) return 'Teal';
   if (h < 255) return 'Blue';
-  if (h < 295) return 'Purple';
-  return 'Pink';
+  if (h < 320) return l > 0.65 ? 'Pink' : 'Purple';
+  return l < 0.35 ? 'Purple' : 'Pink';
 }
+
+/** Plural heading for a family on the shelf. */
+export const familyHeading = (family: ColorFamily) => (family === 'Black & grey' ? 'Blacks & greys' : `${family}s`);

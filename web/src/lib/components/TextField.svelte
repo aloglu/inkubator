@@ -54,6 +54,7 @@
     border-radius: var(--radius-sm);
     padding: 0 10px;
     min-height: 34px;
+    min-width: 0;
   }
   .box:focus-within {
     border-color: var(--accent);

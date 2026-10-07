@@ -3,6 +3,7 @@
   import Button from '../../lib/components/Button.svelte';
   import PenMedia from '../../lib/components/PenMedia.svelte';
   import Swab from '../../lib/components/Swab.svelte';
+  import { swabSheen } from '../../lib/ink';
   import { daysBetween, formatDate, formatLongDay, inkMaker, penDetails } from '../../lib/format';
   import { collection } from '../../lib/stores/collection.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
@@ -101,9 +102,9 @@
             <p class="meta">{penDetails(pen)}</p>
           </div>
           <div class="ink">
-            <Swab base={ink.base_color} sheen={ink.sheen_color} />
+            <Swab base={ink.base_color} sheen={swabSheen(ink)} />
             <div>
-              <p class="ink-name">{ink.name}</p>
+              <a class="ink-name" href="/admin/inks?ink={encodeURIComponent(ink.id)}">{ink.name}</a>
               <p class="meta">{inkMaker(ink)}</p>
             </div>
           </div>
@@ -222,7 +223,12 @@
     min-width: 0;
   }
   .ink-name {
+    color: inherit;
     font-weight: 500;
+    text-decoration: none;
+  }
+  .ink-name:hover {
+    text-decoration: underline;
   }
   .since {
     font-variant-numeric: tabular-nums;

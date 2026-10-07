@@ -53,6 +53,8 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 
 **Stats:** color spectrum of all inks, four headline numbers, a 90-day rotation timeline (which ink was in which pen), brand/spend bars in gold only.
 
+**Showcase notes:** private by default. Each pen, ink and swatch has a "Show on showcase" switch for its notes, and the showcase settings have a "Show notes" master switch that hides every note when off. Fill notes are never public. Imported 2.x notes start private.
+
 **Settings:** one column with a section index; label + help text on the left, control on the right; switches instead of checkboxes; backups lead with their status.
 
 **Activity:** grouped by day, written as sentences; filters in one row.
@@ -93,7 +95,6 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 
 - Nib size/material and filling system option lists (pen editor).
 - Whether the showcase keeps every current toggle.
-- Showcase privacy: item notes are public in 2.x and still are in 3.0 (`crates/core/src/public.rs`). Decide whether to keep that or add a "show notes" toggle.
 
 ## Progress
 

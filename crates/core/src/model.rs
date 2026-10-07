@@ -100,6 +100,9 @@ pub struct Pen {
     pub purchased_on: Option<String>,
     pub purchased_from: String,
     pub notes: String,
+    /// Show these notes on the public showcase (also needs `ShowcaseSettings::show_notes`).
+    #[serde(default)]
+    pub notes_public: bool,
     pub images: Vec<Image>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
@@ -216,6 +219,9 @@ pub struct Ink {
     pub base_types: Vec<BaseType>,
     pub paper: Vec<PaperBehavior>,
     pub notes: String,
+    /// Show these notes on the public showcase (also needs `ShowcaseSettings::show_notes`).
+    #[serde(default)]
+    pub notes_public: bool,
     pub images: Vec<Image>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
@@ -231,6 +237,9 @@ pub struct Swatch {
     /// `YYYY-MM-DD`.
     pub sampled_on: Option<String>,
     pub notes: String,
+    /// Show these notes on the public showcase (also needs `ShowcaseSettings::show_notes`).
+    #[serde(default)]
+    pub notes_public: bool,
     pub images: Vec<Image>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
@@ -477,6 +486,9 @@ pub struct ShowcaseSettings {
     pub show_inks: bool,
     pub show_swatches: bool,
     pub show_prices: bool,
+    /// Master switch for notes: when off, no notes are public, whatever each item says.
+    #[serde(default)]
+    pub show_notes: bool,
     pub show_stats: bool,
     pub show_charts: bool,
     pub show_activity: bool,
@@ -496,6 +508,7 @@ impl Default for ShowcaseSettings {
             show_inks: true,
             show_swatches: true,
             show_prices: false,
+            show_notes: false,
             show_stats: true,
             show_charts: true,
             show_activity: true,

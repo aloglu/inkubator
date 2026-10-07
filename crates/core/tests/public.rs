@@ -18,6 +18,7 @@ fn showcase() -> Collection {
         nib: "F".into(),
         sampled_on: None,
         notes: String::new(),
+        notes_public: false,
         images: vec![photo],
         created_at: T0,
         updated_at: T0,
@@ -112,4 +113,44 @@ fn only_visible_photos_are_listed() {
     let mut c = showcase();
     c.settings.showcase.show_swatches = false;
     assert!(!project(&c).photo_paths().contains("swatches/a.webp"));
+}
+
+#[test]
+fn notes_need_both_the_item_and_the_showcase_switch() {
+    let notes = |show_notes: bool, item_public: bool| {
+        let mut c = showcase();
+        c.settings.showcase.show_notes = show_notes;
+        c.pens[0].notes = "Bought from a friend".into();
+        c.pens[0].notes_public = item_public;
+        c.inks[0].notes = "Shake first".into();
+        c.inks[0].notes_public = item_public;
+        c.swatches[0].notes = "Daylight".into();
+        c.swatches[0].notes_public = item_public;
+        let p = project(&c);
+        (
+            p.pens[0].notes.clone(),
+            p.inks[0].notes.clone(),
+            p.swatches[0].notes.clone(),
+        )
+    };
+    let hidden = (String::new(), String::new(), String::new());
+    assert_eq!(notes(false, false), hidden, "private by default");
+    assert_eq!(
+        notes(false, true),
+        hidden,
+        "the showcase switch overrides every item"
+    );
+    assert_eq!(
+        notes(true, false),
+        hidden,
+        "items stay private unless marked public"
+    );
+    assert_eq!(
+        notes(true, true),
+        (
+            "Bought from a friend".into(),
+            "Shake first".into(),
+            "Daylight".into()
+        )
+    );
 }

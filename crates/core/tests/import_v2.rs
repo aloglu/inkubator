@@ -246,6 +246,12 @@ fn settings_carry_over() {
     assert_eq!(s.backups.keep, 365, "clamped");
     assert_eq!(s.showcase.title, "Inkubator", "blank title falls back");
     assert!(s.showcase.show_prices);
+    assert!(
+        !s.showcase.show_notes,
+        "2.x showed notes; 3.0 starts private"
+    );
+    assert!(c.pens.iter().all(|p| !p.notes_public));
+    assert!(c.swatches.iter().all(|s| !s.notes_public));
     assert!(!s.showcase.show_activity);
     assert_eq!(s.showcase.pen_sort, PenSort::Brand);
     assert_eq!(s.showcase.ink_sort, InkSort::Name);

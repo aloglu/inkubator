@@ -267,6 +267,7 @@ const PEN_FIELDS: &[(&str, &str)] = &[
     ("purchased_on", "purchase date"),
     ("purchased_from", "bought from"),
     ("notes", "notes"),
+    ("notes_public", "note visibility"),
     ("images", "photos"),
 ];
 
@@ -290,6 +291,7 @@ const INK_FIELDS: &[(&str, &str)] = &[
     ("base_types", "base"),
     ("paper", "paper behavior"),
     ("notes", "notes"),
+    ("notes_public", "note visibility"),
     ("images", "photos"),
 ];
 
@@ -299,6 +301,7 @@ const SWATCH_FIELDS: &[(&str, &str)] = &[
     ("nib", "nib"),
     ("sampled_on", "date"),
     ("notes", "notes"),
+    ("notes_public", "note visibility"),
     ("images", "photos"),
 ];
 

@@ -44,6 +44,7 @@ fn references_and_formats_are_checked() {
         nib: String::new(),
         sampled_on: None,
         notes: String::new(),
+        notes_public: false,
         images: vec![],
         created_at: T0,
         updated_at: T0,

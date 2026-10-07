@@ -2,8 +2,9 @@
 //!
 //! [`project`] builds the visitor's view from the full collection according to
 //! the showcase settings. Anything not copied here never leaves the server:
-//! hidden sections, prices (unless enabled), where a pen was bought, fill notes,
-//! activity names and details, and every setting except display ones.
+//! hidden sections, prices (unless enabled), where a pen was bought, notes
+//! (unless the showcase shows notes and the item's notes are marked public),
+//! fill notes, activity names and details, and every setting except display ones.
 
 use std::collections::HashSet;
 
@@ -75,6 +76,9 @@ pub fn project(c: &Collection) -> PublicCollection {
                     pen.price = None;
                     pen.purchased_from.clear();
                 }
+                if !(s.show_notes && pen.notes_public) {
+                    pen.notes.clear();
+                }
                 pen
             })
             .collect()
@@ -89,6 +93,9 @@ pub fn project(c: &Collection) -> PublicCollection {
                 if !s.show_prices {
                     ink.price = None;
                 }
+                if !(s.show_notes && ink.notes_public) {
+                    ink.notes.clear();
+                }
                 ink
             })
             .collect()
@@ -96,7 +103,16 @@ pub fn project(c: &Collection) -> PublicCollection {
         Vec::new()
     };
     let swatches: Vec<Swatch> = if show_swatches {
-        c.swatches.clone()
+        c.swatches
+            .iter()
+            .cloned()
+            .map(|mut swatch| {
+                if !(s.show_notes && swatch.notes_public) {
+                    swatch.notes.clear();
+                }
+                swatch
+            })
+            .collect()
     } else {
         Vec::new()
     };

@@ -13,7 +13,10 @@ serde_json.workspace = true
 uuid.workspace = true
 thiserror = "2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp", "tiff"] }
-reqwest = { version = "0.13.4", default-features = false, features = ["rustls"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider"] }
+# The `ring` crypto backend builds from plain C on every target, including the
+# static Linux (musl) and Windows release builds.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 tokio = { version = "1", features = ["net", "time"] }
 url = "2"
 urlencoding = "2"

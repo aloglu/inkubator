@@ -1,0 +1,311 @@
+# Builds and tests Inkubator, and on a version tag (v3.0.0) publishes it:
+# Docker images for amd64 and arm64 on GHCR, plain programs for Linux, macOS
+# and Windows, and a draft GitHub release to review before publishing.
+# Run it by hand (Actions → Release → Run workflow) to build and test without
+# publishing anything.
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/aloglu/inkubator
+  PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') }}
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Version
+        id: version
+        shell: bash
+        run: |
+          crate="$(sed -n 's/^version = "\(.*\)"/\1/p' crates/server/Cargo.toml | head -1)"
+          web="$(node -p "require('./web/package.json').version")"
+          echo "server $crate, web $web"
+          [ "$crate" = "$web" ] || { echo "crates/server and web/package.json disagree"; exit 1; }
+          if [ "$PUBLISH" = "true" ] && [ "${GITHUB_REF_NAME#v}" != "$crate" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match version $crate"; exit 1
+          fi
+          echo "version=$crate" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Web interface
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+          npm run check
+          npm run build
+
+      - name: Rust
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          cargo test --workspace --locked
+
+      - name: Generated types are up to date
+        working-directory: web
+        run: |
+          npm run types
+          git diff --exit-code src/lib/types || { echo "Run 'npm run types' in web/ and commit the result."; exit 1; }
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: web-dist
+          path: web/dist
+          retention-days: 3
+
+  docker:
+    name: Docker (${{ matrix.arch }})
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: inkubator:test
+          provenance: false
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.arch }},mode=max
+
+      - name: Smoke test
+        run: docker/smoke-test.sh inkubator:test
+
+      - name: Upgrade test (from the latest published 3.x image)
+        shell: bash
+        run: |
+          if docker pull "$IMAGE:latest" >/dev/null 2>&1 \
+            && docker run --rm "$IMAGE:latest" --version 2>/dev/null | grep -q '^Inkubator 3\.'; then
+            PREVIOUS_IMAGE="$IMAGE:latest" docker/smoke-test.sh inkubator:test
+          else
+            echo "No published 3.x image yet; nothing to upgrade from."
+          fi
+
+      - name: Sign in to GHCR
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push by digest
+        if: env.PUBLISH == 'true'
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          provenance: false
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.arch }}
+
+      - name: Keep the digest
+        if: env.PUBLISH == 'true'
+        run: |
+          mkdir -p digests
+          touch "digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+      - if: env.PUBLISH == 'true'
+        uses: actions/upload-artifact@v5
+        with:
+          name: digest-${{ matrix.arch }}
+          path: digests/*
+          retention-days: 1
+
+  docker-publish:
+    name: Docker (publish)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [checks, docker]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: digest-*
+          path: digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: One image for both architectures
+        working-directory: digests
+        shell: bash
+        run: |
+          version="${{ needs.checks.outputs.version }}"
+          # Pre-releases (3.0.0-rc.1) get only their own tag; releases also move latest and 3.
+          case "$version" in
+            *-*) tags=(-t "$IMAGE:$version") ;;
+            *) tags=(-t "$IMAGE:$version" -t "$IMAGE:latest" -t "$IMAGE:${version%%.*}") ;;
+          esac
+          docker buildx imagetools create "${tags[@]}" $(printf "$IMAGE@sha256:%s " *)
+          docker buildx imagetools inspect "$IMAGE:$version"
+
+  programs:
+    name: Program (${{ matrix.name }})
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            run: true
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            run: true
+          - name: macos-arm64
+            runner: macos-15
+            target: aarch64-apple-darwin
+            run: true
+          - name: macos-x86_64
+            runner: macos-15
+            target: x86_64-apple-darwin
+            run: false
+          - name: windows-x86_64
+            runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            run: true
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v5
+        with:
+          name: web-dist
+          path: web/dist
+      - name: Rust target
+        run: rustup target add ${{ matrix.target }}
+      - name: musl C toolchain
+        if: contains(matrix.target, 'musl')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+          echo "CC_${TARGET//-/_}=musl-gcc" >> "$GITHUB_ENV"
+        env:
+          TARGET: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --locked -p inkubator-server --target ${{ matrix.target }}
+
+      - name: Try it
+        if: matrix.run
+        run: |
+          exe="target/${{ matrix.target }}/release/inkubator"
+          [ -f "$exe.exe" ] && exe="$exe.exe"
+          "$exe" --version
+          data="$(mktemp -d)"
+          INKUBATOR_ALLOW_INSECURE=1 "$exe" --data-dir "$data" --port 18200 &
+          pid=$!
+          for _ in $(seq 1 30); do "$exe" healthcheck --port 18200 && break; sleep 1; done
+          "$exe" healthcheck --port 18200
+          curl -sf http://127.0.0.1:18200/ | grep -q '<div id="app">'
+          curl -sf http://127.0.0.1:18200/pens | grep -q '<div id="app">'
+          kill "$pid"
+
+      - name: Package
+        id: package
+        run: |
+          version="${{ needs.checks.outputs.version }}"
+          name="inkubator-$version-${{ matrix.name }}"
+          mkdir -p "dist/$name"
+          cp LICENSE "dist/$name/"
+          {
+            echo "Inkubator $version"
+            echo
+            echo "1. Set a password once:   inkubator set-password"
+            echo "2. Start Inkubator:       inkubator"
+            echo "3. Open http://localhost:8080 in your browser."
+            echo
+            echo "On Windows, use inkubator.exe. The full guide:"
+            echo "https://github.com/aloglu/inkubator/blob/main/docs/README.md"
+          } > "dist/$name/README.txt"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp "target/${{ matrix.target }}/release/inkubator.exe" "dist/$name/"
+            (cd dist && 7z a -tzip "$name.zip" "$name" >/dev/null)
+            echo "file=dist/$name.zip" >> "$GITHUB_OUTPUT"
+          else
+            cp "target/${{ matrix.target }}/release/inkubator" "dist/$name/"
+            chmod +x "dist/$name/inkubator"
+            tar -C dist -czf "dist/$name.tar.gz" "$name"
+            echo "file=dist/$name.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@v5
+        with:
+          name: program-${{ matrix.name }}
+          path: ${{ steps.package.outputs.file }}
+          retention-days: 7
+
+  release:
+    name: Draft release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [checks, docker-publish, programs]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: program-*
+          path: assets
+          merge-multiple: true
+      - name: Checksums
+        working-directory: assets
+        run: sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - name: Create the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ needs.checks.outputs.version }}"
+          gh release create "$GITHUB_REF_NAME" assets/* \
+            --draft \
+            --title "Inkubator $version" \
+            --notes "Docker: \`docker pull $IMAGE:$version\` (amd64 and arm64). Plain programs for Linux, macOS and Windows are attached. Setup guide: docs/README.md."

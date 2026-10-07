@@ -15,6 +15,15 @@ use url::Url;
 
 use crate::photos::MAX_UPLOAD_BYTES;
 
+/// Chooses the `ring` crypto backend for HTTPS, once per process.
+fn use_ring_crypto() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        // Fails only if a backend was already chosen, which is fine.
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    });
+}
+
 const MAX_REDIRECTS: usize = 5;
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(15);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -139,6 +148,7 @@ async fn public_addresses(url: &Url) -> Result<(String, Vec<SocketAddr>)> {
 
 /// Downloads an image from a public https address.
 pub async fn download_image(raw_url: &str) -> Result<Downloaded> {
+    use_ring_crypto();
     timeout(DOWNLOAD_TIMEOUT, download_inner(raw_url))
         .await
         .map_err(|_| RemoteError::TimedOut)?
@@ -232,6 +242,7 @@ const INKSWATCH: &str = "https://inkswatch.com";
 /// Looks up an ink on inkswatch.com and returns the address of its swatch photo.
 /// Download it with [`download_image`].
 pub async fn find_inkswatch(query: &str) -> Result<FoundSwatch> {
+    use_ring_crypto();
     let client = reqwest::Client::builder()
         .connect_timeout(CONNECT_TIMEOUT)
         .build()

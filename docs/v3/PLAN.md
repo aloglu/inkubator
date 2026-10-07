@@ -93,6 +93,7 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 
 - Nib size/material and filling system option lists (pen editor).
 - Whether the showcase keeps every current toggle.
+- Showcase privacy: item notes are public in 2.x and still are in 3.0 (`crates/core/src/public.rs`). Decide whether to keep that or add a "show notes" toggle.
 
 ## Progress
 

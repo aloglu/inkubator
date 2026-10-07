@@ -7,6 +7,7 @@ pub mod images;
 pub mod import_v2;
 pub mod model;
 pub mod photos;
+pub mod public;
 pub mod remote;
 pub mod retention;
 pub mod storage;

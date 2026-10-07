@@ -543,6 +543,10 @@ impl Default for BackupSettings {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ShowcaseSettings {
+    /// Whether visitors who are not signed in can see anything at all. Off by
+    /// default: the collection stays private until the owner opens it.
+    #[serde(default)]
+    pub enabled: bool,
     pub title: String,
     pub theme: Theme,
     pub show_pens: bool,
@@ -565,6 +569,7 @@ pub struct ShowcaseSettings {
 impl Default for ShowcaseSettings {
     fn default() -> Self {
         Self {
+            enabled: false,
             title: "Inkubator".to_string(),
             theme: Theme::Auto,
             show_pens: true,

@@ -13,4 +13,8 @@ subject_id: string,
 /**
  * The ink involved, when inks are visible.
  */
-ink_id: string | null, };
+ink_id: string | null, 
+/**
+ * For re-inks and flushes: the ink that came out, when inks are visible.
+ */
+previous_ink_id: string | null, };

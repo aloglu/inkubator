@@ -161,10 +161,13 @@ async fn admin_endpoints_need_a_sign_in() {
         s.send(get("/api/health", None)).await.status,
         StatusCode::OK
     );
+    let private = s.send(get("/api/public", None)).await;
     assert_eq!(
-        s.send(get("/api/public", None)).await.status,
-        StatusCode::OK
+        private.status,
+        StatusCode::NOT_FOUND,
+        "the showcase starts off"
     );
+    assert_eq!(private.json()["code"], "showcase_off");
 
     let cookie = s.login().await;
     let state = s.collection(&cookie).await;
@@ -390,7 +393,23 @@ async fn the_showcase_only_shows_what_is_allowed() {
     s.command(&cookie, json!({ "type": "save_pen", "pen": with_photo }))
         .await;
 
+    // Off: neither the collection nor its photos are public.
+    let photo_url = format!("/public/photos/{photo}");
+    assert_eq!(
+        s.send(get(&photo_url, None)).await.status,
+        StatusCode::NOT_FOUND
+    );
+
+    let mut settings = s.collection(&cookie).await["collection"]["settings"].clone();
+    settings["showcase"]["enabled"] = json!(true);
+    s.command(
+        &cookie,
+        json!({ "type": "update_settings", "settings": settings }),
+    )
+    .await;
+
     let public = s.send(get("/api/public", None)).await.json();
+    assert_eq!(public["show_pens"], true);
     assert_eq!(public["pens"][0]["model"], "M800");
     assert!(
         public["pens"][0]["price"].is_null(),

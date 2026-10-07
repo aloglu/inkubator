@@ -1,7 +1,7 @@
 //! What the public showcase may see.
 //!
 //! [`project`] builds the visitor's view from the full collection according to
-//! the showcase settings. Anything not copied here never leaves the server:
+//! the showcase settings, or nothing at all when the showcase is off. Anything not copied here never leaves the server:
 //! hidden sections, prices (unless enabled), where a pen was bought, notes
 //! (unless the showcase shows notes and the item's notes are marked public),
 //! fill notes, activity names and details, and every setting except display ones.
@@ -23,6 +23,13 @@ pub struct PublicCollection {
     pub date_format: DateFormat,
     /// Only present when prices are shown.
     pub currency: Option<String>,
+    /// Which sections visitors see, so the interface can tell "hidden" from "empty".
+    pub show_pens: bool,
+    pub show_inks: bool,
+    pub show_swatches: bool,
+    /// The full activity list; with only `show_recent_activity`, the latest few entries.
+    pub show_activity: bool,
+    pub show_recent_activity: bool,
     pub show_stats: bool,
     pub show_charts: bool,
     pub show_activity_filters: bool,
@@ -47,6 +54,8 @@ pub struct PublicActivity {
     pub subject_id: String,
     /// The ink involved, when inks are visible.
     pub ink_id: Option<String>,
+    /// For re-inks and flushes: the ink that came out, when inks are visible.
+    pub previous_ink_id: Option<String>,
 }
 
 impl PublicCollection {
@@ -62,8 +71,11 @@ impl PublicCollection {
     }
 }
 
-pub fn project(c: &Collection) -> PublicCollection {
+pub fn project(c: &Collection) -> Option<PublicCollection> {
     let s = &c.settings.showcase;
+    if !s.enabled {
+        return None;
+    }
     let show_pens = s.show_pens;
     let show_inks = s.show_inks;
     // Swatches only make sense next to their inks.
@@ -164,6 +176,10 @@ pub fn project(c: &Collection) -> PublicCollection {
                         String::new()
                     },
                     ink_id: e.ink_id.clone().filter(|id| ink_ids.contains(id.as_str())),
+                    previous_ink_id: e
+                        .previous_ink_id
+                        .clone()
+                        .filter(|id| ink_ids.contains(id.as_str())),
                 }
             })
             .collect()
@@ -175,11 +191,16 @@ pub fn project(c: &Collection) -> PublicCollection {
         activity.truncate(RECENT_ACTIVITY_LIMIT);
     }
 
-    PublicCollection {
+    Some(PublicCollection {
         title: s.title.clone(),
         theme: s.theme,
         date_format: c.settings.defaults.date_format,
         currency: s.show_prices.then(|| c.settings.defaults.currency.clone()),
+        show_pens,
+        show_inks,
+        show_swatches,
+        show_activity: s.show_activity,
+        show_recent_activity: s.show_recent_activity,
         show_stats: s.show_stats,
         show_charts: s.show_charts,
         show_activity_filters: s.show_activity_filters,
@@ -191,5 +212,5 @@ pub fn project(c: &Collection) -> PublicCollection {
         swatches,
         fills,
         activity,
-    }
+    })
 }

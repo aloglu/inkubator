@@ -410,11 +410,14 @@ async fn admin_thumb(
 async fn public_collection(State(state): State<AppState>) -> ApiResult<Response> {
     let store = state.store.clone();
     let loaded = blocking(move || Ok(store.load()?)).await?;
-    Ok((
-        [(header::CACHE_CONTROL, "no-cache")],
-        Json(project(&loaded.collection)),
-    )
-        .into_response())
+    let public = project(&loaded.collection).ok_or_else(|| {
+        ApiError::new(
+            StatusCode::NOT_FOUND,
+            "showcase_off",
+            "This collection is private.",
+        )
+    })?;
+    Ok(([(header::CACHE_CONTROL, "no-cache")], Json(public)).into_response())
 }
 
 /// Serves a photo only if a visitor can see the item it belongs to.
@@ -422,10 +425,10 @@ async fn visible_photo(state: AppState, path: String, thumb: bool) -> ApiResult<
     let store = state.store.clone();
     let file = blocking(move || {
         let loaded = store.load()?;
-        if !project(&loaded.collection)
-            .photo_paths()
-            .contains(path.as_str())
-        {
+        // Nothing is public while the showcase is off.
+        let visible = project(&loaded.collection)
+            .is_some_and(|public| public.photo_paths().contains(path.as_str()));
+        if !visible {
             return Err(PhotoError::NotFound(path).into());
         }
         Ok(if thumb {

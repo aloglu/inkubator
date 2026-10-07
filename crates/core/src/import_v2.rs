@@ -963,6 +963,8 @@ fn settings(prefs: &Map<String, Value>, _data: &Map<String, Value>) -> Settings 
             validate_on_import: flag(&import_export, "auto_validate_import", true),
         },
         showcase: ShowcaseSettings {
+            // 2.x had no switch; 3.0 starts private and the owner opens it.
+            enabled: false,
             title: Some(text(&showcase, "title"))
                 .filter(|t| !t.trim().is_empty())
                 .unwrap_or(base.showcase.title),

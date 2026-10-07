@@ -14,4 +14,12 @@ export type PublicCollection = { title: string, theme: Theme, date_format: DateF
 /**
  * Only present when prices are shown.
  */
-currency: string | null, show_stats: boolean, show_charts: boolean, show_activity_filters: boolean, pen_sort: PenSort, ink_sort: InkSort, swatch_sort: SwatchSort, pens: Array<Pen>, inks: Array<Ink>, swatches: Array<Swatch>, fills: Array<Fill>, activity: Array<PublicActivity>, };
+currency: string | null, 
+/**
+ * Which sections visitors see, so the interface can tell "hidden" from "empty".
+ */
+show_pens: boolean, show_inks: boolean, show_swatches: boolean, 
+/**
+ * The full activity list; with only `show_recent_activity`, the latest few entries.
+ */
+show_activity: boolean, show_recent_activity: boolean, show_stats: boolean, show_charts: boolean, show_activity_filters: boolean, pen_sort: PenSort, ink_sort: InkSort, swatch_sort: SwatchSort, pens: Array<Pen>, inks: Array<Ink>, swatches: Array<Swatch>, fills: Array<Fill>, activity: Array<PublicActivity>, };

@@ -4,7 +4,12 @@ import type { PenSort } from "./PenSort";
 import type { SwatchSort } from "./SwatchSort";
 import type { Theme } from "./Theme";
 
-export type ShowcaseSettings = { title: string, theme: Theme, show_pens: boolean, show_inks: boolean, show_swatches: boolean, show_prices: boolean, 
+export type ShowcaseSettings = { 
+/**
+ * Whether visitors who are not signed in can see anything at all. Off by
+ * default: the collection stays private until the owner opens it.
+ */
+enabled: boolean, title: string, theme: Theme, show_pens: boolean, show_inks: boolean, show_swatches: boolean, show_prices: boolean, 
 /**
  * Master switch for notes: when off, no notes are public, whatever each item says.
  */

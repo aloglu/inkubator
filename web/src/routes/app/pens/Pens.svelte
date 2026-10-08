@@ -64,7 +64,6 @@
             <div class="body">
               <p class="eyebrow">{pen.brand}</p>
               <h3>{pen.model}</h3>
-              <p class="meta">{[pen.nib_size, pen.nib_material, pen.filling_systems.join(', ')].filter(Boolean).join(' · ')}</p>
             </div>
             <div class="foot">
               {#if fill && ink}
@@ -141,11 +140,6 @@
   h3 {
     font-size: 21px;
   }
-  .meta {
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: 12.5px;
-  }
   .foot {
     display: flex;
     align-items: center;
@@ -200,10 +194,6 @@
     }
     h3 {
       font-size: 17px;
-    }
-    .meta {
-      margin-top: 2px;
-      font-size: 12px;
     }
     .foot {
       padding: 0;

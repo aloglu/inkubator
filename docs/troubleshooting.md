@@ -70,8 +70,8 @@ name (the `Host` header), or sets `X-Forwarded-Host` to it.
 
 ## Visitors see only the sign-in page
 
-The public showcase is off, which is the default. Turn it on in
-**Settings → Showcase website**. See [Using Inkubator](using-inkubator.md#the-public-showcase).
+Visitors are shut out, which is the default. Let them in with **Settings →
+Visitors**. See [Using Inkubator](using-inkubator.md#letting-visitors-see-your-collection).
 
 ## "Install app" is missing on my phone
 

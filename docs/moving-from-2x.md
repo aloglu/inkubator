@@ -10,9 +10,11 @@ are happy with 3.
 Everything: pens, inks, swatches, photos, which pen held which ink and when,
 the activity history, and your settings. A few things are adjusted:
 
-- **Notes start private.** 3.0 lets you show each note on the public showcase
-  or not; all imported notes start private.
-- **The public showcase starts off.** Turn it on in Settings when you want it.
+- **Notes start private.** 3.0 lets you show each note to visitors or not; all
+  imported notes start private.
+- **Visitors start shut out.** 2.x's showcase becomes 3.0's visitor view:
+  your collection as visitors see it without signing in. It starts off; turn
+  it on in **Settings → Visitors** when you want it.
 - 2.x's "currently inked" list becomes 3.0's ink history (fills).
 
 At the end the import lists anything it had to adjust.

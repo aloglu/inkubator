@@ -34,7 +34,7 @@ explains it from the start.
 ## 2. Use it
 
 - [Using Inkubator](using-inkubator.md): opening it, installing it as an app,
-  using it from your phone, and the public showcase.
+  using it from your phone, and letting visitors see your collection.
 - [Reaching Inkubator from outside your home](remote-access.md): safely, with
   HTTPS.
 - [Backups](backups.md): automatic backups, exporting and restoring.

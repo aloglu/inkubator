@@ -146,7 +146,7 @@
     })),
   );
 
-  // ---------- showcase ----------
+  // ---------- visitors ----------
 
   const visibility: { key: keyof ShowcaseSettings; label: string }[] = [
     { key: 'show_pens', label: 'Pens' },
@@ -164,9 +164,9 @@
   const sections = [
     { id: 'general', label: 'General' },
     { id: 'backups', label: 'Backups' },
-    { id: 'showcase', label: 'Showcase website' },
+    { id: 'visitors', label: 'Visitors' },
     { id: 'activity', label: 'Activity log' },
-    { id: 'defaults', label: 'Defaults for new items' },
+    { id: 'defaults', label: 'Formats and defaults' },
     { id: 'about', label: 'About' },
   ];
   let current = $state('general');
@@ -250,7 +250,7 @@
             onchange={(value) => update((next) => (next.theme = value))}
           />
         {/snippet}
-        {@render row('Theme', 'Auto follows your system setting.', theme)}
+        {@render row('Theme', 'Auto follows your device’s light or dark setting.', theme)}
         {#snippet editMode()}
           <Switch
             label="Open items in edit mode"
@@ -258,7 +258,7 @@
             onchange={(on) => update((next) => (next.open_items_in_edit_mode = on))}
           />
         {/snippet}
-        {@render row('Open items in edit mode', 'Clicking a pen, ink or swatch opens the editor instead of the detail view.', editMode)}
+        {@render row('Open items in edit mode', 'Clicking a pen, ink or swatch opens it for editing instead of showing its details.', editMode)}
         {#snippet confirmDelete()}
           <Switch
             label="Ask before deleting"
@@ -266,7 +266,7 @@
             onchange={(on) => update((next) => (next.confirm_destructive_actions = on))}
           />
         {/snippet}
-        {@render row('Ask before deleting', 'Confirm before removing pens, inks or swatches.', confirmDelete)}
+        {@render row('Ask before deleting', 'Asks for confirmation before a pen, ink or swatch is deleted.', confirmDelete)}
       </section>
 
       <section id="backups">
@@ -318,25 +318,23 @@
             onchange={(value) => update((next) => (next.backups.frequency = value))}
           />
         {/snippet}
-        {@render row('Automatic backups', 'How often a full backup is written to the backups folder.', frequency)}
+        {@render row('Automatic backups', 'How often a full copy of your collection, photos included, is saved to the backups folder.', frequency)}
         {#snippet keep()}
-          <label class="number">
-            <input
-              type="number"
-              min="1"
-              max="365"
-              value={s.backups.keep}
-              aria-label="Backups to keep"
-              onchange={(event) => {
-                const value = Math.round(Number(event.currentTarget.value));
-                if (value >= 1) update((next) => (next.backups.keep = value));
-                else event.currentTarget.value = String(s.backups.keep);
-              }}
-            />
-            <span>backups</span>
-          </label>
+          <input
+            class="number"
+            type="number"
+            min="1"
+            max="365"
+            value={s.backups.keep}
+            aria-label="Backups to keep"
+            onchange={(event) => {
+              const value = Math.round(Number(event.currentTarget.value));
+              if (value >= 1) update((next) => (next.backups.keep = value));
+              else event.currentTarget.value = String(s.backups.keep);
+            }}
+          />
         {/snippet}
-        {@render row('Keep', 'Older automatic backups are deleted after this many.', keep)}
+        {@render row('Backups to keep', 'When there are more automatic backups than this, the oldest are deleted.', keep)}
         {#snippet replaced()}
           <Switch
             label="Keep replaced photos"
@@ -344,7 +342,7 @@
             onchange={(on) => update((next) => (next.backups.keep_replaced_photos = on))}
           />
         {/snippet}
-        {@render row('Keep replaced photos', 'Photos you replace or remove are moved aside instead of deleted.', replaced)}
+        {@render row('Keep replaced photos', 'When you replace or remove a photo, the old file is moved to the replaced-photos folder instead of being deleted.', replaced)}
         {#snippet validateImport()}
           <Switch
             label="Check backups before restoring"
@@ -352,23 +350,23 @@
             onchange={(on) => update((next) => (next.backups.validate_on_import = on))}
           />
         {/snippet}
-        {@render row('Check backups before restoring', 'Validate a backup file before it replaces your collection.', validateImport)}
+        {@render row('Check backups before restoring', 'Makes sure a backup file is complete and readable before it replaces your collection.', validateImport)}
       </section>
 
-      <section id="showcase">
-        <h3>Showcase website</h3>
+      <section id="visitors">
+        <h3>Visitors</h3>
         {#snippet enabled()}
           <Switch
-            label="Public showcase"
+            label="Let visitors see the collection"
             checked={s.showcase.enabled}
             onchange={(on) => update((next) => (next.showcase.enabled = on))}
           />
         {/snippet}
         {@render row(
-          'Public showcase',
+          'Let visitors see the collection',
           s.showcase.enabled
-            ? 'Anyone who can reach this address sees your collection without signing in, as chosen below. Private notes, purchase details and fill notes are never shown.'
-            : 'Off: people who are not signed in only see the sign-in page.',
+            ? 'Anyone who opens this address without signing in can browse what you choose below, but cannot change anything. Purchase details, fill notes and private notes are never shown.'
+            : 'Only you see the collection. Anyone else who opens this address gets the sign-in page.',
           enabled,
         )}
         {#snippet title()}
@@ -376,17 +374,18 @@
             class="text"
             type="text"
             value={s.showcase.title}
-            aria-label="Showcase title"
+            aria-label="Name for visitors"
             onchange={(event) => {
               const value = event.currentTarget.value.trim();
-              if (value !== s.showcase.title) update((next) => (next.showcase.title = value));
+              if (!value) event.currentTarget.value = s.showcase.title;
+              else if (value !== s.showcase.title) update((next) => (next.showcase.title = value));
             }}
           />
         {/snippet}
-        {@render row('Title', 'Shown at the top of the public page.', title)}
+        {@render row('Name for visitors', 'Shown to visitors in place of “Inkubator”, at the top and in the browser tab.', title)}
         {#snippet showcaseTheme()}
           <Segmented
-            label="Showcase theme"
+            label="Theme for visitors"
             value={s.showcase.theme}
             options={[
               { value: 'auto', label: 'Auto' },
@@ -396,14 +395,14 @@
             onchange={(value) => update((next) => (next.showcase.theme = value))}
           />
         {/snippet}
-        {@render row('Theme', 'Auto follows each visitor’s system setting.', showcaseTheme)}
+        {@render row('Theme for visitors', 'Auto follows each visitor’s own light or dark setting.', showcaseTheme)}
         <p class="kicker sub">Visitors can see</p>
         <div class="grid">
           {#each visibility as item (item.key)}
             <div class="cell">
               <span>{item.label}</span>
               <Switch
-                label="Show {item.label.toLowerCase()} on the showcase"
+                label="Show {item.label.toLowerCase()} to visitors"
                 checked={s.showcase[item.key] as boolean}
                 onchange={(on) => update((next) => ((next.showcase[item.key] as boolean) = on))}
               />
@@ -411,31 +410,39 @@
           {/each}
         </div>
         <p class="help note">
-          Notes also need “Show on showcase” on each pen, ink or swatch; with Notes off here, none are shown.
+          A note is shown only when Notes is on here and “Show to visitors” is on for that pen, ink or swatch.
         </p>
-        {#snippet sorts()}
-          <div class="selects">
+        <p class="kicker sub">Visitors’ lists are sorted by</p>
+        <div class="grid">
+          <div class="cell">
+            <span>Pens</span>
             <Select
-              label="Pens on the showcase"
+              label="Pens are sorted by"
               value={s.showcase.pen_sort}
-              options={penSorts.map((o) => ({ value: o.value, label: `Pens: ${o.label.toLowerCase()}` }))}
+              options={penSorts}
               onchange={(value) => update((next) => (next.showcase.pen_sort = value))}
             />
+          </div>
+          <div class="cell">
+            <span>Inks</span>
             <Select
-              label="Inks on the showcase"
+              label="Inks are sorted by"
               value={s.showcase.ink_sort}
-              options={inkSorts.map((o) => ({ value: o.value, label: `Inks: ${o.label.toLowerCase()}` }))}
+              options={inkSorts}
               onchange={(value) => update((next) => (next.showcase.ink_sort = value))}
             />
+          </div>
+          <div class="cell">
+            <span>Swatches</span>
             <Select
-              label="Swatches on the showcase"
+              label="Swatches are sorted by"
               value={s.showcase.swatch_sort}
-              options={swatchSorts.map((o) => ({ value: o.value, label: `Swatches: ${o.label.toLowerCase()}` }))}
+              options={swatchSorts}
               onchange={(value) => update((next) => (next.showcase.swatch_sort = value))}
             />
           </div>
-        {/snippet}
-        {@render row('Default sort', 'How each list is ordered when a visitor opens it.', sorts)}
+        </div>
+        <p class="help note">Visitors can still sort a list another way; this is how it opens.</p>
       </section>
 
       <section id="activity">
@@ -450,7 +457,7 @@
         {/snippet}
         {@render row(
           'Keep activity for',
-          'Older entries are removed, together with the ink history they cover. Pens’ current inks are always kept.',
+          'Older entries are deleted, along with the ink history from that time. What is in your pens now is always kept.',
           retention,
         )}
         {#snippet detail()}
@@ -465,8 +472,8 @@
             onchange={(value) => update((next) => (next.activity.detail = value))}
           />
         {/snippet}
-        {@render row('Detail', 'Normal names the fields you change; Detailed also records the old and new values.', detail)}
-        <p class="kicker sub">Record</p>
+        {@render row('Detail', 'Brief records only what happened to which item. Normal also names the fields you changed, and Detailed adds their old and new values.', detail)}
+        <p class="kicker sub">What to record</p>
         <div class="grid">
           {#each [
             { key: 'record_pen_changes', label: 'Pen changes' },
@@ -488,7 +495,7 @@
       </section>
 
       <section id="defaults">
-        <h3>Defaults for new items</h3>
+        <h3>Formats and defaults</h3>
         {#snippet currency()}
           <Select
             label="Currency"
@@ -497,7 +504,7 @@
             onchange={(value) => update((next) => (next.defaults.currency = value))}
           />
         {/snippet}
-        {@render row('Currency', 'Used for every price.', currency)}
+        {@render row('Currency', 'Used for all prices.', currency)}
         {#snippet dateFormat()}
           <Select
             label="Date format"
@@ -506,7 +513,7 @@
             onchange={(value) => update((next) => (next.defaults.date_format = value))}
           />
         {/snippet}
-        {@render row('Date format', '', dateFormat)}
+        {@render row('Date format', 'How dates are shown everywhere, for you and for visitors.', dateFormat)}
         {#snippet nibSize()}
           <input
             class="text short"
@@ -518,7 +525,7 @@
           />
           <datalist id="default-nib-sizes">{#each nibSizes as v (v)}<option value={v}></option>{/each}</datalist>
         {/snippet}
-        {@render row('Nib size', 'Filled in when you add a pen. Leave empty for none.', nibSize)}
+        {@render row('Nib size for new pens', 'Filled in when you add a pen. Leave empty for none.', nibSize)}
         {#snippet nibMaterial()}
           <input
             class="text short"
@@ -530,7 +537,7 @@
           />
           <datalist id="default-nib-materials">{#each nibMaterials as v (v)}<option value={v}></option>{/each}</datalist>
         {/snippet}
-        {@render row('Nib material', '', nibMaterial)}
+        {@render row('Nib material for new pens', 'Filled in when you add a pen. Leave empty for none.', nibMaterial)}
         {#snippet inkKind()}
           <Segmented
             label="Ink type"
@@ -539,7 +546,7 @@
             onchange={(value) => update((next) => (next.defaults.ink_kind = value))}
           />
         {/snippet}
-        {@render row('Ink type', 'Selected when you add an ink.', inkKind)}
+        {@render row('Type for new inks', 'Selected when you add an ink.', inkKind)}
       </section>
 
       <section id="about">
@@ -684,7 +691,7 @@
     text-decoration: none;
   }
   .text,
-  .number input {
+  .number {
     padding: 6px 10px;
     border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
@@ -698,25 +705,13 @@
     width: 140px;
   }
   .number {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--muted);
-    font-size: 13px;
-  }
-  .number input {
     width: 80px;
   }
   .text:focus-visible,
-  .number input:focus-visible {
+  .number:focus-visible {
     border-color: var(--accent);
     outline: none;
     box-shadow: 0 0 0 3px var(--accent-soft);
-  }
-  .selects {
-    display: grid;
-    gap: 6px;
-    justify-items: end;
   }
   @media (max-width: 900px) {
     .layout {

@@ -146,7 +146,7 @@
           Notes
           {#if owner}<span class="visibility">
             <Icon name={pen.notes_public ? 'globe' : 'lock-simple'} size={12} />
-            {pen.notes_public ? 'Shown on showcase' : 'Private'}
+            {pen.notes_public ? 'Shown to visitors' : 'Private'}
           </span>{/if}
         </h4>
         <p class="notes">{pen.notes}</p>

@@ -207,12 +207,12 @@
         <TextField label="Notes" bind:value={draft.notes} multiline placeholder="Paper, pen, conditions…" />
         <div class="switch-row">
           <div>
-            <p>Show on showcase</p>
+            <p>Show to visitors</p>
             <p class="meta">
-              {data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden on the showcase in Settings.'}
+              {data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden from visitors in Settings.'}
             </p>
           </div>
-          <Switch label="Show notes on showcase" bind:checked={draft.notes_public} />
+          <Switch label="Show notes to visitors" bind:checked={draft.notes_public} />
         </div>
       </fieldset>
     </div>

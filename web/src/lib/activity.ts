@@ -47,7 +47,7 @@ const fieldNames: Record<Subject, Record<string, string>> = {
     purchased_on: 'Bought',
     purchased_from: 'Bought from',
     notes: 'Notes',
-    notes_public: 'Notes on showcase',
+    notes_public: 'Notes shown to visitors',
     images: 'Photos',
   },
   ink: {
@@ -71,7 +71,7 @@ const fieldNames: Record<Subject, Record<string, string>> = {
     base_types: 'Base',
     paper: 'On paper',
     notes: 'Notes',
-    notes_public: 'Notes on showcase',
+    notes_public: 'Notes shown to visitors',
     images: 'Photos',
   },
   swatch: {
@@ -80,7 +80,7 @@ const fieldNames: Record<Subject, Record<string, string>> = {
     nib: 'Nib',
     sampled_on: 'Date',
     notes: 'Notes',
-    notes_public: 'Notes on showcase',
+    notes_public: 'Notes shown to visitors',
     images: 'Photos',
   },
 };

@@ -97,7 +97,7 @@
           {#if owner}
             <span class="visibility">
               <Icon name={swatch.notes_public ? 'globe' : 'lock-simple'} size={12} />
-              {swatch.notes_public ? 'Shown on showcase' : 'Private'}
+              {swatch.notes_public ? 'Shown to visitors' : 'Private'}
             </span>
           {/if}
         </h4>

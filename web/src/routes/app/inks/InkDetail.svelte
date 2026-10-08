@@ -126,7 +126,7 @@
           {#if owner}
             <span class="visibility">
               <Icon name={ink.notes_public ? 'globe' : 'lock-simple'} size={12} />
-              {ink.notes_public ? 'Shown on showcase' : 'Private'}
+              {ink.notes_public ? 'Shown to visitors' : 'Private'}
             </span>
           {/if}
         </h4>

@@ -154,6 +154,16 @@ Fixed in this order unless the owner says otherwise; mark each when done.
 5. [x] Desk on phones: the inked pen's card is unbalanced (huge "Today", big swab stacked on the left). Compact layout: photo + pen name, then one line with a small swab, ink name and days, then Re-ink / Flush. Check signed in and signed out.
 6. [x] Docker image has no icon on Unraid: add the `net.unraid.docker.icon` label (and the WebUI label), and the Icon URL field to the Unraid guide. Done; the icon URL points at `main`, so it shows once 3.0 is merged there.
 
+Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
+
+## Owner's notes from testing 3.0.0-rc.3 (2026-10-08) — before 3.0.0
+
+1. [x] Ink editor, Bottle: Type belongs on one line with its options, like the On paper rows (label left), not label above.
+2. [x] Ink editor, Sheen color: adding one through a text link feels off. Improve without changing the Color section's look, or leave it. Done: an empty sheen shows a dashed + circle and "None" in the code box; typing a code or clicking + adds one, × removes it (`ColorInput` with `fallback`).
+3. [x] Settings: rewrite descriptions that read oddly (e.g. Backups → Keep: "Older automatic backups are deleted after this many."). Drop the "showcase" wording: the section is now about what signed-out visitors may see, so name and describe it that way (app and docs). Done: the section is now "Visitors" ("Let visitors see the collection", "Name for visitors", "Show to visitors" on notes), every description rewritten, "Defaults for new items" became "Formats and defaults"; docs updated. Internal names (`showcase` settings, API) unchanged.
+4. [x] Settings → Default sort: the label with three dropdowns stacked to its right looks wrong; lay it out properly. Done: three labelled cells (Pens, Inks, Swatches) like the toggles above.
+5. [x] Pen editor: same treatment as the ink editor, with the left column kept to the preview and photos and the rest in the form. Done: Finish and body colors moved into a Color section; Brand, Model, Body material share the first row.
+
 ## Follow-ups (do not lose)
 
 - **CI:** `.github/workflows/release.yml` builds, tests and publishes (see phase 7, step 4). The macOS Intel program is cross-built on an Apple Silicon runner and is not started in CI.

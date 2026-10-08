@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * Add or edit a pen. The preview column holds the crop tool for the chosen
-   * photo, a live card preview and the body colors used when there is no photo.
+   * photo, a live card preview and the photos; everything else is in the form.
    */
   import { untrack } from 'svelte';
   import { photoUrl } from '../../../lib/api';
@@ -173,50 +173,53 @@
         name={[draft.brand, draft.model].filter(Boolean).join(' ')}
         ratio={4 / 3}
       />
-      <div class="colors">
-        <div class="swatches">
-          {#each draft.colors as _, index (index)}
-            <span class="color">
-              <input type="color" bind:value={draft.colors[index]} aria-label="Body color {index + 1}" />
-              {#if draft.colors.length > 1}
-                <button
-                  type="button"
-                  aria-label="Remove color {index + 1}"
-                  onclick={() => (draft.colors = draft.colors.filter((__, i) => i !== index))}
-                >
-                  <Icon name="x" size={10} />
-                </button>
-              {/if}
-            </span>
-          {/each}
-          {#if draft.colors.length < MAX_COLORS}
-            <button
-              type="button"
-              class="add-color"
-              aria-label="Add a color"
-              onclick={() => (draft.colors = [...draft.colors, draft.colors.at(-1) ?? '#2f3b4a'])}
-            >
-              <Icon name="plus" size={12} />
-            </button>
-          {/if}
-        </div>
-        <p class="meta">Colors draw the pen when there's no photo, and its dot in lists.</p>
-      </div>
     </aside>
 
     <div class="form">
       <fieldset>
         <legend class="kicker">Pen</legend>
-        <div class="row two">
+        <div class="row three">
           <TextField label="Brand" bind:value={draft.brand} list="pen-brands" autocomplete="off" />
           <TextField label="Model" bind:value={draft.model} autocomplete="off" />
-        </div>
-        <div class="row two">
-          <TextField label="Finish" bind:value={draft.color_name} placeholder="e.g. Green Stripe, Demonstrator" autocomplete="off" />
           <TextField label="Body material" bind:value={draft.body_material} list="pen-bodies" autocomplete="off" />
         </div>
         <datalist id="pen-brands">{#each brands as brand (brand)}<option value={brand}></option>{/each}</datalist>
         <datalist id="pen-bodies">{#each bodies as body (body)}<option value={body}></option>{/each}</datalist>
+      </fieldset>
+
+      <fieldset>
+        <legend class="kicker">Color</legend>
+        <TextField label="Finish" bind:value={draft.color_name} placeholder="e.g. Green Stripe, Demonstrator" autocomplete="off" />
+        <div class="scale">
+          <span>Body colors</span>
+          <div class="swatches">
+            {#each draft.colors as _, index (index)}
+              <span class="color">
+                <input type="color" bind:value={draft.colors[index]} aria-label="Body color {index + 1}" />
+                {#if draft.colors.length > 1}
+                  <button
+                    type="button"
+                    aria-label="Remove color {index + 1}"
+                    onclick={() => (draft.colors = draft.colors.filter((__, i) => i !== index))}
+                  >
+                    <Icon name="x" size={10} />
+                  </button>
+                {/if}
+              </span>
+            {/each}
+            {#if draft.colors.length < MAX_COLORS}
+              <button
+                type="button"
+                class="add-color"
+                aria-label="Add a color"
+                onclick={() => (draft.colors = [...draft.colors, draft.colors.at(-1) ?? '#2f3b4a'])}
+              >
+                <Icon name="plus" size={12} />
+              </button>
+            {/if}
+          </div>
+        </div>
+        <p class="hint">Up to four. They draw the pen when it has no photo, and its dot in lists.</p>
       </fieldset>
 
       <fieldset>
@@ -246,12 +249,12 @@
         <TextField label="Notes" bind:value={draft.notes} multiline placeholder="Anything worth remembering" />
         <div class="switch-row">
           <div>
-            <p>Show on showcase</p>
+            <p>Show to visitors</p>
             <p class="meta">
-              {data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden on the showcase in Settings.'}
+              {data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden from visitors in Settings.'}
             </p>
           </div>
-          <Switch label="Show notes on showcase" bind:checked={draft.notes_public} />
+          <Switch label="Show notes to visitors" bind:checked={draft.notes_public} />
         </div>
       </fieldset>
     </div>
@@ -308,16 +311,23 @@
     color: var(--muted);
     font-size: 12px;
   }
-  .colors {
+  .scale {
     display: grid;
-    justify-items: center;
-    gap: 6px;
+    grid-template-columns: 124px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .hint {
+    color: var(--muted);
+    font-size: 11.5px;
   }
   .swatches {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
     gap: 10px;
+    padding-top: 5px;
   }
   .color {
     position: relative;
@@ -430,6 +440,10 @@
     .two,
     .three {
       grid-template-columns: minmax(0, 1fr);
+    }
+    .scale {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
     }
   }
 </style>

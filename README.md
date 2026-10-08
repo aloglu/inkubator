@@ -14,8 +14,8 @@ and nothing in the cloud.
 - **Stats:** your inks across the spectrum, the rotation of the last months,
   and what went where.
 - **Activity:** everything that changed, day by day.
-- An optional **public showcase**: the same screens, read-only, for others to
-  see, showing only what you choose.
+- Optionally, **visitors** can see your collection without signing in: the
+  same screens, read-only, showing only what you choose.
 - Automatic **backups**, light and dark mode, and an app you can install from
   the browser.
 

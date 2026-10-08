@@ -38,29 +38,29 @@ Inkubator adapts to small screens: the tabs along the bottom are the Desk,
 Pens, **Ink a pen** (the round button in the middle), Inks, and More (which has
 Swatches, Stats, Activity and Settings).
 
-## The public showcase
+## Letting visitors see your collection
 
-Inkubator can also show your collection to people who are not signed in, as a
-read-only page. It is **off** until you turn it on:
+Inkubator can also show your collection to people who are not signed in,
+read-only. This is **off** until you turn it on:
 
-1. Open **Settings → Showcase website** and switch on **Public showcase**.
+1. Open **Settings → Visitors** and switch on **Let visitors see the
+   collection**.
 2. Choose what visitors see: pens, inks, swatches, prices, notes, stats,
    charts and activity, and how each list is sorted.
 
 Visitors who open your address then see the same screens as you, without any
 way to change anything, and only what you allowed. They can never see:
 
-- notes you have not marked "Show on showcase" (each pen, ink and swatch has
-  its own switch, and **Notes** in the showcase settings turns all of them off
-  at once),
+- notes you have not marked "Show to visitors" (each pen, ink and swatch has
+  its own switch, and **Notes** under Settings → Visitors turns all of them
+  off at once),
 - where you bought a pen, or prices when **Prices** is off,
 - notes on inkings,
 - your settings.
 
-While the showcase is off, anyone who is not signed in only sees the sign-in
-page.
+While this is off, anyone who is not signed in only sees the sign-in page.
 
-The showcase is mostly useful when Inkubator has an address others can reach;
+Letting visitors in is mostly useful when Inkubator has an address others can reach;
 see [Remote access](remote-access.md).
 
 ## Changing your password

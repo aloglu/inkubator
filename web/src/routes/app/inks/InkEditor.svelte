@@ -198,15 +198,7 @@
         </div>
         <div class="scale">
           <span>Sheen color</span>
-          <div class="sheen">
-            {#if draft.sheen_color !== null}
-              <ColorInput label="Sheen color" bind:value={draft.sheen_color} />
-              <button type="button" class="link" onclick={() => (draft.sheen_color = null)}>Remove</button>
-            {:else}
-              <span class="none">None</span>
-              <button type="button" class="link" onclick={() => (draft.sheen_color = '#b0423a')}>Add a sheen color</button>
-            {/if}
-          </div>
+          <ColorInput label="Sheen color" bind:value={draft.sheen_color} fallback="#b0423a" />
         </div>
         {#if draft.sheen_color !== null && draft.sheen === 'none'}
           <p class="hint">The sheen color shows on the swab once Sheen (under On paper) is above None.</p>
@@ -227,8 +219,8 @@
           <TextField label="Amount" bind:value={amount} inputmode="numeric" />
           <TextField label="Price" bind:value={price} suffix={currency} inputmode="decimal" />
         </div>
-        <div class="stack">
-          <span class="label">Type</span>
+        <div class="scale">
+          <span>Type</span>
           <Segmented label="Type" bind:value={draft.kind} options={kinds} equal />
         </div>
       </fieldset>
@@ -263,12 +255,12 @@
         <TextField label="Notes" bind:value={draft.notes} multiline placeholder="How it behaves, where it came from…" />
         <div class="switch-row">
           <div>
-            <p>Show on showcase</p>
+            <p>Show to visitors</p>
             <p class="meta">
-              {data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden on the showcase in Settings.'}
+              {data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden from visitors in Settings.'}
             </p>
           </div>
-          <Switch label="Show notes on showcase" bind:checked={draft.notes_public} />
+          <Switch label="Show notes to visitors" bind:checked={draft.notes_public} />
         </div>
       </fieldset>
     </div>
@@ -314,15 +306,6 @@
     color: var(--muted);
     font-size: 12px;
   }
-  .sheen {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 14px;
-  }
-  .none {
-    color: var(--fg);
-  }
   .family {
     justify-self: start;
     max-width: 100%;
@@ -331,23 +314,6 @@
     border-radius: var(--radius-sm);
     background: var(--field);
     font-size: 13px;
-  }
-  .stack {
-    display: grid;
-    gap: 4px;
-  }
-  .stack .label {
-    color: var(--muted);
-    font-size: 12px;
-  }
-  .link {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--muted);
-    font-size: 12px;
-    text-decoration: underline;
-    cursor: pointer;
   }
   .hint {
     color: var(--muted);

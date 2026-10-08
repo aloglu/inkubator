@@ -32,12 +32,12 @@ personal use.
 3. Open that address on your phone. It works at home and away, as long as
    Tailscale is on.
 
-This keeps Inkubator private: the public showcase, if you turned it on, is only
-visible to your own devices.
+This keeps Inkubator private: even if you let visitors see your collection,
+only your own devices can reach it.
 
 ## Cloudflare Tunnel: a public address without opening your router
 
-If you want others to see your [showcase](using-inkubator.md#the-public-showcase)
+If you want others to see [your collection](using-inkubator.md#letting-visitors-see-your-collection)
 at an address such as `https://pens.example.com`, a Cloudflare Tunnel
 publishes Inkubator without opening any port at home. You need a domain name
 managed by Cloudflare.

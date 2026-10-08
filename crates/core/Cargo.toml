@@ -1,6 +1,6 @@
 [package]
 name = "inkubator-core"
-version = "3.0.0-rc.5"
+version = "3.0.0-rc.6"
 description = "Data model, storage and import logic shared by the Inkubator desktop app and server."
 edition.workspace = true
 license.workspace = true

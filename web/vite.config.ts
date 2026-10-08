@@ -28,6 +28,8 @@ export default defineConfig({
   build: {
     target: 'es2022',
     outDir: 'dist',
+    // libheif (HEIC photos) is a 2 MB file of its own, loaded only when needed.
+    chunkSizeWarningLimit: 2100,
     emptyOutDir: true,
   },
 });

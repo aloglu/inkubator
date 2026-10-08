@@ -48,4 +48,7 @@ data is only read, never changed.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). To read HEIC photos (as iPhones save them), the web interface
+includes [libheif](https://github.com/strukturag/libheif) through
+[libheif-js](https://github.com/catdad-experiments/libheif-js), under the
+LGPL-3.0, unchanged and as a separate file loaded only when needed.

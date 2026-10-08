@@ -143,7 +143,7 @@ Fixed in this order unless the owner says otherwise; mark each when done.
 6. [x] Add-photo area in the editors is too small (bigger, with drag and drop).
 7. [x] Date pickers wherever a date is entered: the pen purchase date is a date picker with an "Only the month" checkbox (month pickers do not work in Safari and Firefox); swatch dates and Ink a pen already had pickers.
 8. [x] Filling system: several can be chosen; drop the combined "Converter, Cartridge" (choose Converter and Cartridge separately). Done: `Pen.filling_systems` is a list (no empty or repeated entries), the importer splits combined 2.x values on `,` `/` `+`, the editor offers chips (collection values first, then common ones) plus "Other…". Data from 3.0.0-rc.1 (old single field) does not load in the new version; acceptable, since the rc install was a throwaway test.
-9. [ ] HEIC photos (iPhone exports) are refused: accept them, converting to the usual format (likely in the browser before upload, as 2.x did, to keep the single static program).
+9. [x] HEIC photos (iPhone exports) are refused: now converted to JPEG in the browser before upload (`lib/heic.ts`): the browser's own decoder first (Safari), else libheif-js (LGPL-3.0, a separate 723 KB gzip file downloaded only when a HEIC photo is chosen). Recognised by type, name or file header. Tested with a real HEIC in Chromium (libheif path): converted and stored in under 2 s.
 
 ## Follow-ups (do not lose)
 

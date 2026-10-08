@@ -4,6 +4,7 @@
    * go to the server straight away; the item keeps them only when it is saved.
    */
   import { photoFromUrl, photoUrl, uploadPhoto, type PhotoSection } from '../api';
+  import { heicToJpeg, isHeic } from '../heic';
   import { newId } from '../ids';
   import { describeError } from '../stores/ui.svelte';
   import type { Image } from '../types/Image';
@@ -35,6 +36,8 @@
   } = $props();
 
   let uploading = $state(0);
+  /** A HEIC photo is being turned into JPEG before upload. */
+  let converting = $state(false);
   let error = $state('');
   let input: HTMLInputElement | undefined = $state();
   let linking = $state(false);
@@ -69,7 +72,20 @@
 
   async function add(files: FileList | null) {
     error = '';
-    for (const file of files ?? []) await store(() => uploadPhoto(section, file, name));
+    for (const file of files ?? []) {
+      await store(async () => {
+        let photo = file;
+        if (await isHeic(file)) {
+          converting = true;
+          try {
+            photo = await heicToJpeg(file);
+          } finally {
+            converting = false;
+          }
+        }
+        return uploadPhoto(section, photo, name);
+      });
+    }
     if (input) input.value = '';
   }
 
@@ -152,9 +168,9 @@
       void add(event.dataTransfer?.files ?? null);
     }}
   >
-    <input bind:this={input} type="file" accept="image/*" multiple onchange={(event) => add(event.currentTarget.files)} />
+    <input bind:this={input} type="file" accept="image/*,.heic,.heif" multiple onchange={(event) => add(event.currentTarget.files)} />
     <Icon name={uploading ? 'arrows-clockwise' : 'image'} size={24} />
-    <span class="title">{uploading ? 'Uploading…' : label}</span>
+    <span class="title">{converting ? 'Converting HEIC photo…' : uploading ? 'Uploading…' : label}</span>
     {#if !uploading}<span class="hint">Drop photos here, or choose</span>{/if}
   </label>
 </div>

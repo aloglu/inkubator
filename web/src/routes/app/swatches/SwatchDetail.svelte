@@ -9,6 +9,7 @@
   import SwatchMedia from '../../../lib/components/SwatchMedia.svelte';
   import { formatDate, fromDateInput, inkMaker } from '../../../lib/format';
   import { summary, swabSheen } from '../../../lib/ink';
+  import { canOpen, itemHref } from '../../../lib/items.svelte';
   import { router } from '../../../lib/router.svelte';
   import { collection } from '../../../lib/stores/collection.svelte';
   import { ui } from '../../../lib/stores/ui.svelte';
@@ -59,7 +60,7 @@
     <Button variant="ghost" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
     <Button
       icon="pencil-simple"
-      onclick={() => router.navigate(`/swatches?swatch=${encodeURIComponent(swatch.id)}&edit`)}
+      onclick={() => router.navigate(itemHref('swatch', swatch.id, { edit: true }))}
     >
       Edit
     </Button>
@@ -82,7 +83,7 @@
             <p class="strong">{ink.name}</p>
             <p class="meta">{[inkMaker(ink), summary(ink, 2)].filter(Boolean).join(' · ')}</p>
           </div>
-          <a class="open" href="/inks?ink={encodeURIComponent(ink.id)}">Open ink</a>
+          {#if canOpen('ink')}<a class="open" href={itemHref('ink', ink.id, { edit: false })}>Open ink</a>{/if}
         </div>
       {/if}
       <dl>

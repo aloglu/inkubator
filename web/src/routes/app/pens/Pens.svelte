@@ -12,6 +12,7 @@
   import { daysBetween, plural } from '../../../lib/format';
   import { swabSheen } from '../../../lib/ink';
   import { router } from '../../../lib/router.svelte';
+  import { itemHref, newHref } from '../../../lib/items.svelte';
   import { penFacets } from '../../../lib/facets';
   import { applyFilters, usefulFacets } from '../../../lib/filters';
   import { rank } from '../../../lib/search';
@@ -21,8 +22,6 @@
   import { openFills } from '../../../lib/suggestions';
   import type { Collection } from '../../../lib/types/Collection';
   import type { Pen } from '../../../lib/types/Pen';
-  import PenDetail from './PenDetail.svelte';
-  import PenEditor from './PenEditor.svelte';
 
   let { data }: { data: Collection } = $props();
 
@@ -41,12 +40,7 @@
   );
 
   const selectedId = $derived(router.query.get('pen'));
-  const selected = $derived(selectedId ? data.pens.find((pen) => pen.id === selectedId) : undefined);
-  const editing = $derived(collection.canEdit && (router.query.has('new') || (!!selected && router.query.has('edit'))));
-
-  const href = (pen: Pen, edit = collection.canEdit && data.settings.open_items_in_edit_mode) =>
-    `/pens?pen=${encodeURIComponent(pen.id)}${edit ? '&edit' : ''}`;
-  const close = () => router.navigate('/pens');
+  const href = (pen: Pen) => itemHref('pen', pen.id);
 </script>
 
 <div class="page">
@@ -54,7 +48,7 @@
     <h2>Pens</h2>
     <ListTools {list} {facets} items={data.pens} shown={pens.length} noun="pens" searchLabel="Search pens" sorts={penSorts}>
       {#snippet actions()}
-        {#if collection.canEdit}<Button icon="plus" onclick={() => router.navigate('/pens?new')}>Add pen</Button>{/if}
+        {#if collection.canEdit}<Button icon="plus" onclick={() => router.navigate(newHref('pen'))}>Add pen</Button>{/if}
       {/snippet}
     </ListTools>
   </header>
@@ -91,20 +85,6 @@
   {/if}
 </div>
 
-{#if editing}
-  <PenEditor
-    {data}
-    pen={router.query.has('new') ? undefined : selected}
-    onclose={(saved) => {
-      // A new item goes back to the list; an edited one back to its details.
-      const target = router.query.has('new') ? undefined : (saved ?? selected);
-      if (target) router.navigate(href(target, false));
-      else close();
-    }}
-  />
-{:else if selected}
-  <PenDetail {data} pen={selected} onclose={close} />
-{/if}
 
 <style>
   .page {

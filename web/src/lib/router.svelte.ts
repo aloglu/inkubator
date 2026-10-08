@@ -25,9 +25,11 @@ class Router {
 
   navigate(to: string, { replace = false } = {}) {
     if (to === location.pathname + location.search + location.hash) return;
+    const from = location.pathname;
     history[replace ? 'replaceState' : 'pushState'](null, '', to);
     this.sync();
-    if (!replace) scrollTo(0, 0);
+    // Opening or closing a panel keeps the page where it was.
+    if (!replace && location.pathname !== from) scrollTo(0, 0);
   }
 
   private sync() {

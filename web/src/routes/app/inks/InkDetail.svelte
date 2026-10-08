@@ -10,6 +10,7 @@
   import SwatchMedia from '../../../lib/components/SwatchMedia.svelte';
   import { daysBetween, formatDate, inkMaker, penName, plural } from '../../../lib/format';
   import { properties, summary, swabSheen } from '../../../lib/ink';
+  import { canOpen, itemHref, newHref } from '../../../lib/items.svelte';
   import { router } from '../../../lib/router.svelte';
   import { collection } from '../../../lib/stores/collection.svelte';
   import { ui } from '../../../lib/stores/ui.svelte';
@@ -88,7 +89,7 @@
       disabled={current.length > 0 || collection.saving}
       onclick={remove}
     />
-    <Button icon="pencil-simple" onclick={() => router.navigate(`${router.path}?ink=${encodeURIComponent(ink.id)}&edit`)}>
+    <Button icon="pencil-simple" onclick={() => router.navigate(itemHref('ink', ink.id, { edit: true }))}>
       Edit
     </Button>
     {/if}
@@ -139,7 +140,11 @@
         <div class="card">
           <span class="pen-thumb"><PenMedia {pen} radius="5px" /></span>
           <div class="grow">
-            <p class="strong">{penName(pen)}</p>
+            {#if canOpen('pen')}
+              <a class="strong" href={itemHref('pen', pen.id, { edit: false })}>{penName(pen)}</a>
+            {:else}
+              <p class="strong">{penName(pen)}</p>
+            {/if}
             <p class="meta">
               Since {formatDate(fill.inked_at, dateFormat)} · {plural(daysBetween(fill.inked_at, Date.now()), 'day')}
             </p>
@@ -156,13 +161,13 @@
       <h4 class="kicker spaced">Swatches</h4>
       <div class="thumbs">
         {#each swatches as swatch (swatch.id)}
-          <a class="thumb" href="/swatches?swatch={encodeURIComponent(swatch.id)}">
+          <a class="thumb" href={itemHref('swatch', swatch.id, { edit: false })}>
             <SwatchMedia {swatch} {ink} />
             <span>{[swatch.paper, swatch.nib].filter(Boolean).join(' · ') || 'Swatch'}</span>
           </a>
         {/each}
         {#if owner}
-          <a class="add" href="/swatches?new&ink={encodeURIComponent(ink.id)}">
+          <a class="add" href={newHref('swatch', ink.id)}>
             <Icon name="plus" size={16} />{swatches.length ? 'Add' : 'Add a swatch'}
           </a>
         {:else if !swatches.length}

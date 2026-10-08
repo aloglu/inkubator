@@ -4,6 +4,7 @@
    * rotation timeline (which ink was in which pen) and brand bars in gold.
    * Every mark has a tooltip on hover and focus, and every chart a table view.
    */
+  import { itemHref } from '../../../lib/items.svelte';
   import Segmented from '../../../lib/components/Segmented.svelte';
   import { daysBetween, formatDate, penName, plural } from '../../../lib/format';
   import { money } from '../../../lib/ink';
@@ -109,7 +110,7 @@
     <div class="spectrum">
       {#each spectrum as ink (ink.id)}
         <a
-          href="/inks?ink={encodeURIComponent(ink.id)}"
+          href={itemHref('ink', ink.id, { edit: false })}
           style:--c={ink.base_color}
           class:on={inUse.has(ink.id)}
           aria-label="{ink.name}, {ink.brand}{inUse.has(ink.id) ? ', in a pen' : ''}"
@@ -161,7 +162,7 @@
         </div>
         {#each rows as row (row.pen.id)}
           <div class="lane">
-            <a class="pen" href="/pens?pen={encodeURIComponent(row.pen.id)}" title={penName(row.pen)}>{laneLabel(row.pen)}</a>
+            <a class="pen" href={itemHref('pen', row.pen.id, { edit: false })} title={penName(row.pen)}>{laneLabel(row.pen)}</a>
             <div class="track">
               {#each ticks as tick (tick.at)}<span class="grid" style:left="{x(tick.at)}%"></span>{/each}
               {#each row.segments as segment (segment.fill.id)}
@@ -174,7 +175,7 @@
                 <a
                   class="segment"
                   class:open={segment.open}
-                  href={segment.ink ? `/inks?ink=${encodeURIComponent(segment.ink.id)}` : undefined}
+                  href={segment.ink ? itemHref('ink', segment.ink.id, { edit: false }) : undefined}
                   style:left="{x(segment.start)}%"
                   style:width="max(4px, calc({x(segment.end) - x(segment.start)}% - 2px))"
                   style:--c={segment.ink?.base_color ?? 'var(--muted)'}

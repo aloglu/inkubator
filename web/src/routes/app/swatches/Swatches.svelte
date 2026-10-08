@@ -8,6 +8,7 @@
   import ListTools from '../../../lib/components/ListTools.svelte';
   import SwatchMedia from '../../../lib/components/SwatchMedia.svelte';
   import { router } from '../../../lib/router.svelte';
+  import { itemHref, newHref } from '../../../lib/items.svelte';
   import { familyColors, swatchFacets } from '../../../lib/facets';
   import { applyFilters, usefulFacets } from '../../../lib/filters';
   import { rank } from '../../../lib/search';
@@ -17,8 +18,6 @@
   import type { ColorFamily } from '../../../lib/types/ColorFamily';
   import type { Collection } from '../../../lib/types/Collection';
   import type { Swatch } from '../../../lib/types/Swatch';
-  import SwatchDetail from './SwatchDetail.svelte';
-  import SwatchEditor from './SwatchEditor.svelte';
 
   let { data }: { data: Collection } = $props();
 
@@ -41,12 +40,7 @@
   });
 
   const selectedId = $derived(router.query.get('swatch'));
-  const selected = $derived(selectedId ? data.swatches.find((swatch) => swatch.id === selectedId) : undefined);
-  const editing = $derived(collection.canEdit && (router.query.has('new') || (!!selected && router.query.has('edit'))));
-
-  const href = (swatch: Swatch, edit = collection.canEdit && data.settings.open_items_in_edit_mode) =>
-    `/swatches?swatch=${encodeURIComponent(swatch.id)}${edit ? '&edit' : ''}`;
-  const close = () => router.navigate('/swatches');
+  const href = (swatch: Swatch) => itemHref('swatch', swatch.id);
 </script>
 
 <div class="page">
@@ -63,7 +57,7 @@
       swatch={(value) => familyColors[value as ColorFamily]}
     >
       {#snippet actions()}
-        {#if collection.canEdit}<Button icon="plus" onclick={() => router.navigate('/swatches?new')}>Add swatch</Button>{/if}
+        {#if collection.canEdit}<Button icon="plus" onclick={() => router.navigate(newHref('swatch'))}>Add swatch</Button>{/if}
       {/snippet}
     </ListTools>
   </header>
@@ -100,7 +94,7 @@
         variant="ghost"
         size="sm"
         icon="plus"
-        onclick={() => router.navigate(`/swatches?new&ink=${encodeURIComponent(unswatched[0]!.id)}`)}
+        onclick={() => router.navigate(newHref('swatch', unswatched[0]!.id))}
       >
         Add a swatch
       </Button>
@@ -108,21 +102,6 @@
   {/if}
 </div>
 
-{#if editing}
-  <SwatchEditor
-    {data}
-    swatch={router.query.has('new') ? undefined : selected}
-    inkId={router.query.get('ink') ?? undefined}
-    onclose={(saved) => {
-      // A new item goes back to the list; an edited one back to its details.
-      const target = router.query.has('new') ? undefined : (saved ?? selected);
-      if (target) router.navigate(href(target, false));
-      else close();
-    }}
-  />
-{:else if selected}
-  <SwatchDetail {data} swatch={selected} onclose={close} />
-{/if}
 
 <style>
   .page {

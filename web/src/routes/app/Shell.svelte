@@ -14,6 +14,7 @@
   import Activity from './activity/Activity.svelte';
   import Desk from './Desk.svelte';
   import InkFlow from './InkFlow.svelte';
+  import ItemPanels from './ItemPanels.svelte';
   import Inks from './inks/Inks.svelte';
   import Pens from './pens/Pens.svelte';
   import Settings from './settings/Settings.svelte';
@@ -166,6 +167,7 @@
         <h2>Page not found</h2>
         <p class="muted"><a href="/">Go to the Desk</a></p>
       {/if}
+      <ItemPanels data={collection.data} />
     {/if}
   </main>
 

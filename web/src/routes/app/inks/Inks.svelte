@@ -12,6 +12,7 @@
   import { applyFilters, usefulFacets } from '../../../lib/filters';
   import { swabSheen } from '../../../lib/ink';
   import { router } from '../../../lib/router.svelte';
+  import { itemHref, newHref } from '../../../lib/items.svelte';
   import { rank } from '../../../lib/search';
   import { inkSorts, sortInks } from '../../../lib/sorting';
   import { collection } from '../../../lib/stores/collection.svelte';
@@ -21,8 +22,6 @@
   import type { Collection } from '../../../lib/types/Collection';
   import type { Ink } from '../../../lib/types/Ink';
   import type { Pen } from '../../../lib/types/Pen';
-  import InkDetail from './InkDetail.svelte';
-  import InkEditor from './InkEditor.svelte';
 
   let { data }: { data: Collection } = $props();
 
@@ -63,13 +62,10 @@
   );
 
   const selectedId = $derived(router.query.get('ink'));
-  const selected = $derived(selectedId ? data.inks.find((ink) => ink.id === selectedId) : undefined);
-  const editing = $derived(collection.canEdit && (router.query.has('new') || (!!selected && router.query.has('edit'))));
 
   function open(ink: Ink) {
-    router.navigate(`/inks?ink=${encodeURIComponent(ink.id)}${collection.canEdit && data.settings.open_items_in_edit_mode ? '&edit' : ''}`);
+    router.navigate(itemHref('ink', ink.id));
   }
-  const close = () => router.navigate('/inks');
 </script>
 
 <div class="page">
@@ -86,7 +82,7 @@
       swatch={(value) => familyColors[value as ColorFamily]}
     >
       {#snippet actions()}
-        {#if collection.canEdit}<Button icon="plus" onclick={() => router.navigate('/inks?new')}>Add ink</Button>{/if}
+        {#if collection.canEdit}<Button icon="plus" onclick={() => router.navigate(newHref('ink'))}>Add ink</Button>{/if}
       {/snippet}
     </ListTools>
   </header>
@@ -122,16 +118,6 @@
   {/each}
 </div>
 
-{#if editing}
-  <InkEditor {data} ink={router.query.has('new') ? undefined : selected} onclose={(saved) => {
-    // A new ink goes back to the shelf; an edited one back to its details.
-    if (saved && !router.query.has('new')) router.navigate(`/inks?ink=${encodeURIComponent(saved.id)}`);
-    else if (!saved && selected) router.navigate(`/inks?ink=${encodeURIComponent(selected.id)}`);
-    else close();
-  }} />
-{:else if selected}
-  <InkDetail {data} ink={selected} onclose={close} />
-{/if}
 
 <style>
   .page {

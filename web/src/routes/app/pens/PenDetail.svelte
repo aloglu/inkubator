@@ -10,6 +10,7 @@
   import Swab from '../../../lib/components/Swab.svelte';
   import { daysBetween, formatDate, plural } from '../../../lib/format';
   import { money, swabSheen } from '../../../lib/ink';
+  import { canOpen, itemHref } from '../../../lib/items.svelte';
   import { router } from '../../../lib/router.svelte';
   import { collection } from '../../../lib/stores/collection.svelte';
   import { ui } from '../../../lib/stores/ui.svelte';
@@ -94,7 +95,7 @@
   {#snippet actions()}
     {#if owner}
       <Button variant="ghost" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
-      <Button icon="pencil-simple" onclick={() => router.navigate(`${router.path}?pen=${encodeURIComponent(pen.id)}&edit`)}>
+      <Button icon="pencil-simple" onclick={() => router.navigate(itemHref('pen', pen.id, { edit: true }))}>
         Edit
       </Button>
     {/if}
@@ -160,7 +161,7 @@
           <div class="row">
             <Swab base={ink.base_color} sheen={swabSheen(ink)} />
             <div class="grow">
-              <a class="strong" href="/inks?ink={encodeURIComponent(ink.id)}">{ink.name}</a>
+              {#if canOpen('ink')}<a class="strong" href={itemHref('ink', ink.id, { edit: false })}>{ink.name}</a>{:else}<span class="strong">{ink.name}</span>{/if}
               <p class="meta">
                 Since {formatDate(fill.inked_at, dateFormat)} · {plural(daysBetween(fill.inked_at, Date.now()), 'day')}
               </p>
@@ -196,7 +197,7 @@
           {#each earlier as { fill: past, ink: pastInk } (past.id)}
             <li>
               <Swab base={pastInk.base_color} sheen={swabSheen(pastInk)} size="xs" />
-              <a href="/inks?ink={encodeURIComponent(pastInk.id)}">{pastInk.name}</a>
+              {#if canOpen('ink')}<a href={itemHref('ink', pastInk.id, { edit: false })}>{pastInk.name}</a>{:else}{pastInk.name}{/if}
               <small>
                 {formatDate(past.inked_at, dateFormat, { short: true })} – {formatDate(past.emptied_at ?? 0, dateFormat, {
                   short: true,

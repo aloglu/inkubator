@@ -11,12 +11,8 @@
   import Icon from '../../lib/components/Icon.svelte';
   import type { ActivityEntry } from '../../lib/types/ActivityEntry';
   import type { Pen } from '../../lib/types/Pen';
-  import { router } from '../../lib/router.svelte';
-  import InkDetail from './inks/InkDetail.svelte';
-  import InkEditor from './inks/InkEditor.svelte';
+  import { canOpen, itemHref } from '../../lib/items.svelte';
   import InkMenu from './InkMenu.svelte';
-  import PenDetail from './pens/PenDetail.svelte';
-  import PenEditor from './pens/PenEditor.svelte';
 
   const WEEK = 7 * 24 * 60 * 60 * 1000;
 
@@ -53,26 +49,11 @@
       .filter(Boolean)
       .join(' ');
   }
-  // Names open the pen's or ink's page, when this viewer may see that page.
-  const pensOpen = $derived(collection.canEdit || data.settings.showcase.show_pens);
-  const inksOpen = $derived(collection.canEdit || data.settings.showcase.show_inks);
+  // Names open the pen's or ink's details over the Desk, when this viewer may see them.
+  const pensOpen = $derived(canOpen('pen'));
+  const inksOpen = $derived(canOpen('ink'));
   const penName = (pen: Pen) => [pen.brand, pen.model].filter(Boolean).join(' ');
 
-  // A pen's or ink's details open here, over the Desk, addressed like on their
-  // own pages (/?pen=<id>, &edit).
-  const openEditing = $derived(collection.canEdit && data.settings.open_items_in_edit_mode);
-  const penHref = (pen: Pen) => `/?pen=${encodeURIComponent(pen.id)}${openEditing ? '&edit' : ''}`;
-  const inkHref = (id: string) => `/?ink=${encodeURIComponent(id)}${openEditing ? '&edit' : ''}`;
-  const panelPen = $derived.by(() => {
-    const id = router.query.get('pen');
-    return id && pensOpen ? data.pens.find((pen) => pen.id === id) : undefined;
-  });
-  const panelInk = $derived.by(() => {
-    const id = router.query.get('ink');
-    return id && inksOpen ? data.inks.find((ink) => ink.id === id) : undefined;
-  });
-  const editingPanel = $derived(collection.canEdit && router.query.has('edit'));
-  const closePanel = () => router.navigate('/');
   const inks = $derived(new Map(data.inks.map((ink) => [ink.id, ink])));
   const pens = $derived(new Map(data.pens.map((pen) => [pen.id, pen])));
 
@@ -144,11 +125,11 @@
             <Swab base={ink.base_color} sheen={swabSheen(ink)} />
             <div class="what">
               <h3>
-                {#if inksOpen}<a class="plain" href={inkHref(ink.id)}>{ink.name}</a>{:else}{ink.name}{/if}
+                {#if inksOpen}<a class="plain" href={itemHref('ink', ink.id)}>{ink.name}</a>{:else}{ink.name}{/if}
               </h3>
               <p class="meta">
                 in
-                {#if pensOpen}<a class="plain pen" href={penHref(pen)}>{penName(pen)}</a>{:else}<span class="pen">{penName(pen)}</span>{/if}{#if nib}<span class="nib">{` · ${nib}`}</span>{/if}
+                {#if pensOpen}<a class="plain pen" href={itemHref('pen', pen.id)}>{penName(pen)}</a>{:else}<span class="pen">{penName(pen)}</span>{/if}{#if nib}<span class="nib">{` · ${nib}`}</span>{/if}
               </p>
             </div>
             <div class="time">
@@ -196,19 +177,6 @@
   {/if}
 </div>
 
-{#if panelPen}
-  {#if editingPanel}
-    <PenEditor {data} pen={panelPen} onclose={() => router.navigate(`/?pen=${encodeURIComponent(panelPen.id)}`)} />
-  {:else}
-    <PenDetail {data} pen={panelPen} onclose={closePanel} />
-  {/if}
-{:else if panelInk}
-  {#if editingPanel}
-    <InkEditor {data} ink={panelInk} onclose={() => router.navigate(`/?ink=${encodeURIComponent(panelInk.id)}`)} />
-  {:else}
-    <InkDetail {data} ink={panelInk} onclose={closePanel} />
-  {/if}
-{/if}
 
 <style>
   .page {

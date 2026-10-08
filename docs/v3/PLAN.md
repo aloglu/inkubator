@@ -193,6 +193,12 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 3. [x] The inked pens get a heading like Recent activity, and both headings are larger ("Inked pens", "Recent activity" in the display face).
 4. [x] Recent activity was shown to visitors only. Done: the owner always sees the latest five on the Desk; visitors still only when the Visitors settings allow it.
 
+## Owner's notes after importing the real 2.x collection on rc.8 (2026-10-08) — before 3.0.0
+
+1. [x] The ink panel's "In use" pens were not links, while the pen panel's ink was. Done: they open the pen.
+2. [x] Rule: following a link from a panel (or the Desk, Stats) never leaves the page. Done: one panel host for every page (`routes/app/ItemPanels.svelte`, addresses in `lib/items.svelte.ts`: `?pen=`, `?ink=`, `?swatch=`, `&edit`, `?new=pen|ink|swatch`, `&for=<ink>` for a new swatch, which then returns to that ink). Pages no longer render their own panels; links to items a visitor may not open are plain text. Opening or closing a panel no longer scrolls the page to the top.
+3. [x] Flush's notice (with Undo) appeared behind an open panel, unreachable: modal dialogs sit in the browser's top layer and make the page inert. Done: notices move into the topmost open modal dialog while one is open (`Notices.svelte`).
+
 ## Follow-ups (do not lose)
 
 - **CI:** `.github/workflows/release.yml` builds, tests and publishes (see phase 7, step 4). The macOS Intel program is cross-built on an Apple Silicon runner and is not started in CI.

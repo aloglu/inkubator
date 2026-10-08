@@ -1,10 +1,37 @@
 <script lang="ts">
-  /** Short-lived messages at the bottom of the screen. */
+  /**
+   * Short-lived messages at the bottom of the screen. An open modal panel sits
+   * in the browser's top layer and makes the page behind it inert, so while one
+   * is open the notices move into it, where they show and their buttons work.
+   */
   import { ui } from '../stores/ui.svelte';
   import Icon from './Icon.svelte';
+
+  let element: HTMLDivElement | undefined = $state();
+
+  $effect(() => {
+    const notices = element;
+    const home = notices?.parentElement;
+    if (!notices || !home) return;
+    /** Modal dialogs in the order they opened; the last is on top. */
+    let stack: HTMLDialogElement[] = [];
+    const place = () => {
+      const open = [...document.querySelectorAll('dialog')].filter((d) => d.open && d.matches(':modal'));
+      stack = [...stack.filter((d) => open.includes(d)), ...open.filter((d) => !stack.includes(d))];
+      const target = stack.at(-1) ?? home;
+      if (notices.parentElement !== target) target.append(notices);
+    };
+    const observer = new MutationObserver(place);
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['open'] });
+    place();
+    return () => {
+      observer.disconnect();
+      home.append(notices);
+    };
+  });
 </script>
 
-<div class="notices" role="status" aria-live="polite">
+<div class="notices" role="status" aria-live="polite" bind:this={element}>
   {#each ui.notices as notice (notice.id)}
     <div class="notice" class:error={notice.tone === 'error'}>
       {#if notice.tone === 'error'}<Icon name="warning" size={16} />{:else}<Icon name="check" size={16} />{/if}

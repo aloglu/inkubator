@@ -1,17 +1,17 @@
 <script lang="ts">
   /** The Desk: every inked pen, with what's in it and for how long. */
   import Button from '../../lib/components/Button.svelte';
-  import PenMedia from '../../lib/components/PenMedia.svelte';
   import Swab from '../../lib/components/Swab.svelte';
   import { swabSheen } from '../../lib/ink';
-  import { daysBetween, formatDate, formatLongDay, inkMaker, penDetails, plural } from '../../lib/format';
+  import { daysBetween, formatDate, formatLongDay, plural } from '../../lib/format';
   import { collection } from '../../lib/stores/collection.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
   import type { Collection } from '../../lib/types/Collection';
   import { verb } from '../../lib/activity';
   import Icon from '../../lib/components/Icon.svelte';
   import type { ActivityEntry } from '../../lib/types/ActivityEntry';
-  import ReinkMenu from './ReinkMenu.svelte';
+  import type { Pen } from '../../lib/types/Pen';
+  import InkMenu from './InkMenu.svelte';
 
   const WEEK = 7 * 24 * 60 * 60 * 1000;
 
@@ -46,6 +46,10 @@
       .filter(Boolean)
       .join(' ');
   }
+  // Names open the pen's or ink's page, when this viewer may see that page.
+  const pensOpen = $derived(collection.canEdit || data.settings.showcase.show_pens);
+  const inksOpen = $derived(collection.canEdit || data.settings.showcase.show_inks);
+  const penName = (pen: Pen) => [pen.brand, pen.model].filter(Boolean).join(' ');
   const inks = $derived(new Map(data.inks.map((ink) => [ink.id, ink])));
   const pens = $derived(new Map(data.pens.map((pen) => [pen.id, pen])));
 
@@ -110,30 +114,28 @@
   {#if rows.length}
     <ul class="rows">
       {#each rows as { fill, pen, ink, days } (fill.id)}
-        <li class="row" class:editable={collection.canEdit}>
-          <div class="media"><PenMedia {pen} radius="var(--radius-sm)" /></div>
-          <div class="pen">
-            <h3>{pen.model}</h3>
-            <p class="meta">{penDetails(pen)}</p>
+        {@const nib = [pen.nib_size, pen.nib_material].filter(Boolean).join(' · ')}
+        <li class="row">
+          <Swab base={ink.base_color} sheen={swabSheen(ink)} />
+          <div class="what">
+            <h3>
+              {#if inksOpen}<a class="plain" href="/inks?ink={encodeURIComponent(ink.id)}">{ink.name}</a>{:else}{ink.name}{/if}
+            </h3>
+            <p class="meta">
+              in
+              {#if pensOpen}<a class="plain pen" href="/pens?pen={encodeURIComponent(pen.id)}">{penName(pen)}</a>{:else}<span class="pen">{penName(pen)}</span>{/if}{#if nib}<span class="nib">{` · ${nib}`}</span>{/if}
+            </p>
           </div>
-          <div class="ink">
-            <span class="swab-cell"><Swab base={ink.base_color} sheen={swabSheen(ink)} /></span>
-            <div class="ink-text">
-              <a class="ink-name" href="/inks?ink={encodeURIComponent(ink.id)}">{ink.name}</a>
-              <p class="meta">{inkMaker(ink)}</p>
-            </div>
-          </div>
-          <div class="since">
+          <div class="time">
             {#if days === 0}
-              <p class="count"><strong>Inked today</strong></p>
+              <strong>Today</strong>
+              <span>inked {formatDate(fill.inked_at, dateFormat, { short: true })}</span>
             {:else}
-              <p class="count"><strong>{plural(days, 'day')}</strong><span class="tail">in the pen</span></p>
-              <p class="meta since-date">in the pen since {formatDate(fill.inked_at, dateFormat, { short: true })}</p>
+              <strong>{plural(days, 'day')}</strong>
+              <span>in the pen since {formatDate(fill.inked_at, dateFormat, { short: true })}</span>
             {/if}
           </div>
-          {#if collection.canEdit}
-            <div class="actions"><ReinkMenu {pen} current={ink} label="Change ink" withFlush /></div>
-          {/if}
+          {#if collection.canEdit}<InkMenu {pen} {ink} />{/if}
         </li>
       {/each}
     </ul>
@@ -216,81 +218,73 @@
     color: var(--fg);
     font-weight: 600;
   }
+  /* One quiet panel, a row per inked pen, led by its ink. */
   .rows {
     display: grid;
-    gap: 12px;
     margin: 0;
     padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--raised);
     list-style: none;
   }
   .row {
     display: grid;
-    grid-template-columns: 128px minmax(0, 1fr) minmax(0, 1.2fr) auto;
-    grid-template-areas: 'media pen ink since';
-    gap: 6px 22px;
+    grid-template-columns: 52px minmax(0, 1fr) auto auto;
+    gap: 0 16px;
     align-items: center;
-    padding: 18px 22px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--raised);
+    padding: 12px 14px;
   }
-  .row.editable {
-    grid-template-areas:
-      'media pen ink since'
-      'media pen ink actions';
+  .row + .row {
+    border-top: 1px solid var(--line);
   }
-  .media {
-    grid-area: media;
+  .row > :global(.swab) {
+    justify-self: center;
+    width: 46px;
+    height: 36px;
   }
-  .pen {
-    grid-area: pen;
-  }
-  .pen h3 {
-    font-size: 22px;
-    line-height: 1.1;
-  }
-  .meta {
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: 12.5px;
-  }
-  .ink {
-    grid-area: ink;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  .what {
     min-width: 0;
   }
-  .ink-name {
-    color: inherit;
+  .what h3 {
+    font-size: 18px;
+    line-height: 1.15;
+  }
+  .meta {
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 12.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pen {
+    color: var(--fg);
     font-weight: 500;
+  }
+  /* Links that read as plain text, like a card's whole surface. */
+  .plain {
+    color: inherit;
     text-decoration: none;
   }
-  .ink-name:hover {
-    text-decoration: underline;
+  .plain:focus-visible {
+    border-radius: 2px;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
-  .since {
-    grid-area: since;
+  .time {
+    display: grid;
+    justify-items: end;
     font-variant-numeric: tabular-nums;
-    text-align: right;
+    white-space: nowrap;
   }
-  .row.editable .since {
-    align-self: end;
+  .time strong {
+    font-size: 14px;
+    font-weight: 600;
   }
-  .count strong {
-    font-family: var(--font-display);
-    font-size: 22px;
-    font-weight: 400;
-    line-height: 1.1;
-  }
-  .tail {
-    display: none;
-  }
-  .actions {
-    grid-area: actions;
-    align-self: start;
-    justify-self: end;
-    padding-top: 4px;
+  .time span {
+    color: var(--muted);
+    font-size: 12px;
   }
   .recent {
     display: grid;
@@ -329,35 +323,6 @@
     padding: 28px 0;
   }
 
-  /* The layout follows the Desk's own width, which the sidebar narrows. */
-  @container desk (max-width: 860px) {
-    .row {
-      grid-template-columns: 112px minmax(0, 1fr) auto;
-      grid-template-areas:
-        'media pen since'
-        'media ink ink';
-      gap: 10px 18px;
-    }
-    .row.editable {
-      grid-template-areas:
-        'media pen since'
-        'media ink actions';
-    }
-    .row.editable .since {
-      align-self: start;
-    }
-    .ink {
-      gap: 10px;
-    }
-    .ink :global(.swab) {
-      width: 30px;
-      height: 24px;
-    }
-    .actions {
-      align-self: center;
-      padding-top: 0;
-    }
-  }
   @container desk (max-width: 640px) {
     .ledger {
       display: grid;
@@ -372,89 +337,29 @@
       border-top: 1px solid var(--line);
     }
   }
-  /* Narrow: the pen with its menu, then one line with the ink and its days.
-     The swab sits under the photo, so the ink's name lines up with the pen's. */
+  /* Narrow: smaller swabs, the nib and the date left out. */
   @container desk (max-width: 520px) {
-    .row,
-    .row.editable {
-      grid-template-columns: 64px minmax(0, 1fr) auto;
-      grid-template-areas:
-        'media pen actions'
-        'swab ink since';
-      column-gap: 0;
-      row-gap: 12px;
-      padding: 14px;
+    .row {
+      grid-template-columns: 40px minmax(0, 1fr) auto auto;
+      gap: 0 12px;
+      padding: 11px 8px 11px 12px;
     }
-    .row:not(.editable) .pen {
-      grid-column: 2 / -1;
+    .row > :global(.swab) {
+      width: 34px;
+      height: 27px;
     }
-    .pen {
-      padding-left: 14px;
+    .what h3 {
+      font-size: 16px;
     }
-    .pen h3 {
-      font-size: 19px;
+    .meta {
+      font-size: 12px;
     }
-    .ink {
-      display: contents;
-    }
-    .swab-cell,
-    .ink-text,
-    .row .since {
-      align-self: stretch;
-      display: flex;
-      align-items: center;
-      padding-top: 12px;
-      border-top: 1px solid var(--line);
-    }
-    .swab-cell {
-      grid-area: swab;
-      justify-content: center;
-    }
-    .ink-text {
-      grid-area: ink;
-      min-width: 0;
-      padding-left: 14px;
-    }
-    .ink .meta,
-    .since-date {
+    .nib,
+    .time span {
       display: none;
     }
-    .ink-name {
-      display: block;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .since {
-      justify-content: flex-end;
-      padding-left: 14px;
-    }
-    .count {
+    .time strong {
       font-size: 13px;
-      white-space: nowrap;
-    }
-    .count strong {
-      font-family: var(--font-body);
-      font-size: 14px;
-      font-weight: 600;
-    }
-    .tail {
-      display: inline;
-      margin-left: 0.3em;
-      color: var(--muted);
-    }
-    .actions {
-      align-self: start;
-      padding: 0 0 0 10px;
-    }
-    /* An icon only; the words stay for screen readers. */
-    .actions :global(.button-label) {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
     }
   }
 </style>

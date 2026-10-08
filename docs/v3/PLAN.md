@@ -184,7 +184,7 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 2. [x] Crop: independent width and height handles were asked for; after discussion the owner chose to leave the crop tool as it is (the card's shape is fixed).
 3. [x] Phone tab bar: Desk, Pens, Inks, Swatches, More (Swatches left More; the middle Ink a pen tab is gone). Ink a pen is the button beside the Desk title on every width, and "Ink this pen" on a pen's page.
 4. [x] Undo instead of confirming ink changes: inking, re-inking and flushing show a notice with Undo for 8 s (`Command::UndoInkChange { pen_id, at }`, which only takes back the pen's latest ink change and removes its activity entry; tested in `crates/core/tests/commands.rs`). Deleting keeps its confirmation.
-5. [ ] Settings: a small "Saved ✓" next to the title after each change (proposed; the owner has not answered yet).
+5. [x] Settings: confirm each saved change. Done the owner's way: a "Settings saved." notice that replaces the previous one instead of stacking (`ui.notify(..., key)`).
 
 ## Follow-ups (do not lose)
 

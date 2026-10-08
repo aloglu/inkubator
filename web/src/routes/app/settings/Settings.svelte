@@ -38,7 +38,7 @@
       change(next);
       try {
         await collection.run({ type: 'update_settings', settings: next });
-        if (done) ui.notify(done);
+        ui.notify(done ?? 'Settings saved.', 'info', undefined, 'settings');
       } catch (error) {
         ui.fail(error);
       }

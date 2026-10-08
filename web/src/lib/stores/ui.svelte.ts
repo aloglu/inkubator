@@ -4,7 +4,7 @@ import { ApiError } from '../api';
 /** A button on a notice, such as Undo. */
 export type NoticeAction = { label: string; run: () => void };
 
-export type Notice = { id: number; text: string; tone: 'info' | 'error'; action?: NoticeAction };
+export type Notice = { id: number; text: string; tone: 'info' | 'error'; action?: NoticeAction; key?: string };
 
 export type ConfirmRequest = {
   title: string;
@@ -58,10 +58,15 @@ class Ui {
     this.inkFlow = null;
   }
 
-  /** Shows a notice; one with an action (Undo) stays longer, to give time to use it. */
-  notify(text: string, tone: Notice['tone'] = 'info', action?: NoticeAction) {
+  /**
+   * Shows a notice; one with an action (Undo) stays longer, to give time to use
+   * it. A notice with a `key` replaces the one before it with the same key, so
+   * repeated changes (each saved setting) do not stack up.
+   */
+  notify(text: string, tone: Notice['tone'] = 'info', action?: NoticeAction, key?: string) {
     const id = this.next++;
-    this.notices.push({ id, text, tone, action });
+    if (key) this.notices = this.notices.filter((notice) => notice.key !== key);
+    this.notices.push({ id, text, tone, action, key });
     setTimeout(() => this.dismiss(id), tone === 'error' || action ? 8000 : 4000);
   }
 

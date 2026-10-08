@@ -58,7 +58,7 @@
     { label: 'Nib material', value: pen.nib_material || null },
     { label: 'Filling', value: pen.filling_systems.join(', ') || null },
     { label: 'Body', value: pen.body_material || null },
-    { label: 'Finish', value: pen.color_name || null },
+    { label: 'Colorway', value: pen.color_name || null },
     { label: 'Price', value: money(pen.price, data.settings.defaults.currency) },
     { label: 'Bought', value: purchased(pen.purchased_on) },
     { label: 'From', value: pen.purchased_from || null },

@@ -37,7 +37,7 @@ const fieldNames: Record<Subject, Record<string, string>> = {
   pen: {
     brand: 'Brand',
     model: 'Model',
-    color_name: 'Finish',
+    color_name: 'Colorway',
     colors: 'Body colors',
     nib_size: 'Nib size',
     nib_material: 'Nib material',

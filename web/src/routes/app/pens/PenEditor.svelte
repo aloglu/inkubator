@@ -190,7 +190,7 @@
 
       <fieldset>
         <legend class="kicker">Color</legend>
-        <TextField label="Finish" bind:value={draft.color_name} placeholder="e.g. Green Stripe, Demonstrator" autocomplete="off" />
+        <TextField label="Colorway" bind:value={draft.color_name} placeholder="e.g. Green Stripe, Smoke Demonstrator" autocomplete="off" />
         <div class="scale">
           <span>Body colors</span>
           <div class="swatches">

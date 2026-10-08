@@ -114,7 +114,8 @@
     swatch={router.query.has('new') ? undefined : selected}
     inkId={router.query.get('ink') ?? undefined}
     onclose={(saved) => {
-      const target = saved ?? selected;
+      // A new item goes back to the list; an edited one back to its details.
+      const target = router.query.has('new') ? undefined : (saved ?? selected);
       if (target) router.navigate(href(target, false));
       else close();
     }}

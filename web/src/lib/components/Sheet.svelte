@@ -5,12 +5,15 @@
    * narrow windows.
    */
   import type { Snippet } from 'svelte';
+  import type { IconName } from '../icons';
   import Button from './Button.svelte';
+  import Icon from './Icon.svelte';
 
   let {
     open,
     onclose,
     kicker,
+    icon,
     title,
     wide = false,
     actions,
@@ -20,6 +23,8 @@
     open: boolean;
     onclose: () => void;
     kicker?: string;
+    /** The section's icon, shown before the kicker. */
+    icon?: IconName;
     title?: string;
     wide?: boolean;
     actions?: Snippet;
@@ -55,6 +60,7 @@
     <div class="panel">
       <header>
         <div class="heading">
+          {#if icon}<span class="icon"><Icon name={icon} size={15} /></span>{/if}
           {#if kicker}<span class="kicker">{kicker}</span>{/if}
           {#if title}<h3>{title}</h3>{/if}
         </div>
@@ -110,6 +116,17 @@
     align-items: baseline;
     gap: 10px;
     min-width: 0;
+  }
+  .heading .icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    align-self: center;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
   }
   .actions {
     display: flex;

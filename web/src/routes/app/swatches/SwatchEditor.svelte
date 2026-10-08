@@ -128,7 +128,7 @@
   }
 </script>
 
-<Sheet open onclose={cancel} kicker="Swatch" title={isNew ? 'New swatch' : 'Edit'} wide>
+<Sheet icon="palette" open onclose={cancel} kicker="Swatch" title={isNew ? 'New swatch' : 'Edit'} wide>
   <form id="swatch-form" class="editor" onsubmit={save}>
     <aside class="preview">
       {#if cropIndex >= 0}

@@ -166,7 +166,7 @@
   }
 </script>
 
-<Sheet open onclose={cancel} kicker="Ink" title={isNew ? 'New ink' : 'Edit'} wide>
+<Sheet icon="drop" open onclose={cancel} kicker="Ink" title={isNew ? 'New ink' : 'Edit'} wide>
   <form id="ink-form" class="editor" onsubmit={save}>
     <aside class="preview">
       <Swab base={draft.base_color} sheen={swabSheen(draft)} size="lg" />

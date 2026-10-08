@@ -77,7 +77,7 @@
   }
 </script>
 
-<Sheet open {onclose} kicker="Ink">
+<Sheet icon="drop" open {onclose} kicker="Ink">
   {#snippet actions()}
     {#if owner}
     <Button

@@ -123,7 +123,12 @@
 </div>
 
 {#if editing}
-  <InkEditor {data} ink={router.query.has('new') ? undefined : selected} onclose={(saved) => (saved ? open(saved) : selected ? open(selected) : close())} />
+  <InkEditor {data} ink={router.query.has('new') ? undefined : selected} onclose={(saved) => {
+    // A new ink goes back to the shelf; an edited one back to its details.
+    if (saved && !router.query.has('new')) router.navigate(`/inks?ink=${encodeURIComponent(saved.id)}`);
+    else if (!saved && selected) router.navigate(`/inks?ink=${encodeURIComponent(selected.id)}`);
+    else close();
+  }} />
 {:else if selected}
   <InkDetail {data} ink={selected} onclose={close} />
 {/if}

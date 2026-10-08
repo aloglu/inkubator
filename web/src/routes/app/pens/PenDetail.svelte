@@ -58,7 +58,7 @@
     { label: 'Nib material', value: pen.nib_material || null },
     { label: 'Filling', value: pen.filling_system || null },
     { label: 'Body', value: pen.body_material || null },
-    { label: 'Color', value: pen.color_name || null },
+    { label: 'Finish', value: pen.color_name || null },
     { label: 'Price', value: money(pen.price, data.settings.defaults.currency) },
     { label: 'Bought', value: purchased(pen.purchased_on) },
     { label: 'From', value: pen.purchased_from || null },
@@ -90,7 +90,7 @@
   }
 </script>
 
-<Sheet open {onclose} kicker="Pen">
+<Sheet icon="pen-nib" open {onclose} kicker="Pen">
   {#snippet actions()}
     {#if owner}
       <Button variant="ghost" size="sm" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />

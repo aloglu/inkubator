@@ -140,7 +140,7 @@
   }
 </script>
 
-<Sheet open onclose={cancel} kicker="Pen" title={isNew ? 'New pen' : 'Edit'} wide>
+<Sheet icon="pen-nib" open onclose={cancel} kicker="Pen" title={isNew ? 'New pen' : 'Edit'} wide>
   <form id="pen-form" class="editor" onsubmit={save}>
     <aside class="preview">
       {#if cropIndex >= 0}
@@ -210,7 +210,7 @@
           <TextField label="Model" bind:value={draft.model} autocomplete="off" />
         </div>
         <div class="row two">
-          <TextField label="Color name" bind:value={draft.color_name} autocomplete="off" />
+          <TextField label="Finish" bind:value={draft.color_name} placeholder="e.g. Green Stripe, Demonstrator" autocomplete="off" />
           <TextField label="Body material" bind:value={draft.body_material} list="pen-bodies" autocomplete="off" />
         </div>
         <datalist id="pen-brands">{#each brands as brand (brand)}<option value={brand}></option>{/each}</datalist>

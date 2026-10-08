@@ -147,7 +147,7 @@ Fixed in this order unless the owner says otherwise; mark each when done.
 
 ## Owner's notes from testing 3.0.0-rc.2 (2026-10-08) — before 3.0.0
 
-1. [ ] Adding an item still opens its detail panel afterwards (meant to be fixed in rc.2): reproduce for pens, inks, swatches, desktop and phone; find the cause.
+1. [x] Adding an item still opens its detail panel afterwards (meant to be fixed in rc.2): reproduce for pens, inks, swatches, desktop and phone; find the cause. Resolved: not reproducible; the owner meant that after editing an item (opened from its detail panel), the detail panel is still open. Kept by decision (2026-10-08).
 2. [x] Panel headers: small uppercase kicker ("PEN") beside a display-font title ("Edit") looks like two unrelated things. One header style everywhere: icon + one title ("Pen", "New pen", "Edit pen"; same for inks and swatches).
 3. [x] Ink editor, Bottle: Volume / Amount / Price first, then Type; Type with its label above like the fields.
 4. [x] Ink editor's left column is too busy (base and sheen colors, shelf group, photo): keep only the swab preview and bottle photo there; move colors into a "Color" section of the form (base, sheen with a clear "None", shelf group). Done: colors moved into a Color section, with a typed `#rrggbb` code next to each picker (`ColorInput`).
@@ -163,6 +163,13 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 3. [x] Settings: rewrite descriptions that read oddly (e.g. Backups → Keep: "Older automatic backups are deleted after this many."). Drop the "showcase" wording: the section is now about what signed-out visitors may see, so name and describe it that way (app and docs). Done: the section is now "Visitors" ("Let visitors see the collection", "Name for visitors", "Show to visitors" on notes), every description rewritten, "Defaults for new items" became "Formats and defaults"; docs updated. Internal names (`showcase` settings, API) unchanged.
 4. [x] Settings → Default sort: the label with three dropdowns stacked to its right looks wrong; lay it out properly. Done: three labelled cells (Pens, Inks, Swatches) like the toggles above.
 5. [x] Pen editor: same treatment as the ink editor, with the left column kept to the preview and photos and the rest in the form. Done: Finish and body colors moved into a Color section; Brand, Model, Body material share the first row.
+
+## Owner's notes from testing 3.0.0-rc.4 (2026-10-08) — before 3.0.0
+
+1. [x] Desk at in-between widths (sidebar shown, narrow content): inked pen cards unbalanced (huge "Today", big swab), and the stats line wraps with stray borders. Done: the Desk's layouts follow its own width (container queries), the middle layout has a small swab and a smaller day count, and the stats become a 2×2 grid before they would wrap.
+2. [x] Detail panel header buttons (Delete, Edit) were smaller than Close: all regular size now.
+3. [x] Pen editor's left column was confusing (crop tool, slider, card preview, photos all at once). Done (pens and swatches): the preview first with "Adjust photo"; the crop tool opens only on request (from the preview or a photo's pencil button) with Done.
+4. [x] Notes had two headings (NOTES and a "Notes" label): the field label is for screen readers only. "Show to visitors" is a label-left row like the rest of the form.
 
 ## Follow-ups (do not lose)
 

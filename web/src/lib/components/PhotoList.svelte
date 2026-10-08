@@ -17,8 +17,8 @@
     name,
     ratio,
     label = 'Add a photo',
-    selected = $bindable(),
-    selectable = false,
+    adjusting,
+    onadjust,
     lookup,
   }: {
     images?: Image[];
@@ -27,10 +27,10 @@
     name: string;
     ratio: number;
     label?: string;
-    /** When bound, clicking a photo selects it (e.g. for cropping). */
-    selected?: string;
-    /** Photos can be picked for cropping. */
-    selectable?: boolean;
+    /** The photo being adjusted (cropped or rotated) elsewhere, highlighted here. */
+    adjusting?: string;
+    /** Offers an Adjust button on each photo. */
+    onadjust?: (id: string) => void;
     /** An extra way to find a photo online, e.g. on inkswatch.com; returns its address. */
     lookup?: { label: string; find: () => Promise<string> };
   } = $props();
@@ -60,7 +60,6 @@
         zoom: 1,
       };
       images = [...images, image];
-      if (selectable) selected = image.id;
       return true;
     } catch (failure) {
       error = describeError(failure);
@@ -111,7 +110,6 @@
     const rest = images.filter((image) => image.id !== id);
     if (rest.length && !rest.some((image) => image.primary)) rest[0] = { ...rest[0]!, primary: true };
     images = rest;
-    if (selected === id) selected = (rest.find((image) => image.primary) ?? rest[0])?.id;
   }
 
   function makePrimary(id: string) {
@@ -121,21 +119,14 @@
 
 <div class="photos">
   {#each images as image (image.id)}
-    <figure class:primary={image.primary} class:selected={selected === image.id}>
-      {#if selectable}
-        <button
-          type="button"
-          class="pick"
-          aria-label="Crop this photo"
-          aria-pressed={selected === image.id}
-          onclick={() => (selected = image.id)}
-        >
-          <PhotoFrame src={photoUrl(image.path, true)} {image} {ratio} mode="fit" radius="var(--radius-sm)" />
-        </button>
-      {:else}
-        <PhotoFrame src={photoUrl(image.path, true)} {image} {ratio} mode="fit" radius="var(--radius-sm)" />
-      {/if}
+    <figure class:primary={image.primary} class:selected={adjusting === image.id}>
+      <PhotoFrame src={photoUrl(image.path, true)} {image} {ratio} mode="fit" radius="var(--radius-sm)" />
       <div class="actions">
+        {#if onadjust}
+          <button type="button" aria-label="Adjust photo" title="Crop and rotate" onclick={() => onadjust(image.id)}>
+            <Icon name="pencil-simple" size={13} />
+          </button>
+        {/if}
         {#if images.length > 1}
           <button
             type="button"
@@ -212,14 +203,6 @@
   figure {
     position: relative;
     margin: 0;
-  }
-  .pick {
-    display: block;
-    width: 100%;
-    padding: 0;
-    border: 0;
-    background: none;
-    cursor: pointer;
   }
   figure.primary :global(.frame) {
     box-shadow: 0 0 0 1px var(--line-strong);

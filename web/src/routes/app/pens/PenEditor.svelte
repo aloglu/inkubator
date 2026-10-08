@@ -66,9 +66,8 @@
   let price = $state(original.price === null ? '' : String(original.price));
   let bought = $state(original.purchased_on ?? '');
   let error = $state('');
-  let cropping: string | undefined = $state(
-    untrack(() => (original.images.find((i) => i.primary) ?? original.images[0])?.id),
-  );
+  /** The photo shown in the crop tool, if any. */
+  let adjusting: string | undefined = $state();
 
   const isNew = $derived(!pen);
   const others = $derived(data.pens.filter((p) => p.id !== draft.id));
@@ -77,7 +76,7 @@
   const fillingOptions = $derived(suggestions(others.flatMap((p) => p.filling_systems), fillingSystems, 10));
   const brands = $derived([...new Set(others.map((p) => p.brand).filter(Boolean))].sort());
   const bodies = $derived([...new Set(others.map((p) => p.body_material).filter(Boolean))].sort());
-  const cropIndex = $derived(draft.images.findIndex((image) => image.id === cropping));
+  const adjustIndex = $derived(draft.images.findIndex((image) => image.id === adjusting));
   const cardImage = $derived(draft.images.find((i) => i.primary) ?? draft.images[0]);
 
   const dirty = $derived(
@@ -145,18 +144,20 @@
 <Sheet icon="pen-nib" open onclose={cancel} title={isNew ? 'New pen' : 'Edit pen'} wide>
   <form id="pen-form" class="editor" onsubmit={save}>
     <aside class="preview">
-      {#if cropIndex >= 0}
-        <CropTool
-          src={photoUrl(draft.images[cropIndex]!.path)}
-          bind:image={draft.images[cropIndex]!}
-          ratio={16 / 9}
-          label="Card crop (16:9)"
-        />
-      {/if}
-      {#if cardImage}
+      {#if adjustIndex >= 0}
+        <div class="adjust">
+          <CropTool
+            src={photoUrl(draft.images[adjustIndex]!.path)}
+            bind:image={draft.images[adjustIndex]!}
+            ratio={16 / 9}
+            label="Card crop (16:9)"
+          />
+          <Button size="sm" icon="check" onclick={() => (adjusting = undefined)}>Done</Button>
+        </div>
+      {:else if cardImage}
         <div class="card-preview">
-          <span>Card preview</span>
           <PhotoFrame src={photoUrl(cardImage.path)} image={cardImage} ratio={16 / 9} radius="var(--radius-sm)" />
+          <Button variant="ghost" size="sm" icon="pencil-simple" onclick={() => (adjusting = cardImage.id)}>Adjust photo</Button>
         </div>
       {:else}
         <PenDrawing colors={draft.colors} width={190} />
@@ -167,8 +168,8 @@
       </div>
       <PhotoList
         bind:images={draft.images}
-        bind:selected={cropping}
-        selectable
+        {adjusting}
+        onadjust={(id) => (adjusting = id)}
         section="pens"
         name={[draft.brand, draft.model].filter(Boolean).join(' ')}
         ratio={4 / 3}
@@ -246,15 +247,13 @@
 
       <fieldset>
         <legend class="kicker">Notes</legend>
-        <TextField label="Notes" bind:value={draft.notes} multiline placeholder="Anything worth remembering" />
-        <div class="switch-row">
-          <div>
-            <p>Show to visitors</p>
-            <p class="meta">
-              {data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden from visitors in Settings.'}
-            </p>
+        <TextField label="Notes" bind:value={draft.notes} multiline hideLabel placeholder="Anything worth remembering" />
+        <div class="scale">
+          <span>Show to visitors</span>
+          <div class="visibility">
+            <Switch label="Show notes to visitors" bind:checked={draft.notes_public} />
+            <span class="hint">{data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden from visitors in Settings.'}</span>
           </div>
-          <Switch label="Show notes to visitors" bind:checked={draft.notes_public} />
         </div>
       </fieldset>
     </div>
@@ -289,13 +288,12 @@
     background: var(--bg);
     text-align: center;
   }
-  .card-preview {
+  .card-preview,
+  .adjust {
     display: grid;
-    gap: 6px;
+    justify-items: center;
+    gap: 8px;
     width: 100%;
-    color: var(--muted);
-    font-size: 11.5px;
-    text-align: left;
   }
   .name {
     display: grid;
@@ -413,11 +411,11 @@
   .three {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .switch-row {
+  .visibility {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    gap: 6px 12px;
   }
   .error {
     color: var(--danger);

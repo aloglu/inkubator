@@ -252,15 +252,13 @@
 
       <fieldset>
         <legend class="kicker">Notes</legend>
-        <TextField label="Notes" bind:value={draft.notes} multiline placeholder="How it behaves, where it came from…" />
-        <div class="switch-row">
-          <div>
-            <p>Show to visitors</p>
-            <p class="meta">
-              {data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden from visitors in Settings.'}
-            </p>
+        <TextField label="Notes" bind:value={draft.notes} multiline hideLabel placeholder="How it behaves, where it came from…" />
+        <div class="scale">
+          <span>Show to visitors</span>
+          <div class="visibility">
+            <Switch label="Show notes to visitors" bind:checked={draft.notes_public} />
+            <span class="hint">{data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden from visitors in Settings.'}</span>
           </div>
-          <Switch label="Show notes to visitors" bind:checked={draft.notes_public} />
         </div>
       </fieldset>
     </div>
@@ -368,11 +366,11 @@
     overflow: hidden;
     clip-path: inset(50%);
   }
-  .switch-row {
+  .visibility {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    gap: 6px 12px;
   }
   .error {
     color: var(--danger);

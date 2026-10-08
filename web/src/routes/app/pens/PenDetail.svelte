@@ -93,8 +93,8 @@
 <Sheet icon="pen-nib" open {onclose} title="Pen">
   {#snippet actions()}
     {#if owner}
-      <Button variant="ghost" size="sm" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
-      <Button size="sm" icon="pencil-simple" onclick={() => router.navigate(`/pens?pen=${encodeURIComponent(pen.id)}&edit`)}>
+      <Button variant="ghost" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
+      <Button icon="pencil-simple" onclick={() => router.navigate(`/pens?pen=${encodeURIComponent(pen.id)}&edit`)}>
         Edit
       </Button>
     {/if}

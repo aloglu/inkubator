@@ -185,6 +185,7 @@
     display: grid;
     gap: 22px;
     align-content: start;
+    container: desk / inline-size;
   }
   .head {
     display: flex;
@@ -322,7 +323,8 @@
     padding: 28px 0;
   }
 
-  @media (max-width: 1100px) {
+  /* The layout follows the Desk's own width, which the sidebar narrows. */
+  @container desk (max-width: 860px) {
     .row {
       grid-template-columns: 112px minmax(0, 1fr) auto;
       grid-template-areas:
@@ -338,20 +340,25 @@
     }
     .ink {
       grid-area: ink;
+      gap: 10px;
+    }
+    .ink :global(.swab) {
+      width: 30px;
+      height: 24px;
     }
     .since {
       grid-area: since;
+      align-self: start;
       text-align: right;
+    }
+    .big {
+      font-size: 22px;
     }
     .actions {
       grid-area: actions;
     }
   }
-  @media (max-width: 700px) {
-    /* The tab bar has its own Ink a pen button. */
-    .head-action {
-      display: none;
-    }
+  @container desk (max-width: 640px) {
     .ledger {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -365,8 +372,14 @@
       border-top: 1px solid var(--line);
     }
   }
-  /* Phones: the pen, then one line with the ink and its days, then the buttons. */
-  @media (max-width: 560px) {
+  @media (max-width: 700px) {
+    /* The tab bar has its own Ink a pen button. */
+    .head-action {
+      display: none;
+    }
+  }
+  /* Narrow: the pen, then one line with the ink and its days, then the buttons. */
+  @container desk (max-width: 520px) {
     .row {
       grid-template-columns: 64px minmax(0, 1fr) auto;
       grid-template-areas:
@@ -385,13 +398,8 @@
       font-size: 19px;
     }
     .ink {
-      gap: 10px;
       padding-top: 12px;
       border-top: 1px solid var(--line);
-    }
-    .ink :global(.swab) {
-      width: 30px;
-      height: 24px;
     }
     .ink .meta,
     .since-date {

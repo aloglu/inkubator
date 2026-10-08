@@ -61,16 +61,16 @@
   let draft: Swatch = $state(structuredClone(original));
   let error = $state('');
   let picking = $state(untrack(() => !original.ink_id));
-  let cropping: string | undefined = $state(
-    untrack(() => (original.images.find((i) => i.primary) ?? original.images[0])?.id),
-  );
+  /** The photo shown in the crop tool, if any. */
+  let adjusting: string | undefined = $state();
 
   const isNew = $derived(!swatch);
   const ink = $derived(data.inks.find((i) => i.id === draft.ink_id));
   const others = $derived(data.swatches.filter((s) => s.id !== draft.id));
   const paperSuggestions = $derived(suggestions(others.map((s) => s.paper), [], 6));
   const nibSuggestions = $derived(suggestions(others.map((s) => s.nib), [], 6));
-  const cropIndex = $derived(draft.images.findIndex((image) => image.id === cropping));
+  const adjustIndex = $derived(draft.images.findIndex((image) => image.id === adjusting));
+  const mainImage = $derived(draft.images.find((i) => i.primary) ?? draft.images[0]);
   const dirty = $derived(JSON.stringify($state.snapshot(draft)) !== JSON.stringify(original));
 
   const unswatched = $derived.by(() => {
@@ -131,22 +131,28 @@
 <Sheet icon="palette" open onclose={cancel} title={isNew ? 'New swatch' : 'Edit swatch'} wide>
   <form id="swatch-form" class="editor" onsubmit={save}>
     <aside class="preview">
-      {#if cropIndex >= 0}
-        <CropTool
-          src={photoUrl(draft.images[cropIndex]!.path)}
-          bind:image={draft.images[cropIndex]!}
-          ratio={4 / 3}
-          label="Tile crop (4:3)"
-        />
+      {#if adjustIndex >= 0}
+        <div class="adjust">
+          <CropTool
+            src={photoUrl(draft.images[adjustIndex]!.path)}
+            bind:image={draft.images[adjustIndex]!}
+            ratio={4 / 3}
+            label="Tile crop (4:3)"
+          />
+          <Button size="sm" icon="check" onclick={() => (adjusting = undefined)}>Done</Button>
+        </div>
+      {:else}
+        <div class="tile-preview">
+          <SwatchMedia swatch={draft} {ink} thumb={false} />
+          {#if mainImage}
+            <Button variant="ghost" size="sm" icon="pencil-simple" onclick={() => (adjusting = mainImage.id)}>Adjust photo</Button>
+          {/if}
+        </div>
       {/if}
-      <div class="tile-preview">
-        <span>Tile preview</span>
-        <SwatchMedia swatch={draft} {ink} thumb={false} />
-      </div>
       <PhotoList
         bind:images={draft.images}
-        bind:selected={cropping}
-        selectable
+        {adjusting}
+        onadjust={(id) => (adjusting = id)}
         section="swatches"
         name={ink ? `${ink.brand} ${ink.name}` : 'swatch'}
         ratio={4 / 3}
@@ -204,15 +210,13 @@
 
       <fieldset>
         <legend class="kicker">Notes</legend>
-        <TextField label="Notes" bind:value={draft.notes} multiline placeholder="Paper, pen, conditions…" />
-        <div class="switch-row">
-          <div>
-            <p>Show to visitors</p>
-            <p class="meta">
-              {data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden from visitors in Settings.'}
-            </p>
+        <TextField label="Notes" bind:value={draft.notes} multiline hideLabel placeholder="Paper, pen, conditions…" />
+        <div class="scale">
+          <span>Show to visitors</span>
+          <div class="visibility">
+            <Switch label="Show notes to visitors" bind:checked={draft.notes_public} />
+            <span class="hint">{data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden from visitors in Settings.'}</span>
           </div>
-          <Switch label="Show notes to visitors" bind:checked={draft.notes_public} />
         </div>
       </fieldset>
     </div>
@@ -248,12 +252,12 @@
     border-right: 1px solid var(--line);
     background: var(--bg);
   }
-  .tile-preview {
+  .tile-preview,
+  .adjust {
     display: grid;
-    gap: 6px;
+    justify-items: center;
+    gap: 8px;
     width: 100%;
-    color: var(--muted);
-    font-size: 11.5px;
   }
   .form {
     display: grid;
@@ -310,11 +314,23 @@
   .date {
     width: 180px;
   }
-  .switch-row {
+  .visibility {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    gap: 6px 12px;
+  }
+  .scale {
+    display: grid;
+    grid-template-columns: 124px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .hint {
+    color: var(--muted);
+    font-size: 11.5px;
   }
   .error {
     color: var(--danger);

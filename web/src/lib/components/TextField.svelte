@@ -7,6 +7,7 @@
     prefix,
     suffix,
     multiline = false,
+    hideLabel = false,
     ...rest
   }: Omit<HTMLInputAttributes, 'value' | 'prefix'> & {
     label: string;
@@ -16,13 +17,15 @@
     /** Text shown after the input, e.g. "ml". */
     suffix?: string;
     multiline?: boolean;
+    /** Keep the label for screen readers only, when a heading already names the field. */
+    hideLabel?: boolean;
   } = $props();
 
   const id = $props.id();
 </script>
 
 <div class="field">
-  <label for={id}>{label}</label>
+  <label for={id} class:visually-hidden={hideLabel}>{label}</label>
   <div class="box" class:multiline>
     {#if prefix}<span class="affix">{prefix}</span>{/if}
     {#if multiline}

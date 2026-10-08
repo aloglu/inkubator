@@ -82,14 +82,13 @@
     {#if owner}
     <Button
       variant="ghost"
-      size="sm"
       icon="trash"
       aria-label={current.length ? 'Delete (flush the pen first)' : 'Delete'}
       title={current.length ? 'Flush the pen before deleting this ink.' : 'Delete'}
       disabled={current.length > 0 || collection.saving}
       onclick={remove}
     />
-    <Button size="sm" icon="pencil-simple" onclick={() => router.navigate(`/inks?ink=${encodeURIComponent(ink.id)}&edit`)}>
+    <Button icon="pencil-simple" onclick={() => router.navigate(`/inks?ink=${encodeURIComponent(ink.id)}&edit`)}>
       Edit
     </Button>
     {/if}

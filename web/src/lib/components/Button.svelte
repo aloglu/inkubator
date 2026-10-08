@@ -59,7 +59,7 @@
     font-size: 12px;
   }
   .btn.icon-only {
-    padding: 6px;
+    padding: 7px;
   }
   .btn.icon-only.sm {
     padding: 4px;

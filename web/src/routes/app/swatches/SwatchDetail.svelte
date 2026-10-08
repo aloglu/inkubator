@@ -56,9 +56,8 @@
 <Sheet icon="palette" open {onclose} title="Swatch" wide>
   {#snippet actions()}
     {#if owner}
-    <Button variant="ghost" size="sm" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
+    <Button variant="ghost" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
     <Button
-      size="sm"
       icon="pencil-simple"
       onclick={() => router.navigate(`/swatches?swatch=${encodeURIComponent(swatch.id)}&edit`)}
     >

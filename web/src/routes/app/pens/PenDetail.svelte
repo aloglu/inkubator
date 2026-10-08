@@ -373,10 +373,6 @@
     font-weight: 500;
     text-decoration: none;
   }
-  a.strong:hover,
-  .history a:hover {
-    text-decoration: underline;
-  }
   .history {
     display: grid;
     margin: 0;

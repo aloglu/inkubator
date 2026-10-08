@@ -1,5 +1,6 @@
 <script lang="ts">
   /** Everything that happened, newest first, grouped by day and written as sentences. */
+  import { canOpen, itemHref } from '../../../lib/items.svelte';
   import { changeLine, verb, type Context } from '../../../lib/activity';
   import Button from '../../../lib/components/Button.svelte';
   import Icon from '../../../lib/components/Icon.svelte';
@@ -69,11 +70,11 @@
     return id ? inks.get(id) : undefined;
   }
 
+  /** The entry's item, opened over this page, while it still exists and this viewer may see it. */
   function link(entry: ActivityEntry): string | null {
-    const id = encodeURIComponent(entry.subject_id);
-    if (entry.subject === 'pen') return pens.has(entry.subject_id) ? `/pens?pen=${id}` : null;
-    if (entry.subject === 'ink') return inks.has(entry.subject_id) ? `/inks?ink=${id}` : null;
-    return swatches.has(entry.subject_id) ? `/swatches?swatch=${id}` : null;
+    const known = { pen: pens, ink: inks, swatch: swatches }[entry.subject];
+    if (!known.has(entry.subject_id) || !canOpen(entry.subject)) return null;
+    return itemHref(entry.subject, entry.subject_id, { edit: false });
   }
 
   const icons: Record<ActivityEntry['action'], IconName> = {
@@ -352,9 +353,6 @@
   a {
     color: inherit;
     text-decoration: none;
-  }
-  a:hover {
-    text-decoration: underline;
   }
   small {
     display: block;

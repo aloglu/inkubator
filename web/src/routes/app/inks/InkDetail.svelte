@@ -306,6 +306,10 @@
   .strong {
     font-weight: 500;
   }
+  a.strong {
+    color: inherit;
+    text-decoration: none;
+  }
   .pen-thumb {
     flex: none;
     width: 72px;

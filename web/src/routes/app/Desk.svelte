@@ -266,7 +266,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .pen {
+  .meta .pen {
     color: var(--fg);
     font-weight: 500;
   }

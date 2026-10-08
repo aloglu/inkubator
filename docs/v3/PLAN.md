@@ -198,6 +198,7 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 1. [x] The ink panel's "In use" pens were not links, while the pen panel's ink was. Done: they open the pen.
 2. [x] Rule: following a link from a panel (or the Desk, Stats) never leaves the page. Done: one panel host for every page (`routes/app/ItemPanels.svelte`, addresses in `lib/items.svelte.ts`: `?pen=`, `?ink=`, `?swatch=`, `&edit`, `?new=pen|ink|swatch`, `&for=<ink>` for a new swatch, which then returns to that ink). Pages no longer render their own panels; links to items a visitor may not open are plain text. Opening or closing a panel no longer scrolls the page to the top.
 3. [x] Flush's notice (with Undo) appeared behind an open panel, unreachable: modal dialogs sit in the browser's top layer and make the page inert. Done: notices move into the topmost open modal dialog while one is open (`Notices.svelte`).
+4. [x] Item links (panels, Desk, Activity, Stats) show no decoration on hover; Activity's links also open the item over the Activity page now.
 
 ## Follow-ups (do not lose)
 

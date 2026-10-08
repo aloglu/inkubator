@@ -9,6 +9,19 @@
     <div class="notice" class:error={notice.tone === 'error'}>
       {#if notice.tone === 'error'}<Icon name="warning" size={16} />{:else}<Icon name="check" size={16} />{/if}
       <span>{notice.text}</span>
+      {#if notice.action}
+        {@const action = notice.action}
+        <button
+          type="button"
+          class="action"
+          onclick={() => {
+            ui.dismiss(notice.id);
+            action.run();
+          }}
+        >
+          {action.label}
+        </button>
+      {/if}
       <button type="button" aria-label="Dismiss" onclick={() => ui.dismiss(notice.id)}><Icon name="x" size={14} /></button>
     </div>
   {/each}
@@ -60,6 +73,13 @@
     cursor: pointer;
   }
   button:hover {
+    opacity: 1;
+  }
+  .action {
+    padding: 4px 8px;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
     opacity: 1;
   }
   @media (max-width: 700px) {

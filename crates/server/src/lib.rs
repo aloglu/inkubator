@@ -128,6 +128,7 @@ impl From<CommandError> for ApiError {
             CommandError::NotInked => "not_inked",
             CommandError::InkInUse => "ink_in_use",
             CommandError::TooEarly => "too_early",
+            CommandError::NothingToUndo => "nothing_to_undo",
         };
         Self::new(StatusCode::UNPROCESSABLE_ENTITY, code, error.to_string())
     }

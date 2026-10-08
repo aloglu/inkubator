@@ -3,6 +3,7 @@
    * Ink a pen: a sentence, [pen] → [ink]. Each side opens a search picker with a
    * few suggestions. Inking a pen that holds another ink records a re-ink.
    */
+  import { notifyWithUndo } from '../../lib/actions';
   import { familyName, inkFamily } from '../../lib/color';
   import Button from '../../lib/components/Button.svelte';
   import Dialog from '../../lib/components/Dialog.svelte';
@@ -100,7 +101,7 @@
         at: date === today ? null : fromDateInput(date),
         note: note.trim(),
       });
-      ui.notify(`Inked ${pen.model} with ${ink.name}.`);
+      notifyWithUndo(`Inked ${pen.model} with ${ink.name}.`, pen.id);
       close();
     } catch (failure) {
       error = describeError(failure);

@@ -10,7 +10,6 @@
   let {
     data,
     sections,
-    swatches,
     owner,
     onsignout,
     signInHref,
@@ -18,14 +17,12 @@
     data: Collection;
     /** The secondary sections this viewer may open (Stats, Activity). */
     sections: { path: string; label: string; icon: IconName }[];
-    swatches: boolean;
     owner: boolean;
     onsignout: () => void;
     signInHref: string;
   } = $props();
 
   const links: { href: string; label: string; icon: IconName; count?: number }[] = $derived([
-    ...(swatches ? [{ href: '/swatches', label: 'Swatches', icon: 'palette' as const, count: data.swatches.length }] : []),
     ...sections.map((section) => ({ href: section.path, label: section.label, icon: section.icon })),
     ...(owner ? [{ href: '/settings', label: 'Settings', icon: 'sliders-horizontal' as const }] : []),
   ]);

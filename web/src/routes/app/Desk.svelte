@@ -1,11 +1,10 @@
 <script lang="ts">
   /** The Desk: every inked pen, with what's in it and for how long. */
-  import { flushPen } from '../../lib/actions';
   import Button from '../../lib/components/Button.svelte';
   import PenMedia from '../../lib/components/PenMedia.svelte';
   import Swab from '../../lib/components/Swab.svelte';
   import { swabSheen } from '../../lib/ink';
-  import { daysBetween, formatDate, formatLongDay, inkMaker, penDetails } from '../../lib/format';
+  import { daysBetween, formatDate, formatLongDay, inkMaker, penDetails, plural } from '../../lib/format';
   import { collection } from '../../lib/stores/collection.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
   import type { Collection } from '../../lib/types/Collection';
@@ -92,7 +91,7 @@
       <p class="sub">{formatLongDay(now, dateFormat)}</p>
     </div>
     {#if collection.canEdit}
-      <span class="head-action"><Button icon="drop" onclick={() => ui.openInkFlow()}>Ink a pen</Button></span>
+      <Button icon="drop" onclick={() => ui.openInkFlow()}>Ink a pen</Button>
     {/if}
   </header>
 
@@ -126,25 +125,14 @@
           </div>
           <div class="since">
             {#if days === 0}
-              <p class="big">Today</p>
+              <p class="count"><strong>Inked today</strong></p>
             {:else}
-              <p class="big">{days}<small>{days === 1 ? 'day' : 'days'}</small></p>
+              <p class="count"><strong>{plural(days, 'day')}</strong><span class="tail">in the pen</span></p>
+              <p class="meta since-date">in the pen since {formatDate(fill.inked_at, dateFormat, { short: true })}</p>
             {/if}
-            <p class="meta since-date">since {formatDate(fill.inked_at, dateFormat, { short: true })}</p>
           </div>
           {#if collection.canEdit}
-          <div class="actions">
-            <ReinkMenu {pen} current={ink} />
-            <Button
-              variant="ghost"
-              size="sm"
-              icon="arrows-counter-clockwise"
-              disabled={collection.saving}
-              onclick={() => flushPen(pen, ink.name)}
-            >
-              <span class="button-label">Flush</span>
-            </Button>
-          </div>
+            <div class="actions"><ReinkMenu {pen} current={ink} label="Change ink" withFlush /></div>
           {/if}
         </li>
       {/each}
@@ -237,13 +225,25 @@
   }
   .row {
     display: grid;
-    grid-template-columns: 128px minmax(0, 1fr) minmax(0, 1.4fr) 110px auto;
-    gap: 22px;
+    grid-template-columns: 128px minmax(0, 1fr) minmax(0, 1.2fr) auto;
+    grid-template-areas: 'media pen ink since';
+    gap: 6px 22px;
     align-items: center;
     padding: 18px 22px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--raised);
+  }
+  .row.editable {
+    grid-template-areas:
+      'media pen ink since'
+      'media pen ink actions';
+  }
+  .media {
+    grid-area: media;
+  }
+  .pen {
+    grid-area: pen;
   }
   .pen h3 {
     font-size: 22px;
@@ -255,6 +255,7 @@
     font-size: 12.5px;
   }
   .ink {
+    grid-area: ink;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -269,22 +270,27 @@
     text-decoration: underline;
   }
   .since {
+    grid-area: since;
     font-variant-numeric: tabular-nums;
+    text-align: right;
   }
-  .big {
+  .row.editable .since {
+    align-self: end;
+  }
+  .count strong {
     font-family: var(--font-display);
-    font-size: 28px;
-    line-height: 1;
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1.1;
   }
-  .big small {
-    margin-left: 4px;
-    font-family: var(--font-body);
-    font-size: 12px;
-    color: var(--muted);
+  .tail {
+    display: none;
   }
   .actions {
-    display: flex;
-    gap: 6px;
+    grid-area: actions;
+    align-self: start;
+    justify-self: end;
+    padding-top: 4px;
   }
   .recent {
     display: grid;
@@ -323,46 +329,33 @@
     padding: 28px 0;
   }
 
-  /* The layout follows the Desk's own width, which the sidebar narrows. From
-     here on the buttons sit beside the pen's name and the days beside its ink. */
+  /* The layout follows the Desk's own width, which the sidebar narrows. */
   @container desk (max-width: 860px) {
     .row {
       grid-template-columns: 112px minmax(0, 1fr) auto;
       grid-template-areas:
-        'media pen pen'
-        'media ink since';
+        'media pen since'
+        'media ink ink';
       gap: 10px 18px;
     }
     .row.editable {
       grid-template-areas:
-        'media pen actions'
-        'media ink since';
+        'media pen since'
+        'media ink actions';
     }
-    .media {
-      grid-area: media;
-    }
-    .pen {
-      grid-area: pen;
+    .row.editable .since {
+      align-self: start;
     }
     .ink {
-      grid-area: ink;
       gap: 10px;
     }
     .ink :global(.swab) {
       width: 30px;
       height: 24px;
     }
-    .since {
-      grid-area: since;
-      align-self: end;
-      text-align: right;
-    }
-    .big {
-      font-size: 22px;
-    }
     .actions {
-      grid-area: actions;
-      align-self: start;
+      align-self: center;
+      padding-top: 0;
     }
   }
   @container desk (max-width: 640px) {
@@ -379,13 +372,7 @@
       border-top: 1px solid var(--line);
     }
   }
-  @media (max-width: 700px) {
-    /* The tab bar has its own Ink a pen button. */
-    .head-action {
-      display: none;
-    }
-  }
-  /* Narrow: the pen with its buttons, then one line with the ink and its days.
+  /* Narrow: the pen with its menu, then one line with the ink and its days.
      The swab sits under the photo, so the ink's name lines up with the pen's. */
   @container desk (max-width: 520px) {
     .row,
@@ -412,7 +399,7 @@
     }
     .swab-cell,
     .ink-text,
-    .since {
+    .row .since {
       align-self: stretch;
       display: flex;
       align-items: center;
@@ -442,19 +429,25 @@
       justify-content: flex-end;
       padding-left: 14px;
     }
-    .big {
+    .count {
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .count strong {
       font-family: var(--font-body);
       font-size: 14px;
       font-weight: 600;
     }
-    .big small {
-      font-size: 13px;
-      font-weight: 400;
+    .tail {
+      display: inline;
+      margin-left: 0.3em;
+      color: var(--muted);
     }
     .actions {
-      padding-left: 10px;
+      align-self: start;
+      padding: 0 0 0 10px;
     }
-    /* Icons only; the words stay for screen readers. */
+    /* An icon only; the words stay for screen readers. */
     .actions :global(.button-label) {
       position: absolute;
       width: 1px;

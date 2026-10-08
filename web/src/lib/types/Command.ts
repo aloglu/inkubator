@@ -11,4 +11,4 @@ export type Command = { "type": "ink_pen", pen_id: string, ink_id: string,
 /**
  * When it happened; defaults to now. Used to record a past inking.
  */
-at: number | null, note: string, } | { "type": "flush_pen", pen_id: string, at: number | null, } | { "type": "save_pen", pen: Pen, } | { "type": "delete_pen", id: string, } | { "type": "save_ink", ink: Ink, } | { "type": "delete_ink", id: string, } | { "type": "save_swatch", swatch: Swatch, } | { "type": "delete_swatch", id: string, } | { "type": "update_settings", settings: Settings, };
+at: number | null, note: string, } | { "type": "flush_pen", pen_id: string, at: number | null, } | { "type": "undo_ink_change", pen_id: string, at: number, } | { "type": "save_pen", pen: Pen, } | { "type": "delete_pen", id: string, } | { "type": "save_ink", ink: Ink, } | { "type": "delete_ink", id: string, } | { "type": "save_swatch", swatch: Swatch, } | { "type": "delete_swatch", id: string, } | { "type": "update_settings", settings: Settings, };

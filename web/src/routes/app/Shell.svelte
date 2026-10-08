@@ -73,7 +73,7 @@
   const visibleMore = $derived(more.filter((section) => allowed(section.path)));
   const current = $derived(all.find((section) => section.path === router.path));
   /** On phones these live under More: its tab stays lit and they get a back link. */
-  const underMore = ['/swatches', '/stats', '/activity', '/settings'];
+  const underMore = ['/stats', '/activity', '/settings'];
   const moreTab: Section = { path: '/more', label: 'More', icon: 'dots-three-outline' };
   const title = $derived(owner ? 'Inkubator' : showcase?.title || 'Inkubator');
   const signInHref = $derived(`/sign-in?next=${encodeURIComponent(router.path + location.search)}`);
@@ -161,7 +161,7 @@
       {:else if router.path === '/stats'}
         <Stats data={collection.data} />
       {:else if router.path === '/more'}
-        <More data={collection.data} sections={visibleMore} swatches={allowed('/swatches')} {owner} {onsignout} {signInHref} />
+        <More data={collection.data} sections={visibleMore} {owner} {onsignout} {signInHref} />
       {:else}
         <h2>Page not found</h2>
         <p class="muted"><a href="/">Go to the Desk</a></p>
@@ -169,20 +169,10 @@
     {/if}
   </main>
 
-  <nav class="tabbar" class:visitor={!owner} aria-label="Sections">
-    {#if owner}
-      {@render tab(main[0]!)}
-      {@render tab(main[1]!)}
-      <button type="button" class="ink-tab" onclick={() => ui.openInkFlow()} disabled={!collection.data}>
-        <span><Icon name="drop" size={20} /></span>
-        Ink a pen
-      </button>
-      {@render tab(main[2]!)}
-    {:else}
-      {#each visibleMain.filter((section) => section.path !== '/swatches') as section (section.path)}
-        {@render tab(section)}
-      {/each}
-    {/if}
+  <nav class="tabbar" aria-label="Sections">
+    {#each visibleMain as section (section.path)}
+      {@render tab(section)}
+    {/each}
     {@render tab(moreTab)}
   </nav>
 </div>
@@ -307,7 +297,7 @@
       inset: auto 0 0;
       z-index: 10;
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-auto-columns: 1fr;
       grid-auto-flow: column;
       padding: 7px 4px calc(10px + env(safe-area-inset-bottom));
       border-top: 1px solid var(--line);
@@ -323,30 +313,6 @@
     }
     .tabbar a[aria-current='page'] {
       color: var(--accent);
-    }
-    .tabbar.visitor {
-      grid-template-columns: none;
-      grid-auto-columns: 1fr;
-    }
-    .ink-tab {
-      display: grid;
-      justify-items: center;
-      gap: 2px;
-      padding: 0;
-      border: 0;
-      background: none;
-      color: var(--fg);
-      font-size: 10px;
-    }
-    .ink-tab span {
-      display: grid;
-      place-items: center;
-      width: 40px;
-      height: 28px;
-      margin-top: -4px;
-      border-radius: 99px;
-      background: var(--accent);
-      color: var(--accent-ink);
     }
   }
 </style>

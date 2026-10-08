@@ -178,6 +178,14 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 3. [x] Crop: resize the crop area directly on the photo instead of a zoom slider; consider phones. Decided: the frame keeps the card's shape (cards are a fixed 16:9 / 4:3, so independent width and height would distort or letterbox). Done: corner handles (small, finger-sized touch area; the opposite corner stays put, `resizeFromCorner` in `lib/crop.ts`, tested), pinch, scroll wheel, arrow keys and + / −; the slider is gone; Done sits in the crop tool's button row.
 4. [x] Notes: the "Show to visitors" hint beside the switch looked misaligned (smaller text squeezed next to it). Done: the hint is on its own line below, like the other hints in the editors.
 
+## Owner's notes from testing 3.0.0-rc.6 (2026-10-08) — before 3.0.0
+
+1. [x] Desk card: "Today" alone means little to a newcomer, the two buttons sat awkwardly, and the wide layout looked off. Done, for review (owner unsure of the direction): the days read "22 days" with "in the pen since Sep 16" ("Inked today" on the first day); one "Change ink" menu replaces Re-ink and Flush (recent inks, resting inks, Choose another ink…, then Flush), icon only on phones. Layouts: wide = days over the menu at the right; medium = days top right, menu beside the ink; phone = menu beside the pen's name, days on the ink line. The pen detail panel keeps its Re-ink and Flush buttons until the Desk design is settled.
+2. [x] Crop: independent width and height handles were asked for; after discussion the owner chose to leave the crop tool as it is (the card's shape is fixed).
+3. [x] Phone tab bar: Desk, Pens, Inks, Swatches, More (Swatches left More; the middle Ink a pen tab is gone). Ink a pen is the button beside the Desk title on every width, and "Ink this pen" on a pen's page.
+4. [x] Undo instead of confirming ink changes: inking, re-inking and flushing show a notice with Undo for 8 s (`Command::UndoInkChange { pen_id, at }`, which only takes back the pen's latest ink change and removes its activity entry; tested in `crates/core/tests/commands.rs`). Deleting keeps its confirmation.
+5. [ ] Settings: a small "Saved ✓" next to the title after each change (proposed; the owner has not answered yet).
+
 ## Follow-ups (do not lose)
 
 - **CI:** `.github/workflows/release.yml` builds, tests and publishes (see phase 7, step 4). The macOS Intel program is cross-built on an Apple Silicon runner and is not started in CI.

@@ -28,6 +28,11 @@ pub enum Command {
         pen_id: String,
         at: Option<Timestamp>,
     },
+    /// Take back a pen's latest inking, re-ink or flush, the one made at `at`.
+    UndoInkChange {
+        pen_id: String,
+        at: Timestamp,
+    },
     /// Create a pen, or replace the pen with the same id.
     SavePen {
         pen: Pen,
@@ -74,6 +79,8 @@ pub enum CommandError {
     InkInUse,
     #[error("the date is earlier than the pen's last change")]
     TooEarly,
+    #[error("that ink change is no longer the pen's latest, so it cannot be undone")]
+    NothingToUndo,
 }
 
 /// Applies `command` to `collection` at time `now`.
@@ -95,6 +102,7 @@ pub fn apply(
             note,
         } => ink_pen(collection, &pen_id, &ink_id, at.unwrap_or(now), note)?,
         Command::FlushPen { pen_id, at } => flush_pen(collection, &pen_id, at.unwrap_or(now))?,
+        Command::UndoInkChange { pen_id, at } => undo_ink_change(collection, &pen_id, at)?,
         Command::SavePen { pen } => save_pen(collection, pen, now),
         Command::DeletePen { id } => delete_pen(collection, &id, now)?,
         Command::SaveInk { ink } => save_ink(collection, ink, now),
@@ -252,6 +260,47 @@ fn flush_pen(c: &mut Collection, pen_id: &str, at: Timestamp) -> Result<(), Comm
     let mut e = entry(at, Subject::Pen, Action::Flushed, pen_id, label);
     e.previous_ink_id = Some(ink_id);
     record(c, e);
+    Ok(())
+}
+
+fn undo_ink_change(c: &mut Collection, pen_id: &str, at: Timestamp) -> Result<(), CommandError> {
+    find_pen(c, pen_id)?;
+    if c.fills.iter().all(|f| f.pen_id != pen_id) || last_ink_change(c, pen_id) != at {
+        return Err(CommandError::NothingToUndo);
+    }
+    // The activity entry says what happened at that moment; without one (it
+    // can be removed with old activity), the fills alone tell.
+    let is_ink_change = |e: &ActivityEntry| {
+        e.subject == Subject::Pen
+            && e.subject_id == pen_id
+            && e.at == at
+            && matches!(e.action, Action::Inked | Action::Reinked | Action::Flushed)
+    };
+    let recorded = c.activity.iter().rposition(is_ink_change);
+    let action = recorded.map(|i| c.activity[i].action);
+
+    let started = c
+        .fills
+        .iter()
+        .position(|f| f.pen_id == pen_id && f.emptied_at.is_none() && f.inked_at == at);
+    if action != Some(Action::Flushed) {
+        if let Some(i) = started {
+            c.fills.remove(i);
+        }
+    }
+    // A flush, or the ink a re-ink replaced: that fill is open again.
+    if action != Some(Action::Inked) {
+        if let Some(fill) = c
+            .fills
+            .iter_mut()
+            .find(|f| f.pen_id == pen_id && f.emptied_at == Some(at))
+        {
+            fill.emptied_at = None;
+        }
+    }
+    if let Some(i) = recorded {
+        c.activity.remove(i);
+    }
     Ok(())
 }
 

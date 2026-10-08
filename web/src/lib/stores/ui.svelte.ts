@@ -1,7 +1,10 @@
 /** Interface state shared across screens: the Ink a pen dialog and notices. */
 import { ApiError } from '../api';
 
-export type Notice = { id: number; text: string; tone: 'info' | 'error' };
+/** A button on a notice, such as Undo. */
+export type NoticeAction = { label: string; run: () => void };
+
+export type Notice = { id: number; text: string; tone: 'info' | 'error'; action?: NoticeAction };
 
 export type ConfirmRequest = {
   title: string;
@@ -16,6 +19,7 @@ const messages: Record<string, string> = {
   not_inked: 'That pen is not inked.',
   ink_in_use: 'That ink is in a pen. Flush the pen before deleting the ink.',
   too_early: "That date is before the pen's last ink change.",
+  nothing_to_undo: 'That change can no longer be undone.',
   offline: 'Could not reach the server. Check your connection.',
 };
 
@@ -54,10 +58,11 @@ class Ui {
     this.inkFlow = null;
   }
 
-  notify(text: string, tone: Notice['tone'] = 'info') {
+  /** Shows a notice; one with an action (Undo) stays longer, to give time to use it. */
+  notify(text: string, tone: Notice['tone'] = 'info', action?: NoticeAction) {
     const id = this.next++;
-    this.notices.push({ id, text, tone });
-    setTimeout(() => this.dismiss(id), tone === 'error' ? 8000 : 4000);
+    this.notices.push({ id, text, tone, action });
+    setTimeout(() => this.dismiss(id), tone === 'error' || action ? 8000 : 4000);
   }
 
   fail(error: unknown) {

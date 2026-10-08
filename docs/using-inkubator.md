@@ -35,8 +35,8 @@ HTTPS address; [Remote access](remote-access.md) shows the easiest ways
 ## On your phone
 
 Inkubator adapts to small screens: the tabs along the bottom are the Desk,
-Pens, **Ink a pen** (the round button in the middle), Inks, and More (which has
-Swatches, Stats, Activity and Settings).
+Pens, Inks, Swatches and More (which has Stats, Activity and Settings). **Ink a
+pen** is at the top of the Desk, and on each pen's page.
 
 ## Letting visitors see your collection
 

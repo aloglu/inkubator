@@ -138,6 +138,67 @@ fn flushing_closes_the_open_fill() {
     );
 }
 
+fn undo(pen: &str, at: Timestamp) -> Command {
+    Command::UndoInkChange {
+        pen_id: pen.into(),
+        at,
+    }
+}
+
+#[test]
+fn a_flush_can_be_undone() {
+    let mut c = sample();
+    let before = c.clone();
+    run(
+        &mut c,
+        Command::FlushPen {
+            pen_id: "pen_1".into(),
+            at: None,
+        },
+    )
+    .unwrap();
+    run(&mut c, undo("pen_1", LATER)).unwrap();
+    assert_eq!(c, before, "the fill is open again and the entry is gone");
+}
+
+#[test]
+fn a_re_ink_can_be_undone() {
+    let mut c = sample();
+    let before = c.clone();
+    run(&mut c, ink_pen("pen_1", "ink_2")).unwrap();
+    run(&mut c, undo("pen_1", LATER)).unwrap();
+    assert_eq!(c, before, "the new fill is gone and the old one is open");
+}
+
+#[test]
+fn inking_an_empty_pen_can_be_undone() {
+    let mut c = empty_pen();
+    let before = c.clone();
+    run(&mut c, ink_pen("pen_1", "ink_2")).unwrap();
+    run(&mut c, undo("pen_1", LATER)).unwrap();
+    assert_eq!(c, before);
+}
+
+#[test]
+fn only_the_latest_ink_change_can_be_undone() {
+    let mut c = sample(); // pen_1 inked at T0 + 2 days
+    assert_eq!(
+        run(&mut c, undo("pen_1", T0 + DAY)),
+        Err(CommandError::NothingToUndo)
+    );
+    run(&mut c, ink_pen("pen_1", "ink_2")).unwrap();
+    run(&mut c, undo("pen_1", LATER)).unwrap();
+    assert_eq!(
+        run(&mut c, undo("pen_1", LATER)),
+        Err(CommandError::NothingToUndo),
+        "a second undo of the same change does nothing"
+    );
+    assert_eq!(
+        run(&mut empty_pen(), undo("pen_1", LATER)),
+        Err(CommandError::NothingToUndo)
+    );
+}
+
 // ---------- saving and deleting ----------
 
 #[test]

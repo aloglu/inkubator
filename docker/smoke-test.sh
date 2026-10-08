@@ -14,7 +14,11 @@ PREVIOUS="${PREVIOUS_IMAGE:-}"
 PORT="${SMOKE_PORT:-18199}"
 PASSWORD="smoke-test-password"
 NAME="inkubator-smoke-$$"
-DATA="$(mktemp -d)"
+# The container gives the data folder to its own user, so it lives inside a
+# folder of ours: that one we can always delete afterwards, even in /tmp.
+WORK="$(mktemp -d)"
+DATA="$WORK/data"
+mkdir "$DATA"
 JAR="$(mktemp)"
 BASE="http://127.0.0.1:$PORT"
 
@@ -22,7 +26,7 @@ cleanup() {
     docker rm -f "$NAME" >/dev/null 2>&1 || true
     # The data belongs to the container's user; remove it from inside a container.
     docker run --rm -v "$DATA:/data" --entrypoint sh "$IMAGE" -c 'rm -rf /data/* /data/.[!.]*' >/dev/null 2>&1 || true
-    rm -rf "$DATA" "$JAR"
+    rm -rf "$WORK" "$JAR" || true
 }
 trap cleanup EXIT
 

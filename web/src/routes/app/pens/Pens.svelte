@@ -164,7 +164,6 @@
   }
   .days {
     margin-left: auto;
-    font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
 

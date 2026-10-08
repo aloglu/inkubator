@@ -145,6 +145,15 @@ Fixed in this order unless the owner says otherwise; mark each when done.
 8. [x] Filling system: several can be chosen; drop the combined "Converter, Cartridge" (choose Converter and Cartridge separately). Done: `Pen.filling_systems` is a list (no empty or repeated entries), the importer splits combined 2.x values on `,` `/` `+`, the editor offers chips (collection values first, then common ones) plus "Other…". Data from 3.0.0-rc.1 (old single field) does not load in the new version; acceptable, since the rc install was a throwaway test.
 9. [x] HEIC photos (iPhone exports) are refused: now converted to JPEG in the browser before upload (`lib/heic.ts`): the browser's own decoder first (Safari), else libheif-js (LGPL-3.0, a separate 723 KB gzip file downloaded only when a HEIC photo is chosen). Recognised by type, name or file header. Tested with a real HEIC in Chromium (libheif path): converted and stored in under 2 s.
 
+## Owner's notes from testing 3.0.0-rc.2 (2026-10-08) — before 3.0.0
+
+1. [ ] Adding an item still opens its detail panel afterwards (meant to be fixed in rc.2): reproduce for pens, inks, swatches, desktop and phone; find the cause.
+2. [ ] Panel headers: small uppercase kicker ("PEN") beside a display-font title ("Edit") looks like two unrelated things. One header style everywhere: icon + one title ("Pen", "New pen", "Edit pen"; same for inks and swatches).
+3. [ ] Ink editor, Bottle: Volume / Amount / Price first, then Type; Type with its label above like the fields.
+4. [ ] Ink editor's left column is too busy (base and sheen colors, shelf group, photo): keep only the swab preview and bottle photo there; move colors into a "Color" section of the form (base, sheen with a clear "None", shelf group).
+5. [ ] Desk on phones: the inked pen's card is unbalanced (huge "Today", big swab stacked on the left). Compact layout: photo + pen name, then one line with a small swab, ink name and days, then Re-ink / Flush. Check signed in and signed out.
+6. [ ] Docker image has no icon on Unraid: add the `net.unraid.docker.icon` label (and the WebUI label), and the Icon URL field to the Unraid guide.
+
 ## Follow-ups (do not lose)
 
 - **CI:** `.github/workflows/release.yml` builds, tests and publishes (see phase 7, step 4). The macOS Intel program is cross-built on an Apple Silicon runner and is not started in CI.

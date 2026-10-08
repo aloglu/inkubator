@@ -21,6 +21,8 @@ pub struct PublicCollection {
     pub title: String,
     pub theme: Theme,
     pub date_format: DateFormat,
+    /// The period Stats opens with.
+    pub stats_range: StatsRange,
     /// Only present when prices are shown.
     pub currency: Option<String>,
     /// Which sections visitors see, so the interface can tell "hidden" from "empty".
@@ -200,6 +202,7 @@ pub fn project(c: &Collection) -> Option<PublicCollection> {
         title: s.title.clone(),
         theme: s.theme,
         date_format: c.settings.defaults.date_format,
+        stats_range: c.settings.stats.default_range,
         currency: s.show_prices.then(|| c.settings.defaults.currency.clone()),
         show_pens,
         show_inks,

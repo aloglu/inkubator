@@ -220,3 +220,11 @@ fn filling_systems_are_neither_empty_nor_repeated() {
         ]
     );
 }
+
+#[test]
+fn settings_saved_before_a_stats_range_existed_still_load() {
+    let mut value = serde_json::to_value(Settings::default()).unwrap();
+    value.as_object_mut().unwrap().remove("stats");
+    let settings: Settings = serde_json::from_value(value).unwrap();
+    assert_eq!(settings.stats.default_range, StatsRange::Last90Days);
+}

@@ -4,6 +4,7 @@
    * rotation timeline (which ink was in which pen) and brand bars in gold.
    * Every mark has a tooltip on hover and focus, and every chart a table view.
    */
+  import { untrack } from 'svelte';
   import { canOpen, itemHref } from '../../../lib/items.svelte';
   import Segmented from '../../../lib/components/Segmented.svelte';
   import { daysBetween, formatDate, penName, plural } from '../../../lib/format';
@@ -15,7 +16,9 @@
 
   let { data }: { data: Collection } = $props();
 
-  let period = $state<'30' | '90' | '365' | 'all'>('90');
+  // Opens on the period chosen in Settings; changing it here lasts until you leave.
+  const periods = { last_30_days: '30', last_90_days: '90', last_year: '365', all_time: 'all' } as const;
+  let period = $state<'30' | '90' | '365' | 'all'>(untrack(() => periods[data.settings.stats.default_range]));
   const range: Range = $derived(period === 'all' ? 'all' : (Number(period) as 30 | 90 | 365));
   const now = Date.now();
 
@@ -257,7 +260,6 @@
     display: grid;
     gap: 26px;
     align-content: start;
-    max-width: 1100px;
   }
   .head {
     display: flex;

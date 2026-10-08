@@ -1001,6 +1001,7 @@ fn settings(prefs: &Map<String, Value>, _data: &Map<String, Value>) -> Settings 
                 _ => SwatchSort::Newest,
             },
         },
+        stats: StatsSettings::default(),
     }
 }
 

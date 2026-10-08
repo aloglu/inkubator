@@ -168,6 +168,7 @@
     { id: 'backups', label: 'Backups' },
     { id: 'visitors', label: 'Visitors' },
     { id: 'activity', label: 'Activity log' },
+    { id: 'stats', label: 'Stats' },
     { id: 'defaults', label: 'Formats and defaults' },
     { id: 'about', label: 'About' },
   ];
@@ -494,6 +495,24 @@
           {/each}
         </div>
         <p class="help note">Inking, re-inking and flushing are always recorded.</p>
+      </section>
+
+      <section id="stats">
+        <h3>Stats</h3>
+        {#snippet statsRange()}
+          <Segmented
+            label="Stats opens with"
+            value={s.stats.default_range}
+            options={[
+              { value: 'last_30_days', label: '30 days' },
+              { value: 'last_90_days', label: '90 days' },
+              { value: 'last_year', label: 'Year' },
+              { value: 'all_time', label: 'All' },
+            ]}
+            onchange={(value) => update((next) => (next.stats.default_range = value))}
+          />
+        {/snippet}
+        {@render row('Opens with', 'The period Stats shows when you open it, for you and for visitors. You can still switch it there.', statsRange)}
       </section>
 
       <section id="defaults">

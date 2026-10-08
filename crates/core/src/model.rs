@@ -448,6 +448,8 @@ pub struct Settings {
     pub defaults: Defaults,
     pub backups: BackupSettings,
     pub showcase: ShowcaseSettings,
+    #[serde(default)]
+    pub stats: StatsSettings,
 }
 
 impl Default for Settings {
@@ -460,8 +462,30 @@ impl Default for Settings {
             defaults: Defaults::default(),
             backups: BackupSettings::default(),
             showcase: ShowcaseSettings::default(),
+            stats: StatsSettings::default(),
         }
     }
+}
+
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StatsSettings {
+    /// The period Stats opens with, for the owner and for visitors.
+    pub default_range: StatsRange,
+}
+
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StatsRange {
+    #[serde(rename = "last_30_days")]
+    Last30Days,
+    #[default]
+    #[serde(rename = "last_90_days")]
+    Last90Days,
+    LastYear,
+    AllTime,
 }
 
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]

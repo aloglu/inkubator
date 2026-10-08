@@ -65,6 +65,7 @@ export function visitorCollection(p: PublicCollection): Collection {
         ink_sort: p.ink_sort,
         swatch_sort: p.swatch_sort,
       },
+      stats: { default_range: p.stats_range },
     },
   };
 }

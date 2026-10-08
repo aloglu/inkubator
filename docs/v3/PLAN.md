@@ -208,6 +208,13 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 4. [x] Purchase fields in the pen editor were misaligned: the date picker fills its column at the text fields' height, "Only the month" under it.
 5. [x] Visitors: separate switches for purchase dates and where a pen was bought (`show_purchase_dates`, `show_purchased_from`, both off by default; Prices now covers prices only). Before, the seller followed Prices and the date was always shown.
 
+## Owner's notes on rc.9, continued (2026-10-08)
+
+6. [x] Pen cards: the day count's tabular figures looked loose; a lone number uses normal figures now.
+7. [x] Pen cards: nib, nib material and filling system dropped from the card (still in the panel and in search).
+8. [x] Stats: used only 1100px of the width; now full width like the Desk and the lists (Activity and Settings stay narrower on purpose: reading text, a form).
+9. [x] Settings → Stats → Opens with: the period Stats starts on, for the owner and for visitors (`Settings.stats.default_range`, default 90 days; sent to visitors as `PublicCollection.stats_range`).
+
 ## Follow-ups (do not lose)
 
 - **CI:** `.github/workflows/release.yml` builds, tests and publishes (see phase 7, step 4). The macOS Intel program is cross-built on an Apple Silicon runner and is not started in CI.

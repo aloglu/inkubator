@@ -6,11 +6,16 @@ import type { InkSort } from "./InkSort";
 import type { Pen } from "./Pen";
 import type { PenSort } from "./PenSort";
 import type { PublicActivity } from "./PublicActivity";
+import type { StatsRange } from "./StatsRange";
 import type { Swatch } from "./Swatch";
 import type { SwatchSort } from "./SwatchSort";
 import type { Theme } from "./Theme";
 
 export type PublicCollection = { title: string, theme: Theme, date_format: DateFormat, 
+/**
+ * The period Stats opens with.
+ */
+stats_range: StatsRange, 
 /**
  * Only present when prices are shown.
  */

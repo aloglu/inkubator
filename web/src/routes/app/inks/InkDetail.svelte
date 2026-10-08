@@ -162,7 +162,7 @@
         {#each swatches as swatch (swatch.id)}
           <a class="thumb" href={itemHref('swatch', swatch.id, { edit: false })}>
             <SwatchMedia {swatch} {ink} />
-            <span>{[swatch.paper, swatch.nib].filter(Boolean).join(' · ') || 'Swatch'}</span>
+            {#if swatch.paper || swatch.nib}<span>{[swatch.paper, swatch.nib].filter(Boolean).join(' · ')}</span>{/if}
           </a>
         {/each}
         {#if owner}

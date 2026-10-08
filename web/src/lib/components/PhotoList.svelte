@@ -38,6 +38,8 @@
   let error = $state('');
   let input: HTMLInputElement | undefined = $state();
   let linking = $state(false);
+  /** A drag with files is over the drop area. */
+  let over = $state(false);
   let link = $state('');
 
   /** Stores a photo on the server and adds it to the list. */
@@ -135,10 +137,25 @@
       </div>
     </figure>
   {/each}
-  <label class="add" style:aspect-ratio={ratio}>
+  <label
+    class="add"
+    class:over
+    ondragover={(event) => {
+      if (!event.dataTransfer?.types.includes('Files')) return;
+      event.preventDefault();
+      over = true;
+    }}
+    ondragleave={() => (over = false)}
+    ondrop={(event) => {
+      event.preventDefault();
+      over = false;
+      void add(event.dataTransfer?.files ?? null);
+    }}
+  >
     <input bind:this={input} type="file" accept="image/*" multiple onchange={(event) => add(event.currentTarget.files)} />
-    <Icon name={uploading ? 'arrows-clockwise' : 'image'} size={20} />
-    <span>{uploading ? 'Uploading…' : label}</span>
+    <Icon name={uploading ? 'arrows-clockwise' : 'image'} size={24} />
+    <span class="title">{uploading ? 'Uploading…' : label}</span>
+    {#if !uploading}<span class="hint">Drop photos here, or choose</span>{/if}
   </label>
 </div>
 <div class="more">
@@ -214,13 +231,16 @@
   .actions button[aria-pressed='true'] {
     color: #f3c74f;
   }
+  /* The drop area spans the whole row and stays comfortably large. */
   .add {
     position: relative;
+    grid-column: 1 / -1;
     display: grid;
     place-items: center;
     align-content: center;
     gap: 4px;
-    padding: 6px;
+    min-height: 120px;
+    padding: 16px 12px;
     border: 1px dashed var(--line-strong);
     border-radius: var(--radius-sm);
     color: var(--muted);
@@ -229,9 +249,20 @@
     cursor: pointer;
   }
   .add:hover,
-  .add:focus-within {
+  .add:focus-within,
+  .add.over {
     border-color: var(--accent);
     color: var(--fg);
+  }
+  .add.over {
+    background: var(--accent-soft);
+  }
+  .add .title {
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .add .hint {
+    font-size: 11.5px;
   }
   .add input {
     position: absolute;

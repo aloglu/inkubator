@@ -118,8 +118,8 @@
             <p class="meta">{penDetails(pen)}</p>
           </div>
           <div class="ink">
-            <Swab base={ink.base_color} sheen={swabSheen(ink)} />
-            <div>
+            <span class="swab-cell"><Swab base={ink.base_color} sheen={swabSheen(ink)} /></span>
+            <div class="ink-text">
               <a class="ink-name" href="/inks?ink={encodeURIComponent(ink.id)}">{ink.name}</a>
               <p class="meta">{inkMaker(ink)}</p>
             </div>
@@ -142,7 +142,7 @@
               disabled={collection.saving}
               onclick={() => flushPen(pen, ink.name)}
             >
-              Flush
+              <span class="button-label">Flush</span>
             </Button>
           </div>
           {/if}
@@ -323,14 +323,20 @@
     padding: 28px 0;
   }
 
-  /* The layout follows the Desk's own width, which the sidebar narrows. */
+  /* The layout follows the Desk's own width, which the sidebar narrows. From
+     here on the buttons sit beside the pen's name and the days beside its ink. */
   @container desk (max-width: 860px) {
     .row {
       grid-template-columns: 112px minmax(0, 1fr) auto;
       grid-template-areas:
-        'media pen since'
-        'media ink actions';
+        'media pen pen'
+        'media ink since';
       gap: 10px 18px;
+    }
+    .row.editable {
+      grid-template-areas:
+        'media pen actions'
+        'media ink since';
     }
     .media {
       grid-area: media;
@@ -348,7 +354,7 @@
     }
     .since {
       grid-area: since;
-      align-self: start;
+      align-self: end;
       text-align: right;
     }
     .big {
@@ -356,6 +362,7 @@
     }
     .actions {
       grid-area: actions;
+      align-self: start;
     }
   }
   @container desk (max-width: 640px) {
@@ -378,28 +385,48 @@
       display: none;
     }
   }
-  /* Narrow: the pen, then one line with the ink and its days, then the buttons. */
+  /* Narrow: the pen with its buttons, then one line with the ink and its days.
+     The swab sits under the photo, so the ink's name lines up with the pen's. */
   @container desk (max-width: 520px) {
-    .row {
+    .row,
+    .row.editable {
       grid-template-columns: 64px minmax(0, 1fr) auto;
       grid-template-areas:
-        'media pen pen'
-        'ink ink since';
-      gap: 12px 14px;
+        'media pen actions'
+        'swab ink since';
+      column-gap: 0;
+      row-gap: 12px;
       padding: 14px;
     }
-    .row.editable {
-      grid-template-areas:
-        'media pen pen'
-        'ink ink since'
-        'actions actions actions';
+    .row:not(.editable) .pen {
+      grid-column: 2 / -1;
+    }
+    .pen {
+      padding-left: 14px;
     }
     .pen h3 {
       font-size: 19px;
     }
     .ink {
+      display: contents;
+    }
+    .swab-cell,
+    .ink-text,
+    .since {
+      align-self: stretch;
+      display: flex;
+      align-items: center;
       padding-top: 12px;
       border-top: 1px solid var(--line);
+    }
+    .swab-cell {
+      grid-area: swab;
+      justify-content: center;
+    }
+    .ink-text {
+      grid-area: ink;
+      min-width: 0;
+      padding-left: 14px;
     }
     .ink .meta,
     .since-date {
@@ -412,13 +439,8 @@
       white-space: nowrap;
     }
     .since {
-      align-self: stretch;
-      display: flex;
-      align-items: center;
-      /* Reach into the column gap, so the line above runs unbroken. */
-      margin-left: -14px;
-      padding: 12px 0 0 14px;
-      border-top: 1px solid var(--line);
+      justify-content: flex-end;
+      padding-left: 14px;
     }
     .big {
       font-family: var(--font-body);
@@ -428,6 +450,18 @@
     .big small {
       font-size: 13px;
       font-weight: 400;
+    }
+    .actions {
+      padding-left: 10px;
+    }
+    /* Icons only; the words stay for screen readers. */
+    .actions :global(.button-label) {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
     }
   }
 </style>

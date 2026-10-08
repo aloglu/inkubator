@@ -255,11 +255,9 @@
         <TextField label="Notes" bind:value={draft.notes} multiline hideLabel placeholder="How it behaves, where it came from…" />
         <div class="scale">
           <span>Show to visitors</span>
-          <div class="visibility">
-            <Switch label="Show notes to visitors" bind:checked={draft.notes_public} />
-            <span class="hint">{data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden from visitors in Settings.'}</span>
-          </div>
+          <Switch label="Show notes to visitors" bind:checked={draft.notes_public} />
         </div>
+        <p class="hint">{data.settings.showcase.show_notes ? 'Off keeps these notes private.' : 'Notes are hidden from visitors in Settings.'}</p>
       </fieldset>
     </div>
   </form>
@@ -365,12 +363,6 @@
     height: 1px;
     overflow: hidden;
     clip-path: inset(50%);
-  }
-  .visibility {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 12px;
   }
   .error {
     color: var(--danger);

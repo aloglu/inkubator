@@ -50,7 +50,7 @@
   disabled={collection.saving}
   onclick={() => (open = !open)}
 >
-  Re-ink
+  <span class="button-label">Re-ink</span>
 </Button>
 
 <Menu anchor={button} {open} onclose={() => (open = false)} label="Switch {pen.model} to">

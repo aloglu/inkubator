@@ -171,6 +171,13 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 3. [x] Pen editor's left column was confusing (crop tool, slider, card preview, photos all at once). Done (pens and swatches): the preview first with "Adjust photo"; the crop tool opens only on request (from the preview or a photo's pencil button) with Done.
 4. [x] Notes had two headings (NOTES and a "Notes" label): the field label is for screen readers only. "Show to visitors" is a label-left row like the rest of the form.
 
+## Owner's notes from testing 3.0.0-rc.5 (2026-10-08) — before 3.0.0
+
+1. [x] Desk cards at medium and phone widths still felt misaligned, and Re-ink / Flush under the ink looked off. Done: the buttons sit beside the pen's name (icons only on phones, words kept for screen readers) and the days beside the ink; on phones the swab sits under the photo so the ink's name lines up with the pen's.
+2. [ ] Pen editor side panel: the pen's name should not sit below the photo; put the photos under a heading. Discuss first, together with the crop (see 3).
+3. [ ] Crop: resize the crop area directly on the photo (width and height independently) instead of a zoom slider; consider phones. Discuss first.
+4. [x] Notes: the "Show to visitors" hint beside the switch looked misaligned (smaller text squeezed next to it). Done: the hint is on its own line below, like the other hints in the editors.
+
 ## Follow-ups (do not lose)
 
 - **CI:** `.github/workflows/release.yml` builds, tests and publishes (see phase 7, step 4). The macOS Intel program is cross-built on an Apple Silicon runner and is not started in CI.

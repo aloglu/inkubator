@@ -31,7 +31,9 @@ ENV PORT=8080 \
 LABEL org.opencontainers.image.title="Inkubator" \
       org.opencontainers.image.description="Your fountain pens, inks and swatches, in your browser." \
       org.opencontainers.image.source="https://github.com/aloglu/inkubator" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="MIT" \
+      net.unraid.docker.icon="https://raw.githubusercontent.com/aloglu/inkubator/main/web/public/icons/icon-512.png" \
+      net.unraid.docker.webui="http://[IP]:[PORT:8080]/"
 
 VOLUME ["/data"]
 EXPOSE 8080

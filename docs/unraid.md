@@ -15,10 +15,12 @@ interface. No terminal is needed.
    | Repository | `ghcr.io/aloglu/inkubator:latest` |
    | Network Type | `Bridge` |
    | Privileged | Off |
+   | Icon URL | `https://raw.githubusercontent.com/aloglu/inkubator/main/web/public/icons/icon-512.png` |
    | WebUI | `http://[IP]:[PORT:8080]/` |
 
-   The **WebUI** field appears after switching to **Advanced View** (top
-   right). It adds an "Open WebUI" entry to the container's menu.
+   **Icon URL** and **WebUI** appear after switching to **Advanced View** (top
+   right). The icon is what the Docker tab and the dashboard show for
+   Inkubator; WebUI adds an "Open WebUI" entry to the container's menu.
 
 4. Click **Add another Path, Port, Variable, Label or Device** and add a
    **Port**:

@@ -44,7 +44,7 @@ export function penFacets(c: Pick<Collection, 'fills'>): Facet<Pen>[] {
     { key: 'brand', label: 'Brand', style: 'list', values: (pen) => [pen.brand] },
     { key: 'nib_size', label: 'Nib size', style: 'chips', values: (pen) => [pen.nib_size], order: nibSizes },
     { key: 'nib_material', label: 'Nib material', style: 'chips', values: (pen) => [pen.nib_material] },
-    { key: 'filling', label: 'Filling', style: 'chips', values: (pen) => parts(pen.filling_system) },
+    { key: 'filling', label: 'Filling', style: 'chips', values: (pen) => pen.filling_systems },
     { key: 'body', label: 'Body', style: 'chips', values: (pen) => parts(pen.body_material) },
   ];
 }

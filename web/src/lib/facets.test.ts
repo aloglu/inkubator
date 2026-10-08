@@ -5,8 +5,8 @@ import { fill, ink, pen } from './test-data';
 
 describe('pen facets', () => {
   it('counts "Converter, Cartridge" under both and knows which pens are inked', () => {
-    const a = { ...pen('a'), filling_system: 'Converter, Cartridge' };
-    const b = { ...pen('b'), filling_system: 'Cartridge' };
+    const a = { ...pen('a'), filling_systems: ['Converter', 'Cartridge'] };
+    const b = { ...pen('b'), filling_systems: ['Cartridge'] };
     const facets = penFacets({ fills: [fill('a', 'x', 1, null)] });
     const filling = facets.find((f) => f.key === 'filling')!;
     expect(options(filling, [a, b])).toEqual([

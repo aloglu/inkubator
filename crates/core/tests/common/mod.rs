@@ -16,7 +16,7 @@ pub fn pen(id: &str) -> Pen {
         nib_size: "F".into(),
         nib_material: "14k gold".into(),
         body_material: "Resin".into(),
-        filling_system: "Converter".into(),
+        filling_systems: vec!["Converter".into()],
         price: Some(160.0),
         purchased_on: Some("2022-06".into()),
         purchased_from: String::new(),

@@ -103,6 +103,18 @@ impl Checker {
                     self.fail(format!("{at}.colors[{k}]"), "must be a #rrggbb color");
                 }
             }
+            for (k, system) in pen.filling_systems.iter().enumerate() {
+                if system.trim().is_empty() {
+                    self.fail(format!("{at}.filling_systems[{k}]"), "must not be empty");
+                }
+                let lower = system.trim().to_lowercase();
+                if pen.filling_systems[..k]
+                    .iter()
+                    .any(|other| other.trim().to_lowercase() == lower)
+                {
+                    self.fail(format!("{at}.filling_systems[{k}]"), "is listed twice");
+                }
+            }
             self.money(&format!("{at}.price"), pen.price);
             if let Some(date) = &pen.purchased_on {
                 if !is_iso_date(date, true) {

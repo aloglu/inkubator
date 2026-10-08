@@ -2,7 +2,7 @@
 
 export const nibSizes = ['EF', 'F', 'MF', 'M', 'B', 'BB', 'Stub', 'Italic', 'Music'];
 export const nibMaterials = ['Steel', 'Gold', '14k gold', '18k gold', '21k gold', 'Titanium'];
-export const fillingSystems = ['Converter, Cartridge', 'Cartridge', 'Converter', 'Piston', 'Vacuum', 'Eyedropper', 'Dipping'];
+export const fillingSystems = ['Cartridge', 'Converter', 'Piston', 'Vacuum', 'Eyedropper', 'Dipping'];
 
 /**
  * Values already used in the collection, most used first, then the standard

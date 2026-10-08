@@ -18,7 +18,7 @@ fn v2_data() -> Value {
             {
                 "id": "pen_a", "brand": "Pilot", "model": "Custom 74", "color": "Smoke",
                 "hex_color": "#5A5F66", "hex_colors": [], "nib": "F", "nib_material": "Gold",
-                "material": "Resin", "filling_system": "Converter", "price": "160",
+                "material": "Resin", "filling_system": "Converter, cartridge, Converter", "price": "160",
                 "notes": "", "image": "pens/custom-74.webp", "image_rotation": 95,
                 "images": []
             },
@@ -317,4 +317,17 @@ fn hex_colors_are_normalized() {
     assert_eq!(normalize_hex("1e6b6e"), None);
     assert_eq!(normalize_hex("#12345"), None);
     assert_eq!(normalize_hex("#ggg"), None);
+}
+
+#[test]
+fn combined_filling_systems_are_split() {
+    let (c, _, _) = converted();
+    let custom = c.pens.iter().find(|p| p.model == "Custom 74").unwrap();
+    assert_eq!(
+        custom.filling_systems,
+        vec!["Converter", "cartridge"],
+        "split, repeats dropped"
+    );
+    let safari = c.pens.iter().find(|p| p.model == "Safari").unwrap();
+    assert!(safari.filling_systems.is_empty());
 }

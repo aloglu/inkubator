@@ -205,3 +205,18 @@ fn revisions_follow_content() {
     assert_eq!(revision_of(b"abc"), revision_of(b"abc"));
     assert_ne!(revision_of(b"abc"), revision_of(b"abd"));
 }
+
+#[test]
+fn filling_systems_are_neither_empty_nor_repeated() {
+    let mut c = sample();
+    c.pens[0].filling_systems = vec!["Cartridge".into(), "Converter".into()];
+    assert!(problems(&c).is_empty());
+    c.pens[0].filling_systems = vec!["Cartridge".into(), " ".into(), "cartridge".into()];
+    assert_eq!(
+        problems(&c),
+        vec![
+            "pens[0].filling_systems[1]: must not be empty".to_string(),
+            "pens[0].filling_systems[2]: is listed twice".to_string(),
+        ]
+    );
+}

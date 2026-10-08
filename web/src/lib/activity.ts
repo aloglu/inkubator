@@ -42,7 +42,7 @@ const fieldNames: Record<Subject, Record<string, string>> = {
     nib_size: 'Nib size',
     nib_material: 'Nib material',
     body_material: 'Body material',
-    filling_system: 'Filling',
+    filling_systems: 'Filling',
     price: 'Price',
     purchased_on: 'Bought',
     purchased_from: 'Bought from',
@@ -109,6 +109,7 @@ export function showValue(subject: Subject, field: string, value: JsonValue, ctx
     case 'sheen_color':
       return { color: String(value) };
     case 'colors':
+    case 'filling_systems':
       return { text: (value as string[]).join(', ') };
     case 'color_family':
       return { text: familyName(value as ColorFamily) };

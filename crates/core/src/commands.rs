@@ -265,7 +265,7 @@ const PEN_FIELDS: &[&str] = &[
     "nib_size",
     "nib_material",
     "body_material",
-    "filling_system",
+    "filling_systems",
     "price",
     "purchased_on",
     "purchased_from",

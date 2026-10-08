@@ -15,7 +15,7 @@ export function pen(id: string, model = id): Pen {
     nib_size: 'F',
     nib_material: '',
     body_material: '',
-    filling_system: '',
+    filling_systems: [],
     price: null,
     purchased_on: null,
     purchased_from: '',

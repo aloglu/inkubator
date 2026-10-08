@@ -10,6 +10,7 @@
   import Icon from '../../../lib/components/Icon.svelte';
   import PenDrawing from '../../../lib/components/PenDrawing.svelte';
   import PhotoFrame from '../../../lib/components/PhotoFrame.svelte';
+  import MultiChoice from '../../../lib/components/MultiChoice.svelte';
   import PhotoList from '../../../lib/components/PhotoList.svelte';
   import PurchaseDate from '../../../lib/components/PurchaseDate.svelte';
   import Sheet from '../../../lib/components/Sheet.svelte';
@@ -48,7 +49,7 @@
       nib_size: data.settings.defaults.nib_size,
       nib_material: data.settings.defaults.nib_material,
       body_material: '',
-      filling_system: '',
+      filling_systems: [],
       price: null,
       purchased_on: null,
       purchased_from: '',
@@ -73,7 +74,7 @@
   const others = $derived(data.pens.filter((p) => p.id !== draft.id));
   const sizeSuggestions = $derived(suggestions(others.map((p) => p.nib_size), nibSizes));
   const materialSuggestions = $derived(suggestions(others.map((p) => p.nib_material), nibMaterials, 6));
-  const fillingSuggestions = $derived(suggestions(others.map((p) => p.filling_system), fillingSystems, 8));
+  const fillingOptions = $derived(suggestions(others.flatMap((p) => p.filling_systems), fillingSystems, 10));
   const brands = $derived([...new Set(others.map((p) => p.brand).filter(Boolean))].sort());
   const bodies = $derived([...new Set(others.map((p) => p.body_material).filter(Boolean))].sort());
   const cropIndex = $derived(draft.images.findIndex((image) => image.id === cropping));
@@ -100,7 +101,7 @@
       nib_size: draft.nib_size.trim(),
       nib_material: draft.nib_material.trim(),
       body_material: draft.body_material.trim(),
-      filling_system: draft.filling_system.trim(),
+      filling_systems: draft.filling_systems.map((s) => s.trim()).filter(Boolean),
       purchased_from: draft.purchased_from.trim(),
       notes: draft.notes.trim(),
       price: cost,
@@ -228,7 +229,7 @@
 
       <fieldset>
         <legend class="kicker">Filling</legend>
-        <SuggestField label="Filling system" bind:value={draft.filling_system} suggestions={fillingSuggestions} />
+        <MultiChoice label="Filling system" bind:value={draft.filling_systems} options={fillingOptions} />
       </fieldset>
 
       <fieldset>

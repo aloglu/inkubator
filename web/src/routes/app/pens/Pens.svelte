@@ -31,7 +31,7 @@
   const inks = $derived(new Map(data.inks.map((ink) => [ink.id, ink])));
   const open = $derived(openFills(data.fills));
 
-  const fields = (pen: Pen) => [pen.model, pen.brand, pen.color_name, pen.nib_size, pen.nib_material, pen.filling_system];
+  const fields = (pen: Pen) => [pen.model, pen.brand, pen.color_name, pen.nib_size, pen.nib_material, pen.filling_systems.join(' ')];
   const facets = $derived(usefulFacets(penFacets(data), data.pens));
   // A search ranks by relevance; otherwise the chosen sort applies.
   const pens = $derived(
@@ -70,7 +70,7 @@
             <div class="body">
               <p class="eyebrow">{pen.brand}</p>
               <h3>{pen.model}</h3>
-              <p class="meta">{[pen.nib_size, pen.nib_material, pen.filling_system].filter(Boolean).join(' · ')}</p>
+              <p class="meta">{[pen.nib_size, pen.nib_material, pen.filling_systems.join(', ')].filter(Boolean).join(' · ')}</p>
             </div>
             <div class="foot">
               {#if fill && ink}

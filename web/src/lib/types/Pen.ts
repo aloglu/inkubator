@@ -17,7 +17,11 @@ nib_size: string,
 /**
  * Free text, e.g. "Steel", "14k gold".
  */
-nib_material: string, body_material: string, filling_system: string, price: number | null, 
+nib_material: string, body_material: string, 
+/**
+ * How the pen takes ink; a pen may take several, e.g. "Cartridge" and "Converter".
+ */
+filling_systems: Array<string>, price: number | null, 
 /**
  * `YYYY-MM-DD` or `YYYY-MM`.
  */

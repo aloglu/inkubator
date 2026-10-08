@@ -265,7 +265,7 @@ impl Context<'_> {
             nib_size: text(raw, "nib"),
             nib_material: text(raw, "nib_material"),
             body_material: text(raw, "material"),
-            filling_system: text(raw, "filling_system"),
+            filling_systems: filling_systems(&text(raw, "filling_system")),
             price,
             purchased_on: None,
             purchased_from: String::new(),
@@ -1010,6 +1010,21 @@ fn array<'a>(map: &'a Map<String, Value>, field: &str) -> &'a [Value] {
 }
 
 /// A trimmed string field, or empty.
+/// 2.x stored one text such as "Converter, Cartridge"; 3.0 keeps each on its own.
+fn filling_systems(raw: &str) -> Vec<String> {
+    let mut systems: Vec<String> = Vec::new();
+    for part in raw
+        .split([',', '/', '+'])
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+    {
+        if !systems.iter().any(|s| s.eq_ignore_ascii_case(part)) {
+            systems.push(part.to_string());
+        }
+    }
+    systems
+}
+
 fn text(map: &Map<String, Value>, field: &str) -> String {
     map.get(field)
         .and_then(Value::as_str)

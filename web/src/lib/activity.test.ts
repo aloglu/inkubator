@@ -22,7 +22,7 @@ describe('change lines', () => {
 
   it('names fields without values at the normal level', () => {
     expect(changeLine('pen', { field: 'notes', values: null }, ctx)).toEqual({ label: 'Notes' });
-    expect(fieldName('pen', 'filling_system')).toBe('Filling');
+    expect(fieldName('pen', 'filling_systems')).toBe('Filling');
   });
 
   it('formats prices, dates and linked inks', () => {

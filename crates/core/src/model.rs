@@ -97,7 +97,8 @@ pub struct Pen {
     /// Free text, e.g. "Steel", "14k gold".
     pub nib_material: String,
     pub body_material: String,
-    pub filling_system: String,
+    /// How the pen takes ink; a pen may take several, e.g. "Cartridge" and "Converter".
+    pub filling_systems: Vec<String>,
     pub price: Option<f64>,
     /// `YYYY-MM-DD` or `YYYY-MM`.
     pub purchased_on: Option<String>,

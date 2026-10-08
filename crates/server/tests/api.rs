@@ -126,7 +126,7 @@ fn pen(id: &str, price: f64) -> Value {
     json!({
         "id": id, "brand": "Pelikan", "model": "M800", "color_name": "Green Stripe",
         "colors": ["#2f6b3a"], "nib_size": "B", "nib_material": "18k gold",
-        "body_material": "Resin", "filling_system": "Piston", "price": price,
+        "body_material": "Resin", "filling_systems": ["Piston"], "price": price,
         "purchased_on": null, "purchased_from": "A friend", "notes": "",
         "images": [], "created_at": 1, "updated_at": 1
     })

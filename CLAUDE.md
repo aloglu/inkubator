@@ -2,9 +2,9 @@
 
 Inkubator is a self-hosted app (Docker, or a plain server program) for cataloging fountain pens, inks and swatches, used in a browser. From 3.0 there is no desktop app.
 
-**A 3.0 rework is in progress on the `v3-rework` branch.** Before doing anything, read `docs/v3/PLAN.md`: it holds every settled design decision, the data model, the architecture, the phase order, current progress and follow-ups that must not be lost. `docs/v3/prototype.html` is the clickable design reference.
+**3.0 is on `main`.** Before doing anything, read `docs/v3/PLAN.md`: it holds every settled design decision, the data model, the architecture, the history of the rework, the owner's notes from testing and follow-ups that must not be lost. `docs/v3/prototype.html` is the original clickable design reference; the app has moved on from it where the owner's notes say so.
 
-Working rules for the rework:
+Working rules:
 - 3.0 is a clean break: no backward compatibility with 2.x except the one-time `import-v2`.
 - Keep the app lean: one Rust backend (`crates/core`, served by `crates/server`), Svelte + Vite frontend in `web/`, no dead code.
 - Never write to the owner's real data folder (`~/.local/share/com.aloglu.inkubator`); test against copies in a scratch folder.

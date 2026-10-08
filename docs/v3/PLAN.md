@@ -215,6 +215,10 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 8. [x] Stats: used only 1100px of the width; now full width like the Desk and the lists (Activity and Settings stay narrower on purpose: reading text, a form).
 9. [x] Settings → Stats → Opens with: the period Stats starts on, for the owner and for visitors (`Settings.stats.default_range`, default 90 days; sent to visitors as `PublicCollection.stats_range`).
 
+## Merged into main (2026-10-08)
+
+After ten release candidates tested by the owner on Unraid (including the real 2.1 collection imported with `import-v2` on rc.8), the version is `3.0.0` and `v3-rework` was fast-forwarded into `main`. The rc tags and draft releases were deleted along the way; the `3.0.0-rc.*` images on GHCR are the owner's to remove from the package page. Next: tag `v3.0.0` (CI builds the downloads, publishes the `3.0.0` and `latest` images and drafts the release), and the owner publishes the draft.
+
 ## Follow-ups (do not lose)
 
 - **CI:** `.github/workflows/release.yml` builds, tests and publishes (see phase 7, step 4). The macOS Intel program is cross-built on an Apple Silicon runner and is not started in CI.
@@ -224,7 +228,7 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 - **Docker image — resolved.** Built and smoke-tested by the owner. The server never runs as root: `docker/entrypoint.sh` gives `/data` to `PUID:PGID` (default `1000:1000`, Unraid `99:100`) and drops privileges with `setpriv`; `PUID=0` is refused; `docker run --user` is honored. Verified: refusal message, root-owned data folder re-owned, all files written by the server owned by the unprivileged user.
 - **Orphaned uploads:** a photo uploaded in an editor that is then cancelled stays in `images/` unreferenced. Add a cleanup (e.g. on startup and daily) that retires unreferenced photos older than a day.
 - **Zip timestamps:** backup zip entries carry no modification time (shown as 1980-01-01). Set real times (zip crate `time` feature) — cosmetic.
-- **Versions:** the crates and `web/package.json` are `3.0.0-alpha.0`; set all three to `3.0.0` at release (the 2.x version-sync scripts are gone).
+- **Versions:** the crates and `web/package.json` are `3.0.0` (set together; the 2.x version-sync scripts are gone).
 - **Photo encoding:** photos and thumbnails are lossy WebP (quality 82) via the `webp` crate (builds libwebp from source; needs a C compiler in build environments). The `image` crate alone only writes lossless WebP, which made thumbnails larger than photos.
 - **Test setups next to the real install (owner's request, 2026-10-07):** once 3.0 is in daily use, the owner tests changes without touching the main installation. With the server-only decision this is a second container (or plain program) with its own data folder and port, optionally started from a copy of the real data. The documentation should show how.
 - **Vite dev proxy:** Vite 8 rewrites `Host` to the target, which tripped the server's same-origin check; `web/vite.config.ts` forwards the original host as `X-Forwarded-Host`. Keep this if the proxy config changes.

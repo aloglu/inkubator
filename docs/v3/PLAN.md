@@ -151,7 +151,7 @@ Fixed in this order unless the owner says otherwise; mark each when done.
 2. [x] Panel headers: small uppercase kicker ("PEN") beside a display-font title ("Edit") looks like two unrelated things. One header style everywhere: icon + one title ("Pen", "New pen", "Edit pen"; same for inks and swatches).
 3. [x] Ink editor, Bottle: Volume / Amount / Price first, then Type; Type with its label above like the fields.
 4. [x] Ink editor's left column is too busy (base and sheen colors, shelf group, photo): keep only the swab preview and bottle photo there; move colors into a "Color" section of the form (base, sheen with a clear "None", shelf group). Done: colors moved into a Color section, with a typed `#rrggbb` code next to each picker (`ColorInput`).
-5. [ ] Desk on phones: the inked pen's card is unbalanced (huge "Today", big swab stacked on the left). Compact layout: photo + pen name, then one line with a small swab, ink name and days, then Re-ink / Flush. Check signed in and signed out.
+5. [x] Desk on phones: the inked pen's card is unbalanced (huge "Today", big swab stacked on the left). Compact layout: photo + pen name, then one line with a small swab, ink name and days, then Re-ink / Flush. Check signed in and signed out.
 6. [ ] Docker image has no icon on Unraid: add the `net.unraid.docker.icon` label (and the WebUI label), and the Icon URL field to the Unraid guide.
 
 ## Follow-ups (do not lose)

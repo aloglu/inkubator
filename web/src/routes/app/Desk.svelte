@@ -111,7 +111,7 @@
   {#if rows.length}
     <ul class="rows">
       {#each rows as { fill, pen, ink, days } (fill.id)}
-        <li class="row">
+        <li class="row" class:editable={collection.canEdit}>
           <div class="media"><PenMedia {pen} radius="var(--radius-sm)" /></div>
           <div class="pen">
             <h3>{pen.model}</h3>
@@ -130,7 +130,7 @@
             {:else}
               <p class="big">{days}<small>{days === 1 ? 'day' : 'days'}</small></p>
             {/if}
-            <p class="meta">since {formatDate(fill.inked_at, dateFormat, { short: true })}</p>
+            <p class="meta since-date">since {formatDate(fill.inked_at, dateFormat, { short: true })}</p>
           </div>
           {#if collection.canEdit}
           <div class="actions">
@@ -365,20 +365,61 @@
       border-top: 1px solid var(--line);
     }
   }
+  /* Phones: the pen, then one line with the ink and its days, then the buttons. */
   @media (max-width: 560px) {
     .row {
-      grid-template-columns: 88px minmax(0, 1fr);
+      grid-template-columns: 64px minmax(0, 1fr) auto;
       grid-template-areas:
-        'media pen'
-        'ink ink'
-        'since actions';
+        'media pen pen'
+        'ink ink since';
+      gap: 12px 14px;
       padding: 14px;
     }
-    .since {
-      text-align: left;
+    .row.editable {
+      grid-template-areas:
+        'media pen pen'
+        'ink ink since'
+        'actions actions actions';
     }
     .pen h3 {
       font-size: 19px;
+    }
+    .ink {
+      gap: 10px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+    .ink :global(.swab) {
+      width: 30px;
+      height: 24px;
+    }
+    .ink .meta,
+    .since-date {
+      display: none;
+    }
+    .ink-name {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .since {
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+      /* Reach into the column gap, so the line above runs unbroken. */
+      margin-left: -14px;
+      padding: 12px 0 0 14px;
+      border-top: 1px solid var(--line);
+    }
+    .big {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .big small {
+      font-size: 13px;
+      font-weight: 400;
     }
   }
 </style>

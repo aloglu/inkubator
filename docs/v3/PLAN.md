@@ -131,6 +131,20 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 - **3.0.0-rc.1 published and tested (2026-10-08):** tag run 37735402754 passed (checks, Docker amd64/arm64 with smoke tests, all five programs, multi-architecture image `ghcr.io/aloglu/inkubator:3.0.0-rc.1`, draft release). The owner installed it on their real Unraid server following the Unraid guide, exposed it at their own domain, and a friend on another network signed in and added an ink that appeared on the owner's side. No problems found.
 - **Release plan (agreed with the owner, 2026-10-08):** version `3.0.0-rc.1`, temporary push trigger removed, merge to `main`, tag `v3.0.0-rc.1` (publishes only `ghcr.io/aloglu/inkubator:3.0.0-rc.1` and a draft release; `latest` untouched). The owner tests on real systems with that image and the downloads. Then delete the rc draft release, the `v3.0.0-rc.1` tag (local and on GitHub) and the `3.0.0-rc.1` image version on GHCR, so the Releases page stays clean; set the version to `3.0.0`, tag `v3.0.0`, owner reviews and publishes the draft.
 
+## Owner's notes from testing 3.0.0-rc.1 (2026-10-08) — before 3.0.0
+
+Fixed in this order unless the owner says otherwise; mark each when done.
+
+1. [ ] Favicon looks wide: should be as narrow as the logo (the 64px nib PNG is not square, so browsers stretch it; pad it onto a square canvas).
+2. [ ] Settings index: clicking a section near the bottom (e.g. Activity log) scrolls there but the index does not highlight it when the window is too short for that section to reach the top.
+3. [ ] Add Pen / Ink / Swatch panels have no icon in their header (give panel headers their section's icon).
+4. [ ] After adding a new item, the detail panel should not open; return to the list.
+5. [ ] "Color name" in the pen editor is unclear (the maker's name for the finish, e.g. "Green Stripe"): rename and add an example.
+6. [ ] Add-photo area in the editors is too small (bigger, with drag and drop).
+7. [ ] Date pickers wherever a date is entered (pen purchase date; swatch date already has one; keep month-only purchase dates possible).
+8. [ ] Filling system: several can be chosen; drop the combined "Converter, Cartridge" (choose Converter and Cartridge separately). Needs a data model change (a list) and the importer splitting combined 2.x values.
+9. [ ] HEIC photos (iPhone exports) are refused: accept them, converting to the usual format (likely in the browser before upload, as 2.x did, to keep the single static program).
+
 ## Follow-ups (do not lose)
 
 - **CI:** `.github/workflows/release.yml` builds, tests and publishes (see phase 7, step 4). The macOS Intel program is cross-built on an Apple Silicon runner and is not started in CI.

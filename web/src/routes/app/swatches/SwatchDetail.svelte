@@ -53,7 +53,7 @@
   }
 </script>
 
-<Sheet icon="palette" open {onclose} kicker="Swatch" wide>
+<Sheet icon="palette" open {onclose} title="Swatch" wide>
   {#snippet actions()}
     {#if owner}
     <Button variant="ghost" size="sm" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />

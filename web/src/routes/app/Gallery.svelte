@@ -182,7 +182,7 @@
   </section>
 </div>
 
-<Sheet open={sheetOpen} onclose={() => (sheetOpen = false)} kicker="Ink" title="Side panel">
+<Sheet open={sheetOpen} onclose={() => (sheetOpen = false)} icon="drop" title="Side panel">
   {#snippet actions()}<Button size="sm" icon="pencil-simple">Edit</Button>{/snippet}
   <div class="sheet-body">
     <p>Press Esc, click outside or use the close button.</p>

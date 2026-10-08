@@ -90,7 +90,7 @@
   }
 </script>
 
-<Sheet icon="pen-nib" open {onclose} kicker="Pen">
+<Sheet icon="pen-nib" open {onclose} title="Pen">
   {#snippet actions()}
     {#if owner}
       <Button variant="ghost" size="sm" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />

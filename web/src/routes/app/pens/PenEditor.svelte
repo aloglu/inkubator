@@ -142,7 +142,7 @@
   }
 </script>
 
-<Sheet icon="pen-nib" open onclose={cancel} kicker="Pen" title={isNew ? 'New pen' : 'Edit'} wide>
+<Sheet icon="pen-nib" open onclose={cancel} title={isNew ? 'New pen' : 'Edit pen'} wide>
   <form id="pen-form" class="editor" onsubmit={save}>
     <aside class="preview">
       {#if cropIndex >= 0}

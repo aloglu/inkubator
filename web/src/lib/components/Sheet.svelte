@@ -12,7 +12,6 @@
   let {
     open,
     onclose,
-    kicker,
     icon,
     title,
     wide = false,
@@ -22,10 +21,10 @@
   }: {
     open: boolean;
     onclose: () => void;
-    kicker?: string;
-    /** The section's icon, shown before the kicker. */
+    /** The section's icon, shown before the title. */
     icon?: IconName;
-    title?: string;
+    /** One title, e.g. "Pen", "New pen" or "Edit pen". */
+    title: string;
     wide?: boolean;
     actions?: Snippet;
     footer?: Snippet;
@@ -50,7 +49,7 @@
   tabindex="-1"
   class="sheet"
   class:wide
-  aria-label={title ?? kicker}
+  aria-label={title}
   onclose={onclose}
   onclick={(event) => {
     if (event.target === dialog) onclose();
@@ -61,8 +60,7 @@
       <header>
         <div class="heading">
           {#if icon}<span class="icon"><Icon name={icon} size={15} /></span>{/if}
-          {#if kicker}<span class="kicker">{kicker}</span>{/if}
-          {#if title}<h3>{title}</h3>{/if}
+          <h3>{title}</h3>
         </div>
         <div class="actions">
           {@render actions?.()}
@@ -113,9 +111,16 @@
   }
   .heading {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 10px;
     min-width: 0;
+  }
+  .heading h3 {
+    overflow: hidden;
+    font-size: 20px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .heading .icon {
     display: grid;

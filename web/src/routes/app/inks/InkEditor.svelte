@@ -7,6 +7,7 @@
   import { colorFamily, familyName, families } from '../../../lib/color';
   import Button from '../../../lib/components/Button.svelte';
   import ChipToggles from '../../../lib/components/ChipToggles.svelte';
+  import ColorInput from '../../../lib/components/ColorInput.svelte';
   import PhotoList from '../../../lib/components/PhotoList.svelte';
   import Segmented from '../../../lib/components/Segmented.svelte';
   import Sheet from '../../../lib/components/Sheet.svelte';
@@ -166,7 +167,7 @@
   }
 </script>
 
-<Sheet icon="drop" open onclose={cancel} kicker="Ink" title={isNew ? 'New ink' : 'Edit'} wide>
+<Sheet icon="drop" open onclose={cancel} title={isNew ? 'New ink' : 'Edit ink'} wide>
   <form id="ink-form" class="editor" onsubmit={save}>
     <aside class="preview">
       <Swab base={draft.base_color} sheen={swabSheen(draft)} size="lg" />
@@ -174,31 +175,6 @@
         <p class="preview-name">{draft.name || 'New ink'}</p>
         <p class="meta">{inkMaker(draft)}</p>
       </div>
-      <div class="colors">
-        <label>
-          <input type="color" bind:value={draft.base_color} aria-label="Base color" />
-          Base
-        </label>
-        {#if draft.sheen_color !== null}
-          <label>
-            <input type="color" bind:value={draft.sheen_color} aria-label="Sheen color" />
-            Sheen
-          </label>
-          <button type="button" class="link" onclick={() => (draft.sheen_color = null)}>Remove sheen color</button>
-        {:else}
-          <button type="button" class="link" onclick={() => (draft.sheen_color = '#b0423a')}>Add sheen color</button>
-        {/if}
-      </div>
-      <label class="family">
-        <span>Shelf group</span>
-        <select bind:value={draft.color_family}>
-          <option value={null}>Automatic ({familyName(colorFamily(draft.base_color))})</option>
-          {#each families as family (family)}<option value={family}>{familyName(family)}</option>{/each}
-        </select>
-      </label>
-      {#if draft.sheen_color !== null && draft.sheen === 'none'}
-        <p class="hint">The sheen color shows once Sheen is set above None.</p>
-      {/if}
       <PhotoList bind:images={draft.images} section="inks" name={draft.name} ratio={1} label="Add a bottle photo" />
     </aside>
 
@@ -215,15 +191,45 @@
       </fieldset>
 
       <fieldset>
-        <legend class="kicker">Bottle</legend>
+        <legend class="kicker">Color</legend>
         <div class="scale">
-          <span>Type</span>
-          <Segmented label="Type" bind:value={draft.kind} options={kinds} equal />
+          <span>Base color</span>
+          <ColorInput label="Base color" bind:value={draft.base_color} />
         </div>
+        <div class="scale">
+          <span>Sheen color</span>
+          <div class="sheen">
+            {#if draft.sheen_color !== null}
+              <ColorInput label="Sheen color" bind:value={draft.sheen_color} />
+              <button type="button" class="link" onclick={() => (draft.sheen_color = null)}>Remove</button>
+            {:else}
+              <span class="none">None</span>
+              <button type="button" class="link" onclick={() => (draft.sheen_color = '#b0423a')}>Add a sheen color</button>
+            {/if}
+          </div>
+        </div>
+        {#if draft.sheen_color !== null && draft.sheen === 'none'}
+          <p class="hint">The sheen color shows on the swab once Sheen (under On paper) is above None.</p>
+        {/if}
+        <div class="scale">
+          <span>Shelf group</span>
+          <select class="family" bind:value={draft.color_family} aria-label="Shelf group">
+            <option value={null}>Automatic ({familyName(colorFamily(draft.base_color))})</option>
+            {#each families as family (family)}<option value={family}>{familyName(family)}</option>{/each}
+          </select>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend class="kicker">Bottle</legend>
         <div class="row three">
           <TextField label="Volume" bind:value={volume} suffix="ml" inputmode="decimal" />
           <TextField label="Amount" bind:value={amount} inputmode="numeric" />
           <TextField label="Price" bind:value={price} suffix={currency} inputmode="decimal" />
+        </div>
+        <div class="stack">
+          <span class="label">Type</span>
+          <Segmented label="Type" bind:value={draft.kind} options={kinds} equal />
         </div>
       </fieldset>
 
@@ -308,53 +314,31 @@
     color: var(--muted);
     font-size: 12px;
   }
-  .colors {
+  .sheen {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
     align-items: center;
-    gap: 10px 14px;
+    gap: 8px 14px;
   }
-  .colors label {
-    display: grid;
-    justify-items: center;
-    gap: 4px;
-    color: var(--muted);
-    font-size: 11px;
-  }
-  input[type='color'] {
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    border: 1px solid var(--line-strong);
-    border-radius: 50%;
-    background: none;
-    cursor: pointer;
-  }
-  input[type='color']::-webkit-color-swatch-wrapper {
-    padding: 2px;
-  }
-  input[type='color']::-webkit-color-swatch {
-    border: 0;
-    border-radius: 50%;
-  }
-  input[type='color']::-moz-color-swatch {
-    border: 0;
-    border-radius: 50%;
+  .none {
+    color: var(--fg);
   }
   .family {
-    display: grid;
-    gap: 4px;
-    width: 100%;
-    color: var(--muted);
-    font-size: 11px;
-  }
-  .family select {
-    padding: 5px 8px;
+    justify-self: start;
+    max-width: 100%;
+    padding: 6px 10px;
     border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
     background: var(--field);
-    font-size: 12.5px;
+    font-size: 13px;
+  }
+  .stack {
+    display: grid;
+    gap: 4px;
+  }
+  .stack .label {
+    color: var(--muted);
+    font-size: 12px;
   }
   .link {
     padding: 0;

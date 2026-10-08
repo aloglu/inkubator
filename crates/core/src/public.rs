@@ -2,7 +2,7 @@
 //!
 //! [`project`] builds the visitor's view from the full collection according to
 //! the showcase settings, or nothing at all when the showcase is off. Anything not copied here never leaves the server:
-//! hidden sections, prices (unless enabled), where a pen was bought, notes
+//! hidden sections, prices, when and where a pen was bought (each unless enabled), notes
 //! (unless the showcase shows notes and the item's notes are marked public),
 //! fill notes, activity names and details, and every setting except display ones.
 
@@ -88,6 +88,11 @@ pub fn project(c: &Collection) -> Option<PublicCollection> {
             .map(|mut pen| {
                 if !s.show_prices {
                     pen.price = None;
+                }
+                if !s.show_purchase_dates {
+                    pen.purchased_on = None;
+                }
+                if !s.show_purchased_from {
                     pen.purchased_from.clear();
                 }
                 if !(s.show_notes && pen.notes_public) {

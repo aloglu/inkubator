@@ -11,6 +11,14 @@ export type ShowcaseSettings = {
  */
 enabled: boolean, title: string, theme: Theme, show_pens: boolean, show_inks: boolean, show_swatches: boolean, show_prices: boolean, 
 /**
+ * When each pen was bought.
+ */
+show_purchase_dates: boolean, 
+/**
+ * Where each pen was bought.
+ */
+show_purchased_from: boolean, 
+/**
  * Master switch for notes: when off, no notes are public, whatever each item says.
  */
 show_notes: boolean, show_stats: boolean, show_charts: boolean, show_activity: boolean, show_activity_filters: boolean, show_recent_activity: boolean, pen_sort: PenSort, ink_sort: InkSort, swatch_sort: SwatchSort, };

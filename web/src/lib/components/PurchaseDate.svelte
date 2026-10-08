@@ -41,14 +41,14 @@
     color: var(--muted);
     font-size: 12px;
   }
+  /* The picker fills its column like the text fields beside it; the month choice goes under it. */
   .row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 12px;
+    display: grid;
+    gap: 6px;
   }
   input[type='date'] {
-    min-height: 34px;
+    width: 100%;
+    min-height: 36px;
     padding: 0 10px;
     border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);

@@ -15,6 +15,7 @@
     icon,
     title,
     name,
+    back,
     wide = false,
     actions,
     footer,
@@ -28,6 +29,8 @@
     title: string;
     /** What the panel is about, after a dot: "Edit · Pilot Custom 742". */
     name?: string;
+    /** The panel this one was opened from, to go back to. */
+    back?: { href: string; label: string } | null;
     wide?: boolean;
     actions?: Snippet;
     footer?: Snippet;
@@ -62,6 +65,11 @@
     <div class="panel">
       <header>
         <div class="heading">
+          {#if back}
+            <a class="back" href={back.href} title="Back to {back.label}">
+              <Icon name="caret-left" size={14} /><span>{back.label}</span>
+            </a>
+          {/if}
           {#if icon}<span class="icon"><Icon name={icon} size={15} /></span>{/if}
           <h3 title={name ? `${title} ${name}` : undefined}>
             {title}{#if name}<span class="dot" aria-hidden="true">·</span>{name}{/if}
@@ -126,6 +134,33 @@
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .back {
+    display: inline-flex;
+    flex: 0 1 auto;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    max-width: 180px;
+    padding: 4px 9px 4px 5px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 12.5px;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .back span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .back:hover {
+    border-color: var(--accent);
+    color: var(--fg);
+  }
+  .back:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
   .dot {
     margin-inline: 0.35em;

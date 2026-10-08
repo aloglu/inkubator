@@ -153,6 +153,8 @@
     { key: 'show_inks', label: 'Inks' },
     { key: 'show_swatches', label: 'Swatches' },
     { key: 'show_prices', label: 'Prices' },
+    { key: 'show_purchase_dates', label: 'Purchase dates' },
+    { key: 'show_purchased_from', label: 'Where bought' },
     { key: 'show_notes', label: 'Notes' },
     { key: 'show_stats', label: 'Stats' },
     { key: 'show_charts', label: 'Charts' },
@@ -365,7 +367,7 @@
         {@render row(
           'Let visitors see the collection',
           s.showcase.enabled
-            ? 'Anyone who opens this address without signing in can browse what you choose below, but cannot change anything. Purchase details, fill notes and private notes are never shown.'
+            ? 'Anyone who opens this address without signing in can browse what you choose below, but cannot change anything. Fill notes and private notes are never shown.'
             : 'Only you see the collection. Anyone else who opens this address gets the sign-in page.',
           enabled,
         )}

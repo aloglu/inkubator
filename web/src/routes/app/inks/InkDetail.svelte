@@ -9,8 +9,8 @@
   import Swab from '../../../lib/components/Swab.svelte';
   import SwatchMedia from '../../../lib/components/SwatchMedia.svelte';
   import { daysBetween, formatDate, inkMaker, penName, plural } from '../../../lib/format';
-  import { properties, summary, swabSheen } from '../../../lib/ink';
-  import { canOpen, itemHref, newHref } from '../../../lib/items.svelte';
+  import { properties, swabSheen } from '../../../lib/ink';
+  import { canOpen, itemHref, panelBack, newHref } from '../../../lib/items.svelte';
   import { router } from '../../../lib/router.svelte';
   import { collection } from '../../../lib/stores/collection.svelte';
   import { ui } from '../../../lib/stores/ui.svelte';
@@ -78,7 +78,7 @@
   }
 </script>
 
-<Sheet icon="drop" open {onclose} title="Ink">
+<Sheet icon="drop" open {onclose} title="Ink" back={panelBack()}>
   {#snippet actions()}
     {#if owner}
     <Button
@@ -100,7 +100,6 @@
     <div class="title">
       <p class="eyebrow">{inkMaker(ink)}</p>
       <h2>{ink.name}</h2>
-      {#if summary(ink)}<p class="meta">{summary(ink)}</p>{/if}
     </div>
     {#if photo}
       <div class="bottle">

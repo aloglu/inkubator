@@ -57,6 +57,7 @@ fn prices_and_private_details_are_hidden_by_default() {
     let p = public(&showcase());
     assert_eq!(p.pens[0].price, None);
     assert_eq!(p.pens[0].purchased_from, "");
+    assert_eq!(p.pens[0].purchased_on, None);
     assert_eq!(p.inks[0].price, None);
     assert_eq!(p.currency, None);
     assert!(
@@ -71,8 +72,27 @@ fn prices_show_when_enabled() {
     c.settings.showcase.show_prices = true;
     let p = public(&c);
     assert_eq!(p.pens[0].price, Some(160.0));
-    assert_eq!(p.pens[0].purchased_from, "A friend");
+    assert_eq!(
+        p.pens[0].purchased_from, "",
+        "where it was bought has its own switch"
+    );
     assert_eq!(p.currency.as_deref(), Some("USD"));
+}
+
+#[test]
+fn purchase_dates_and_sellers_show_each_when_enabled() {
+    let mut c = showcase();
+    c.settings.showcase.show_purchase_dates = true;
+    let p = public(&c);
+    assert!(p.pens[0].purchased_on.is_some());
+    assert_eq!(p.pens[0].purchased_from, "");
+
+    c.settings.showcase.show_purchase_dates = false;
+    c.settings.showcase.show_purchased_from = true;
+    let p = public(&c);
+    assert_eq!(p.pens[0].purchased_on, None);
+    assert_eq!(p.pens[0].purchased_from, "A friend");
+    assert_eq!(p.pens[0].price, None);
 }
 
 #[test]

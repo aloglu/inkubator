@@ -973,6 +973,8 @@ fn settings(prefs: &Map<String, Value>, _data: &Map<String, Value>) -> Settings 
             show_inks: flag(&showcase, "show_inks", true),
             show_swatches: flag(&showcase, "show_swatches", true),
             show_prices: flag(&showcase, "show_prices", false),
+            show_purchase_dates: false,
+            show_purchased_from: false,
             // 2.x showed every note; 3.0 starts private and lets the owner choose.
             show_notes: false,
             show_stats: flag(&showcase, "show_insights", true),

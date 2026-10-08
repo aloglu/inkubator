@@ -200,6 +200,14 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 3. [x] Flush's notice (with Undo) appeared behind an open panel, unreachable: modal dialogs sit in the browser's top layer and make the page inert. Done: notices move into the topmost open modal dialog while one is open (`Notices.svelte`).
 4. [x] Item links (panels, Desk, Activity, Stats) show no decoration on hover; Activity's links also open the item over the Activity page now.
 
+## Owner's notes on rc.9 (2026-10-08) — before 3.0.0
+
+1. [x] The swatch panel linked its ink with an "Open ink" button, unlike the other panels. Done: the ink's name is the link.
+2. [x] After following a link from one panel to another, there should be a way back, without loops. Done: the address carries the way back (`&back=pen:<id>,ink:<id>`, at most 8 steps; `lib/items.svelte.ts`); the panel header shows "‹ <previous item>"; going to an item already on the way back cuts it there; editing keeps it, closing clears it.
+3. [x] Panel subheaders repeated what Properties already lists (an ink's volume and properties, a pen's colorway): removed. The pen's "Details" is now "Properties", like inks. The note "The whole photo is shown here; cards use the crop set in the editor." is gone.
+4. [x] Purchase fields in the pen editor were misaligned: the date picker fills its column at the text fields' height, "Only the month" under it.
+5. [x] Visitors: separate switches for purchase dates and where a pen was bought (`show_purchase_dates`, `show_purchased_from`, both off by default; Prices now covers prices only). Before, the seller followed Prices and the date was always shown.
+
 ## Follow-ups (do not lose)
 
 - **CI:** `.github/workflows/release.yml` builds, tests and publishes (see phase 7, step 4). The macOS Intel program is cross-built on an Apple Silicon runner and is not started in CI.

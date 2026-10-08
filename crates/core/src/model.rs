@@ -554,6 +554,12 @@ pub struct ShowcaseSettings {
     pub show_inks: bool,
     pub show_swatches: bool,
     pub show_prices: bool,
+    /// When each pen was bought.
+    #[serde(default)]
+    pub show_purchase_dates: bool,
+    /// Where each pen was bought.
+    #[serde(default)]
+    pub show_purchased_from: bool,
     /// Master switch for notes: when off, no notes are public, whatever each item says.
     #[serde(default)]
     pub show_notes: bool,
@@ -577,6 +583,8 @@ impl Default for ShowcaseSettings {
             show_inks: true,
             show_swatches: true,
             show_prices: false,
+            show_purchase_dates: false,
+            show_purchased_from: false,
             show_notes: false,
             show_stats: true,
             show_charts: true,

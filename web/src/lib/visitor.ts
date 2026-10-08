@@ -52,6 +52,9 @@ export function visitorCollection(p: PublicCollection): Collection {
         show_inks: p.show_inks,
         show_swatches: p.show_swatches,
         show_prices: p.currency !== null,
+        // The server already left out what visitors may not see.
+        show_purchase_dates: true,
+        show_purchased_from: true,
         show_notes: true,
         show_stats: p.show_stats,
         show_charts: p.show_charts,

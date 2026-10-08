@@ -54,7 +54,8 @@ way to change anything, and only what you allowed. They can never see:
 - notes you have not marked "Show to visitors" (each pen, ink and swatch has
   its own switch, and **Notes** under Settings → Visitors turns all of them
   off at once),
-- where you bought a pen, or prices when **Prices** is off,
+- prices, purchase dates or where you bought a pen, unless you turn on
+  **Prices**, **Purchase dates** or **Where bought**,
 - notes on inkings,
 - your settings.
 

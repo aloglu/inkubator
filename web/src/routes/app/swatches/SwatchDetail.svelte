@@ -9,7 +9,7 @@
   import SwatchMedia from '../../../lib/components/SwatchMedia.svelte';
   import { formatDate, fromDateInput, inkMaker } from '../../../lib/format';
   import { summary, swabSheen } from '../../../lib/ink';
-  import { canOpen, itemHref } from '../../../lib/items.svelte';
+  import { canOpen, itemHref, panelBack } from '../../../lib/items.svelte';
   import { router } from '../../../lib/router.svelte';
   import { collection } from '../../../lib/stores/collection.svelte';
   import { ui } from '../../../lib/stores/ui.svelte';
@@ -54,7 +54,7 @@
   }
 </script>
 
-<Sheet icon="palette" open {onclose} title="Swatch" wide>
+<Sheet icon="palette" open {onclose} title="Swatch" wide back={panelBack()}>
   {#snippet actions()}
     {#if owner}
     <Button variant="ghost" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
@@ -80,10 +80,13 @@
         <div class="card">
           <Swab base={ink.base_color} sheen={swabSheen(ink)} size="sm" />
           <div class="grow">
-            <p class="strong">{ink.name}</p>
+            {#if canOpen('ink')}
+              <a class="strong" href={itemHref('ink', ink.id, { edit: false })}>{ink.name}</a>
+            {:else}
+              <p class="strong">{ink.name}</p>
+            {/if}
             <p class="meta">{[inkMaker(ink), summary(ink, 2)].filter(Boolean).join(' · ')}</p>
           </div>
-          {#if canOpen('ink')}<a class="open" href={itemHref('ink', ink.id, { edit: false })}>Open ink</a>{/if}
         </div>
       {/if}
       <dl>
@@ -136,24 +139,16 @@
     flex: 1;
     min-width: 0;
   }
+  a.strong {
+    color: inherit;
+    text-decoration: none;
+  }
   .strong {
     font-weight: 500;
   }
   .meta {
     color: var(--muted);
     font-size: 12px;
-  }
-  .open {
-    flex: none;
-    padding: 4px 10px;
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius-sm);
-    color: inherit;
-    font-size: 12.5px;
-    text-decoration: none;
-  }
-  .open:hover {
-    border-color: var(--accent);
   }
   dl {
     display: grid;

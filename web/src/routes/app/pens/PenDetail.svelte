@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** One pen: the whole photo, details, what it holds now and what it held before. */
+  /** One pen: the whole photo, its properties, what it holds now and what it held before. */
   import { flushPen } from '../../../lib/actions';
   import { photoUrl } from '../../../lib/api';
   import Button from '../../../lib/components/Button.svelte';
@@ -10,7 +10,7 @@
   import Swab from '../../../lib/components/Swab.svelte';
   import { daysBetween, formatDate, plural } from '../../../lib/format';
   import { money, swabSheen } from '../../../lib/ink';
-  import { canOpen, itemHref } from '../../../lib/items.svelte';
+  import { canOpen, itemHref, panelBack } from '../../../lib/items.svelte';
   import { router } from '../../../lib/router.svelte';
   import { collection } from '../../../lib/stores/collection.svelte';
   import { ui } from '../../../lib/stores/ui.svelte';
@@ -91,7 +91,7 @@
   }
 </script>
 
-<Sheet icon="pen-nib" open {onclose} title="Pen">
+<Sheet icon="pen-nib" open {onclose} title="Pen" back={panelBack()}>
   {#snippet actions()}
     {#if owner}
       <Button variant="ghost" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
@@ -113,7 +113,6 @@
       <div>
         <p class="eyebrow">{pen.brand}</p>
         <h2>{pen.model}</h2>
-        {#if pen.color_name}<p class="meta">{pen.color_name}</p>{/if}
       </div>
       {#if pen.images.length > 1}
         <div class="strip" role="group" aria-label="Photos">
@@ -130,13 +129,12 @@
           {/each}
         </div>
       {/if}
-      {#if photo && owner}<p class="meta small">The whole photo is shown here; cards use the crop set in the editor.</p>{/if}
     </div>
   </div>
 
   <div class="columns">
     <section class="block">
-      <h4 class="kicker">Details</h4>
+      <h4 class="kicker">Properties</h4>
       <dl>
         {#each rows as row (row.label)}
           <div><dt>{row.label}</dt><dd class:none={row.value === null}>{row.value ?? '—'}</dd></div>
@@ -253,9 +251,6 @@
     margin-top: 4px;
     color: var(--muted);
     font-size: 12.5px;
-  }
-  .small {
-    font-size: 11.5px;
   }
   .strip {
     display: flex;

@@ -10,10 +10,6 @@ on:
   push:
     tags:
       - "v*"
-    # TEMPORARY: test the workflow on the 3.0 branch before it reaches main.
-    # Pushes here build and test only; nothing is published. Remove before release.
-    branches:
-      - v3-rework
 
 permissions:
   contents: read
@@ -112,10 +108,13 @@ jobs:
       - name: Upgrade test (from the latest published 3.x image)
         shell: bash
         run: |
+          # An older image may ignore --version and just start its server, so
+          # the check is given a minute at most.
           if docker pull "$IMAGE:latest" >/dev/null 2>&1 \
-            && docker run --rm "$IMAGE:latest" --version 2>/dev/null | grep -q '^Inkubator 3\.'; then
+            && timeout 60 docker run --rm --name inkubator-version-check "$IMAGE:latest" --version 2>/dev/null | grep -q '^Inkubator 3\.'; then
             PREVIOUS_IMAGE="$IMAGE:latest" docker/smoke-test.sh inkubator:test
           else
+            docker rm -f inkubator-version-check >/dev/null 2>&1 || true
             echo "No published 3.x image yet; nothing to upgrade from."
           fi
 

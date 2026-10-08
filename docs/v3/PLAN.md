@@ -186,6 +186,13 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 4. [x] Undo instead of confirming ink changes: inking, re-inking and flushing show a notice with Undo for 8 s (`Command::UndoInkChange { pen_id, at }`, which only takes back the pen's latest ink change and removes its activity entry; tested in `crates/core/tests/commands.rs`). Deleting keeps its confirmation.
 5. [x] Settings: confirm each saved change. Done the owner's way: a "Settings saved." notice that replaces the previous one instead of stacking (`ui.notify(..., key)`).
 
+## Owner's notes from testing 3.0.0-rc.7 (2026-10-08) — before 3.0.0
+
+1. [x] Desk: clicking an ink or pen name went to the Inks or Pens page; it should stay on the Desk. Done: the Desk opens their details and editors itself (`/?ink=…`, `/?pen=…`, `&edit`, honouring "Open items in edit mode"); the detail panels' Edit button stays on the current page.
+2. [x] Suggestions showed "Not in a pen for a while" even with no free ink. Done: the Suggestions row only appears when an ink is free to suggest.
+3. [x] The inked pens get a heading like Recent activity, and both headings are larger ("Inked pens", "Recent activity" in the display face).
+4. [x] Recent activity was shown to visitors only. Done: the owner always sees the latest five on the Desk; visitors still only when the Visitors settings allow it.
+
 ## Follow-ups (do not lose)
 
 - **CI:** `.github/workflows/release.yml` builds, tests and publishes (see phase 7, step 4). The macOS Intel program is cross-built on an Apple Silicon runner and is not started in CI.

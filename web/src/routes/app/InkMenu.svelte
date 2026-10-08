@@ -2,6 +2,7 @@
   /**
    * A pen's ink actions on the Desk: change its ink (in Ink a pen), flush it,
    * or open Suggestions: inks not in a pen for a while, to switch to at once.
+   * Suggestions only appear when some ink is free to suggest.
    */
   import { flushPen, notifyWithUndo } from '../../lib/actions';
   import Icon from '../../lib/components/Icon.svelte';
@@ -20,7 +21,7 @@
   let suggesting = $state(false);
   let button: HTMLButtonElement | undefined = $state();
 
-  const suggestions = $derived(suggesting && collection.data ? restingInks(collection.data, Date.now()).slice(0, 3) : []);
+  const suggestions = $derived(open && collection.data ? restingInks(collection.data, Date.now()).slice(0, 3) : []);
 
   function close() {
     open = false;
@@ -73,22 +74,22 @@
   >
     <Icon name="arrows-counter-clockwise" size={16} /><span>Flush {ink.name}</span>
   </button>
-  <hr />
-  <button type="button" role="menuitem" aria-expanded={suggesting} onclick={() => (suggesting = !suggesting)}>
-    <Icon name="star" size={16} /><span>Suggestions</span>
-    <span class="caret" class:turned={suggesting}><Icon name="caret-down" size={12} /></span>
-  </button>
-  {#if suggesting}
-    <div class="note">Not in a pen for a while</div>
-    {#each suggestions as next (next.id)}
-      <button type="button" role="menuitem" onclick={() => switchTo(next)}>
-        <Swab base={next.base_color} sheen={swabSheen(next)} size="sm" />
-        <span>{next.name}</span>
-        <small>{next.brand}</small>
-      </button>
-    {:else}
-      <div class="note">Every ink is in a pen.</div>
-    {/each}
+  {#if suggestions.length}
+    <hr />
+    <button type="button" role="menuitem" aria-expanded={suggesting} onclick={() => (suggesting = !suggesting)}>
+      <Icon name="star" size={16} /><span>Suggestions</span>
+      <span class="caret" class:turned={suggesting}><Icon name="caret-down" size={12} /></span>
+    </button>
+    {#if suggesting}
+      <div class="note">Not in a pen for a while</div>
+      {#each suggestions as next (next.id)}
+        <button type="button" role="menuitem" onclick={() => switchTo(next)}>
+          <Swab base={next.base_color} sheen={swabSheen(next)} size="sm" />
+          <span>{next.name}</span>
+          <small>{next.brand}</small>
+        </button>
+      {/each}
+    {/if}
   {/if}
 </Menu>
 

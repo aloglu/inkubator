@@ -88,7 +88,7 @@
       disabled={current.length > 0 || collection.saving}
       onclick={remove}
     />
-    <Button icon="pencil-simple" onclick={() => router.navigate(`/inks?ink=${encodeURIComponent(ink.id)}&edit`)}>
+    <Button icon="pencil-simple" onclick={() => router.navigate(`${router.path}?ink=${encodeURIComponent(ink.id)}&edit`)}>
       Edit
     </Button>
     {/if}

@@ -11,7 +11,12 @@
   import Icon from '../../lib/components/Icon.svelte';
   import type { ActivityEntry } from '../../lib/types/ActivityEntry';
   import type { Pen } from '../../lib/types/Pen';
+  import { router } from '../../lib/router.svelte';
+  import InkDetail from './inks/InkDetail.svelte';
+  import InkEditor from './inks/InkEditor.svelte';
   import InkMenu from './InkMenu.svelte';
+  import PenDetail from './pens/PenDetail.svelte';
+  import PenEditor from './pens/PenEditor.svelte';
 
   const WEEK = 7 * 24 * 60 * 60 * 1000;
 
@@ -28,9 +33,11 @@
 
   const dateFormat = $derived(data.settings.defaults.date_format);
 
-  // Visitors may see the latest few events here, when the showcase allows it.
+  // The latest few events; visitors see them only when the Visitors settings allow it.
   const recent = $derived(
-    !collection.canEdit && data.settings.showcase.show_recent_activity ? data.activity.slice(0, 5) : [],
+    collection.canEdit || data.settings.showcase.show_recent_activity
+      ? [...data.activity].sort((a, b) => b.at - a.at).slice(0, 5)
+      : [],
   );
   function recentText(entry: ActivityEntry): string {
     const subject =
@@ -50,6 +57,22 @@
   const pensOpen = $derived(collection.canEdit || data.settings.showcase.show_pens);
   const inksOpen = $derived(collection.canEdit || data.settings.showcase.show_inks);
   const penName = (pen: Pen) => [pen.brand, pen.model].filter(Boolean).join(' ');
+
+  // A pen's or ink's details open here, over the Desk, addressed like on their
+  // own pages (/?pen=<id>, &edit).
+  const openEditing = $derived(collection.canEdit && data.settings.open_items_in_edit_mode);
+  const penHref = (pen: Pen) => `/?pen=${encodeURIComponent(pen.id)}${openEditing ? '&edit' : ''}`;
+  const inkHref = (id: string) => `/?ink=${encodeURIComponent(id)}${openEditing ? '&edit' : ''}`;
+  const panelPen = $derived.by(() => {
+    const id = router.query.get('pen');
+    return id && pensOpen ? data.pens.find((pen) => pen.id === id) : undefined;
+  });
+  const panelInk = $derived.by(() => {
+    const id = router.query.get('ink');
+    return id && inksOpen ? data.inks.find((ink) => ink.id === id) : undefined;
+  });
+  const editingPanel = $derived(collection.canEdit && router.query.has('edit'));
+  const closePanel = () => router.navigate('/');
   const inks = $derived(new Map(data.inks.map((ink) => [ink.id, ink])));
   const pens = $derived(new Map(data.pens.map((pen) => [pen.id, pen])));
 
@@ -111,49 +134,52 @@
     </div>
   </dl>
 
-  {#if rows.length}
-    <ul class="rows">
-      {#each rows as { fill, pen, ink, days } (fill.id)}
-        {@const nib = [pen.nib_size, pen.nib_material].filter(Boolean).join(' · ')}
-        <li class="row">
-          <Swab base={ink.base_color} sheen={swabSheen(ink)} />
-          <div class="what">
-            <h3>
-              {#if inksOpen}<a class="plain" href="/inks?ink={encodeURIComponent(ink.id)}">{ink.name}</a>{:else}{ink.name}{/if}
-            </h3>
-            <p class="meta">
-              in
-              {#if pensOpen}<a class="plain pen" href="/pens?pen={encodeURIComponent(pen.id)}">{penName(pen)}</a>{:else}<span class="pen">{penName(pen)}</span>{/if}{#if nib}<span class="nib">{` · ${nib}`}</span>{/if}
-            </p>
-          </div>
-          <div class="time">
-            {#if days === 0}
-              <strong>Today</strong>
-              <span>inked {formatDate(fill.inked_at, dateFormat, { short: true })}</span>
-            {:else}
-              <strong>{plural(days, 'day')}</strong>
-              <span>in the pen since {formatDate(fill.inked_at, dateFormat, { short: true })}</span>
-            {/if}
-          </div>
-          {#if collection.canEdit}<InkMenu {pen} {ink} />{/if}
-        </li>
-      {/each}
-    </ul>
-  {:else}
-    <div class="empty">
-      <p>No pens are inked right now.</p>
-      {#if !collection.canEdit}
-        <p class="muted">Check back later.</p>
-      {:else if data.pens.length && data.inks.length}
-        <Button icon="drop" onclick={() => ui.openInkFlow()}>Ink a pen</Button>
-      {:else}
-        <p class="muted">Add a pen and an ink to get started.</p>
-      {/if}
-    </div>
-  {/if}
+  <section class="inked" aria-labelledby="inked-title">
+    <h3 id="inked-title" class="section-title">Inked pens</h3>
+    {#if rows.length}
+      <ul class="rows">
+        {#each rows as { fill, pen, ink, days } (fill.id)}
+          {@const nib = [pen.nib_size, pen.nib_material].filter(Boolean).join(' · ')}
+          <li class="row">
+            <Swab base={ink.base_color} sheen={swabSheen(ink)} />
+            <div class="what">
+              <h3>
+                {#if inksOpen}<a class="plain" href={inkHref(ink.id)}>{ink.name}</a>{:else}{ink.name}{/if}
+              </h3>
+              <p class="meta">
+                in
+                {#if pensOpen}<a class="plain pen" href={penHref(pen)}>{penName(pen)}</a>{:else}<span class="pen">{penName(pen)}</span>{/if}{#if nib}<span class="nib">{` · ${nib}`}</span>{/if}
+              </p>
+            </div>
+            <div class="time">
+              {#if days === 0}
+                <strong>Today</strong>
+                <span>inked {formatDate(fill.inked_at, dateFormat, { short: true })}</span>
+              {:else}
+                <strong>{plural(days, 'day')}</strong>
+                <span>in the pen since {formatDate(fill.inked_at, dateFormat, { short: true })}</span>
+              {/if}
+            </div>
+            {#if collection.canEdit}<InkMenu {pen} {ink} />{/if}
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <div class="empty">
+        <p>No pens are inked right now.</p>
+        {#if !collection.canEdit}
+          <p class="muted">Check back later.</p>
+        {:else if data.pens.length && data.inks.length}
+          <Button icon="drop" onclick={() => ui.openInkFlow()}>Ink a pen</Button>
+        {:else}
+          <p class="muted">Add a pen and an ink to get started.</p>
+        {/if}
+      </div>
+    {/if}
+  </section>
   {#if recent.length}
     <section class="recent" aria-labelledby="recent-title">
-      <h3 id="recent-title" class="kicker">Recent activity</h3>
+      <h3 id="recent-title" class="section-title">Recent activity</h3>
       <ul>
         {#each recent as entry (entry.id)}
           {@const ink = entry.ink_id ? inks.get(entry.ink_id) : undefined}
@@ -169,6 +195,20 @@
     </section>
   {/if}
 </div>
+
+{#if panelPen}
+  {#if editingPanel}
+    <PenEditor {data} pen={panelPen} onclose={() => router.navigate(`/?pen=${encodeURIComponent(panelPen.id)}`)} />
+  {:else}
+    <PenDetail {data} pen={panelPen} onclose={closePanel} />
+  {/if}
+{:else if panelInk}
+  {#if editingPanel}
+    <InkEditor {data} ink={panelInk} onclose={() => router.navigate(`/?ink=${encodeURIComponent(panelInk.id)}`)} />
+  {:else}
+    <InkDetail {data} ink={panelInk} onclose={closePanel} />
+  {/if}
+{/if}
 
 <style>
   .page {
@@ -286,12 +326,14 @@
     color: var(--muted);
     font-size: 12px;
   }
+  .section-title {
+    font-size: 19px;
+    line-height: 1.2;
+  }
+  .inked,
   .recent {
     display: grid;
-    gap: 6px;
-  }
-  h3.kicker {
-    font-family: var(--font-body);
+    gap: 10px;
   }
   .recent ul {
     margin: 0;

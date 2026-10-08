@@ -94,7 +94,7 @@
   {#snippet actions()}
     {#if owner}
       <Button variant="ghost" icon="trash" aria-label="Delete" title="Delete" disabled={collection.saving} onclick={remove} />
-      <Button icon="pencil-simple" onclick={() => router.navigate(`/pens?pen=${encodeURIComponent(pen.id)}&edit`)}>
+      <Button icon="pencil-simple" onclick={() => router.navigate(`${router.path}?pen=${encodeURIComponent(pen.id)}&edit`)}>
         Edit
       </Button>
     {/if}

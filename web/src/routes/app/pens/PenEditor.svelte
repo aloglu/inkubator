@@ -11,6 +11,7 @@
   import PenDrawing from '../../../lib/components/PenDrawing.svelte';
   import PhotoFrame from '../../../lib/components/PhotoFrame.svelte';
   import PhotoList from '../../../lib/components/PhotoList.svelte';
+  import PurchaseDate from '../../../lib/components/PurchaseDate.svelte';
   import Sheet from '../../../lib/components/Sheet.svelte';
   import SuggestField from '../../../lib/components/SuggestField.svelte';
   import Switch from '../../../lib/components/Switch.svelte';
@@ -90,7 +91,7 @@
     const date = bought.trim();
     if (!draft.brand.trim() && !draft.model.trim()) return 'Give the pen a brand or a model.';
     if (cost !== null && (!Number.isFinite(cost) || cost < 0)) return 'Price must be a number.';
-    if (date && !isPurchaseDate(date)) return 'Bought must be a date like 2024-05 or 2024-05-17.';
+    if (date && !isPurchaseDate(date)) return 'Choose the date you bought it, or leave it empty.';
     return {
       ...$state.snapshot(draft),
       brand: draft.brand.trim(),
@@ -234,7 +235,7 @@
         <legend class="kicker">Purchase</legend>
         <div class="row three">
           <TextField label="Price" bind:value={price} suffix={data.settings.defaults.currency} inputmode="decimal" />
-          <TextField label="Bought" bind:value={bought} placeholder="2024-05 or 2024-05-17" autocomplete="off" />
+          <PurchaseDate label="Bought" bind:value={bought} />
           <TextField label="From" bind:value={draft.purchased_from} placeholder="Shop or person" autocomplete="off" />
         </div>
       </fieldset>

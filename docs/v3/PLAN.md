@@ -141,7 +141,7 @@ Fixed in this order unless the owner says otherwise; mark each when done.
 4. [x] After adding a new item, the detail panel should not open; return to the list.
 5. [x] "Color name" in the pen editor is unclear (the maker's name for the finish, e.g. "Green Stripe"): renamed "Finish" with an example (the stored field stays `color_name`).
 6. [x] Add-photo area in the editors is too small (bigger, with drag and drop).
-7. [ ] Date pickers wherever a date is entered (pen purchase date; swatch date already has one; keep month-only purchase dates possible).
+7. [x] Date pickers wherever a date is entered: the pen purchase date is a date picker with an "Only the month" checkbox (month pickers do not work in Safari and Firefox); swatch dates and Ink a pen already had pickers.
 8. [ ] Filling system: several can be chosen; drop the combined "Converter, Cartridge" (choose Converter and Cartridge separately). Needs a data model change (a list) and the importer splitting combined 2.x values.
 9. [ ] HEIC photos (iPhone exports) are refused: accept them, converting to the usual format (likely in the browser before upload, as 2.x did, to keep the single static program).
 

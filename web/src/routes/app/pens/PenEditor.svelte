@@ -141,7 +141,10 @@
   }
 </script>
 
-<Sheet icon="pen-nib" open onclose={cancel} title={isNew ? 'New pen' : 'Edit pen'} wide>
+<Sheet icon="pen-nib" open onclose={cancel} title={isNew ? 'New Pen' : 'Edit'}
+  name={isNew ? undefined : [original.brand, original.model].filter(Boolean).join(' ')}
+  wide
+>
   <form id="pen-form" class="editor" onsubmit={save}>
     <aside class="preview">
       {#if adjustIndex >= 0}
@@ -151,8 +154,8 @@
             bind:image={draft.images[adjustIndex]!}
             ratio={16 / 9}
             label="Card crop (16:9)"
+            ondone={() => (adjusting = undefined)}
           />
-          <Button size="sm" icon="check" onclick={() => (adjusting = undefined)}>Done</Button>
         </div>
       {:else if cardImage}
         <div class="card-preview">
@@ -162,18 +165,17 @@
       {:else}
         <PenDrawing colors={draft.colors} width={190} />
       {/if}
-      <div class="name">
-        <p class="preview-name">{draft.model || 'New pen'}</p>
-        <p class="meta">{[draft.brand, draft.color_name].filter(Boolean).join(' · ')}</p>
+      <div class="photos">
+        <p class="kicker">Photos</p>
+        <PhotoList
+          bind:images={draft.images}
+          {adjusting}
+          onadjust={(id) => (adjusting = id)}
+          section="pens"
+          name={[draft.brand, draft.model].filter(Boolean).join(' ')}
+          ratio={4 / 3}
+        />
       </div>
-      <PhotoList
-        bind:images={draft.images}
-        {adjusting}
-        onadjust={(id) => (adjusting = id)}
-        section="pens"
-        name={[draft.brand, draft.model].filter(Boolean).join(' ')}
-        ratio={4 / 3}
-      />
     </aside>
 
     <div class="form">
@@ -293,19 +295,11 @@
     gap: 8px;
     width: 100%;
   }
-  .name {
+  .photos {
     display: grid;
-    gap: 2px;
-  }
-  .preview-name {
-    font-family: var(--font-display);
-    font-size: 22px;
-    line-height: 1.1;
-    overflow-wrap: anywhere;
-  }
-  .meta {
-    color: var(--muted);
-    font-size: 12px;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
   }
   .scale {
     display: grid;

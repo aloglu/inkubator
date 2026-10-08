@@ -174,8 +174,8 @@ Result on rc.3: headers, ink editor and phone Desk confirmed fixed.
 ## Owner's notes from testing 3.0.0-rc.5 (2026-10-08) — before 3.0.0
 
 1. [x] Desk cards at medium and phone widths still felt misaligned, and Re-ink / Flush under the ink looked off. Done: the buttons sit beside the pen's name (icons only on phones, words kept for screen readers) and the days beside the ink; on phones the swab sits under the photo so the ink's name lines up with the pen's.
-2. [ ] Pen editor side panel: the pen's name should not sit below the photo; put the photos under a heading. Discuss first, together with the crop (see 3).
-3. [ ] Crop: resize the crop area directly on the photo (width and height independently) instead of a zoom slider; consider phones. Discuss first.
+2. [x] Pen editor side panel: the pen's name should not sit below the photo; put the photos under a heading. Done (all three editors): the name moved into the header in Title Case with a muted dot ("Edit · Pilot Custom 742", "Edit · Pilot Yama-guri", "Edit · Pilot Yama-guri Swatch", by the saved name so it does not change while typing; new items "New Pen" etc.); the side panel is the preview, then a Photos heading. Detail panels keep their simple titles (the name is already large in their body).
+3. [x] Crop: resize the crop area directly on the photo instead of a zoom slider; consider phones. Decided: the frame keeps the card's shape (cards are a fixed 16:9 / 4:3, so independent width and height would distort or letterbox). Done: corner handles (small, finger-sized touch area; the opposite corner stays put, `resizeFromCorner` in `lib/crop.ts`, tested), pinch, scroll wheel, arrow keys and + / −; the slider is gone; Done sits in the crop tool's button row.
 4. [x] Notes: the "Show to visitors" hint beside the switch looked misaligned (smaller text squeezed next to it). Done: the hint is on its own line below, like the other hints in the editors.
 
 ## Follow-ups (do not lose)

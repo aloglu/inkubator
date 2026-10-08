@@ -14,6 +14,7 @@
     onclose,
     icon,
     title,
+    name,
     wide = false,
     actions,
     footer,
@@ -23,8 +24,10 @@
     onclose: () => void;
     /** The section's icon, shown before the title. */
     icon?: IconName;
-    /** One title, e.g. "Pen", "New pen" or "Edit pen". */
+    /** One title in Title Case, e.g. "Pen", "New Pen" or "Edit". */
     title: string;
+    /** What the panel is about, after a dot: "Edit · Pilot Custom 742". */
+    name?: string;
     wide?: boolean;
     actions?: Snippet;
     footer?: Snippet;
@@ -49,7 +52,7 @@
   tabindex="-1"
   class="sheet"
   class:wide
-  aria-label={title}
+  aria-label={name ? `${title} ${name}` : title}
   onclose={onclose}
   onclick={(event) => {
     if (event.target === dialog) onclose();
@@ -60,7 +63,9 @@
       <header>
         <div class="heading">
           {#if icon}<span class="icon"><Icon name={icon} size={15} /></span>{/if}
-          <h3>{title}</h3>
+          <h3 title={name ? `${title} ${name}` : undefined}>
+            {title}{#if name}<span class="dot" aria-hidden="true">·</span>{name}{/if}
+          </h3>
         </div>
         <div class="actions">
           {@render actions?.()}
@@ -121,6 +126,10 @@
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .dot {
+    margin-inline: 0.35em;
+    color: var(--muted);
   }
   .heading .icon {
     display: grid;

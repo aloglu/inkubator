@@ -66,6 +66,11 @@
 
   const isNew = $derived(!swatch);
   const ink = $derived(data.inks.find((i) => i.id === draft.ink_id));
+  /** The header names the swatch by its saved ink, not one being picked. */
+  const savedName = $derived.by(() => {
+    const saved = data.inks.find((i) => i.id === original.ink_id);
+    return saved ? `${[saved.brand, saved.name].filter(Boolean).join(' ')} Swatch` : 'Swatch';
+  });
   const others = $derived(data.swatches.filter((s) => s.id !== draft.id));
   const paperSuggestions = $derived(suggestions(others.map((s) => s.paper), [], 6));
   const nibSuggestions = $derived(suggestions(others.map((s) => s.nib), [], 6));
@@ -128,7 +133,10 @@
   }
 </script>
 
-<Sheet icon="palette" open onclose={cancel} title={isNew ? 'New swatch' : 'Edit swatch'} wide>
+<Sheet icon="palette" open onclose={cancel} title={isNew ? 'New Swatch' : 'Edit'}
+  name={isNew ? undefined : savedName}
+  wide
+>
   <form id="swatch-form" class="editor" onsubmit={save}>
     <aside class="preview">
       {#if adjustIndex >= 0}
@@ -138,8 +146,8 @@
             bind:image={draft.images[adjustIndex]!}
             ratio={4 / 3}
             label="Tile crop (4:3)"
+            ondone={() => (adjusting = undefined)}
           />
-          <Button size="sm" icon="check" onclick={() => (adjusting = undefined)}>Done</Button>
         </div>
       {:else}
         <div class="tile-preview">
@@ -149,15 +157,18 @@
           {/if}
         </div>
       {/if}
-      <PhotoList
-        bind:images={draft.images}
-        {adjusting}
-        onadjust={(id) => (adjusting = id)}
-        section="swatches"
-        name={ink ? `${ink.brand} ${ink.name}` : 'swatch'}
-        ratio={4 / 3}
-        {lookup}
-      />
+      <div class="photos">
+        <p class="kicker">Photos</p>
+        <PhotoList
+          bind:images={draft.images}
+          {adjusting}
+          onadjust={(id) => (adjusting = id)}
+          section="swatches"
+          name={ink ? `${ink.brand} ${ink.name}` : 'swatch'}
+          ratio={4 / 3}
+          {lookup}
+        />
+      </div>
     </aside>
 
     <div class="form">
@@ -249,6 +260,12 @@
     padding: 20px 18px;
     border-right: 1px solid var(--line);
     background: var(--bg);
+  }
+  .photos {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
   }
   .tile-preview,
   .adjust {

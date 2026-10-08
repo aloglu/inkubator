@@ -14,7 +14,7 @@
   import Swab from '../../../lib/components/Swab.svelte';
   import Switch from '../../../lib/components/Switch.svelte';
   import TextField from '../../../lib/components/TextField.svelte';
-  import { formatDate, inkMaker } from '../../../lib/format';
+  import { formatDate } from '../../../lib/format';
   import { newId } from '../../../lib/ids';
   import {
     baseTypes,
@@ -167,15 +167,17 @@
   }
 </script>
 
-<Sheet icon="drop" open onclose={cancel} title={isNew ? 'New ink' : 'Edit ink'} wide>
+<Sheet icon="drop" open onclose={cancel} title={isNew ? 'New Ink' : 'Edit'}
+  name={isNew ? undefined : [original.brand, original.name].filter(Boolean).join(' ')}
+  wide
+>
   <form id="ink-form" class="editor" onsubmit={save}>
     <aside class="preview">
       <Swab base={draft.base_color} sheen={swabSheen(draft)} size="lg" />
-      <div>
-        <p class="preview-name">{draft.name || 'New ink'}</p>
-        <p class="meta">{inkMaker(draft)}</p>
+      <div class="photos">
+        <p class="kicker">Photos</p>
+        <PhotoList bind:images={draft.images} section="inks" name={draft.name} ratio={1} label="Add a bottle photo" />
       </div>
-      <PhotoList bind:images={draft.images} section="inks" name={draft.name} ratio={1} label="Add a bottle photo" />
     </aside>
 
     <div class="form">
@@ -292,15 +294,11 @@
     background: var(--bg);
     text-align: center;
   }
-  .preview-name {
-    font-family: var(--font-display);
-    font-size: 22px;
-    line-height: 1.1;
-    overflow-wrap: anywhere;
-  }
-  .meta {
-    color: var(--muted);
-    font-size: 12px;
+  .photos {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
   }
   .family {
     justify-self: start;

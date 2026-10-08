@@ -767,7 +767,7 @@ dependencies = [
 
 [[package]]
 name = "inkubator-core"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "image",
  "reqwest",
@@ -787,7 +787,7 @@ dependencies = [
 
 [[package]]
 name = "inkubator-server"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "argon2",
  "axum",

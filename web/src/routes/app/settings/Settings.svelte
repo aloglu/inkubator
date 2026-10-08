@@ -170,6 +170,21 @@
     { id: 'about', label: 'About' },
   ];
   let current = $state('general');
+  /** While a jump from the index scrolls, the clicked section stays highlighted. */
+  let jumping = false;
+
+  function jump(id: string) {
+    current = id;
+    jumping = true;
+    const done = () => {
+      jumping = false;
+      removeEventListener('scrollend', done);
+    };
+    addEventListener('scrollend', done);
+    // Browsers without scrollend, or no scroll needed at all.
+    setTimeout(done, 1200);
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   // Links such as /settings#backups open at that section.
   $effect(() => {
@@ -181,7 +196,9 @@
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) current = visible[0].target.id;
+        // Sections near the end may never reach the top of a short window; a
+        // click on them keeps its highlight rather than being overruled here.
+        if (visible[0] && !jumping) current = visible[0].target.id;
       },
       { rootMargin: '0px 0px -70% 0px' },
     );
@@ -211,7 +228,7 @@
         <button
           type="button"
           aria-current={current === section.id ? 'true' : undefined}
-          onclick={() => document.getElementById(section.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          onclick={() => jump(section.id)}
         >
           {section.label}
         </button>

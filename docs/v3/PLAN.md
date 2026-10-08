@@ -135,8 +135,8 @@ This folder holds the agreed direction for the 3.0 rework. Read this file first 
 
 Fixed in this order unless the owner says otherwise; mark each when done.
 
-1. [ ] Favicon looks wide: should be as narrow as the logo (the 64px nib PNG is not square, so browsers stretch it; pad it onto a square canvas).
-2. [ ] Settings index: clicking a section near the bottom (e.g. Activity log) scrolls there but the index does not highlight it when the window is too short for that section to reach the top.
+1. [x] Favicon looks wide: should be as narrow as the logo (the 64px nib PNG is not square, so browsers stretch it; pad it onto a square canvas).
+2. [x] Settings index: clicking a section near the bottom (e.g. Activity log) scrolls there but the index does not highlight it when the window is too short for that section to reach the top.
 3. [ ] Add Pen / Ink / Swatch panels have no icon in their header (give panel headers their section's icon).
 4. [ ] After adding a new item, the detail panel should not open; return to the list.
 5. [ ] "Color name" in the pen editor is unclear (the maker's name for the finish, e.g. "Green Stripe"): rename and add an example.

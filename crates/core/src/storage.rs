@@ -8,17 +8,24 @@
 //! images/.thumbs/...    generated thumbnails, same structure
 //! backups/auto/         scheduled backups
 //! backups/manual/       backups made on request
-//! .inkubator.lock       held while reading or writing
+//! .inkubator.lock       locked while a program has the folder open
 //! ```
 //!
 //! Writes are atomic (write a synced temporary file, then rename over the
-//! target) and guarded by a file lock. Every load returns a revision; a save
-//! must name the revision it started from, so a stale window cannot overwrite
-//! newer data.
+//! target). Every load returns a revision; a save must name the revision it
+//! started from, so a stale window cannot overwrite newer data.
+//!
+//! One program has a data folder open at a time: opening it locks
+//! `.inkubator.lock` once, without waiting, for as long as the store lives.
+//! Within that program, changes take turns on an in-memory lock and the
+//! collection is kept in memory, so reading it touches no files. Taking a file
+//! lock for every request instead deadlocked Unraid's `/mnt/user`, whose
+//! worker threads all ended up waiting for the lock.
 
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use crate::commands::{self, Command, CommandError, Outcome};
 use crate::images::ImageSection;
@@ -41,6 +48,8 @@ pub enum StoreError {
     },
     #[error("{path} is not a real directory")]
     NotADirectory { path: PathBuf },
+    #[error("another Inkubator is already using {path}")]
+    InUse { path: PathBuf },
     #[error("could not read {path}: {source}")]
     Parse {
         path: PathBuf,
@@ -73,18 +82,41 @@ pub struct Loaded {
     pub revision: String,
 }
 
+/// An open storage root. Clones share the folder's lock and the collection
+/// held in memory.
 #[derive(Clone, Debug)]
 pub struct Store {
     root: PathBuf,
+    shared: Arc<Shared>,
+}
+
+#[derive(Debug)]
+struct Shared {
+    /// `.inkubator.lock`, locked until the last clone is dropped.
+    _claim: File,
+    /// Held by anything that changes the folder.
+    changing: Mutex<()>,
+    /// The collection as last read or written; `None` until first read.
+    current: Mutex<Option<Loaded>>,
 }
 
 impl Store {
     /// Opens a storage root, creating the folder structure if needed. Refuses
-    /// symlinked folders so writes can't be redirected outside the root.
+    /// symlinked folders so writes can't be redirected outside the root, and
+    /// a folder another program has open.
     pub fn open(root: impl Into<PathBuf>) -> Result<Self> {
         let root = root.into();
         fs::create_dir_all(&root).map_err(io_err("could not create", &root))?;
-        let store = Self { root };
+        ensure_real_dir(&root)?;
+        let claim = claim(&root)?;
+        let store = Self {
+            root,
+            shared: Arc::new(Shared {
+                _claim: claim,
+                changing: Mutex::default(),
+                current: Mutex::default(),
+            }),
+        };
         store.ensure_tree()?;
         Ok(store)
     }
@@ -109,7 +141,7 @@ impl Store {
         self.root.join("backups")
     }
 
-    fn ensure_tree(&self) -> Result<()> {
+    pub(crate) fn ensure_tree(&self) -> Result<()> {
         ensure_real_dir(&self.root)?;
         let images = self.images_dir();
         let thumbs = self.thumbnails_dir();
@@ -126,43 +158,65 @@ impl Store {
         Ok(())
     }
 
-    /// Takes the storage lock for the life of the returned guard.
-    pub fn lock(&self) -> Result<StorageLock> {
-        let path = self.root.join(LOCK_FILE);
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(&path)
-            .map_err(io_err("could not open", &path))?;
-        file.lock().map_err(io_err("could not lock", &path))?;
-        Ok(StorageLock { file })
+    /// Makes changes take turns for the life of the returned guard.
+    pub(crate) fn lock(&self) -> MutexGuard<'_, ()> {
+        // A panic mid-change leaves the files whole (writes are atomic).
+        self.shared
+            .changing
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn current(&self) -> MutexGuard<'_, Option<Loaded>> {
+        self.shared
+            .current
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Reads the collection. A root with no collection yet yields an empty one.
     pub fn load(&self) -> Result<Loaded> {
-        let _lock = self.lock()?;
+        if let Some(loaded) = self.current().clone() {
+            return Ok(loaded);
+        }
+        let _lock = self.lock();
         self.load_unlocked()
     }
 
     pub(crate) fn load_unlocked(&self) -> Result<Loaded> {
+        if let Some(loaded) = self.current().clone() {
+            return Ok(loaded);
+        }
         let path = self.collection_path();
-        let bytes = match fs::read(&path) {
-            Ok(bytes) => bytes,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                return Ok(Loaded {
-                    collection: Collection::empty(),
-                    revision: EMPTY_REVISION.to_string(),
-                })
-            }
+        let loaded = match fs::read(&path) {
+            Ok(bytes) => Loaded {
+                collection: parse_collection(&bytes, &path)?,
+                revision: revision_of(&bytes),
+            },
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Loaded {
+                collection: Collection::empty(),
+                revision: EMPTY_REVISION.to_string(),
+            },
             Err(error) => return Err(io_err("could not read", &path)(error)),
         };
-        let collection = parse_collection(&bytes, &path)?;
-        Ok(Loaded {
+        *self.current() = Some(loaded.clone());
+        Ok(loaded)
+    }
+
+    /// Writes `bytes`, the serialized `collection`, as the collection. Call
+    /// with the lock held.
+    pub(crate) fn write_collection(&self, collection: Collection, bytes: &[u8]) -> Result<Loaded> {
+        if let Err(error) = atomic_write(&self.collection_path(), bytes) {
+            // The file may or may not have been replaced; read it again next time.
+            *self.current() = None;
+            return Err(error);
+        }
+        let loaded = Loaded {
             collection,
-            revision: revision_of(&bytes),
-        })
+            revision: revision_of(bytes),
+        };
+        *self.current() = Some(loaded.clone());
+        Ok(loaded)
     }
 
     /// Validates and writes the collection, returning the new revision.
@@ -174,13 +228,12 @@ impl Store {
         validate(collection)?;
         let bytes = serde_json::to_vec_pretty(collection).expect("collection serializes");
 
-        let _lock = self.lock()?;
-        let current = self.current_revision()?;
+        let _lock = self.lock();
+        let current = self.load_unlocked()?.revision;
         if current != expected_revision {
             return Err(StoreError::Conflict { current });
         }
-        atomic_write(&self.collection_path(), &bytes)?;
-        Ok(revision_of(&bytes))
+        Ok(self.write_collection(collection.clone(), &bytes)?.revision)
     }
 
     /// Applies one command to the stored collection: checks the revision, applies
@@ -193,7 +246,7 @@ impl Store {
         expected_revision: &str,
         now: Timestamp,
     ) -> Result<(Loaded, Outcome)> {
-        let _lock = self.lock()?;
+        let _lock = self.lock();
         let Loaded {
             mut collection,
             revision,
@@ -205,34 +258,27 @@ impl Store {
         apply_retention(&mut collection, now);
         validate(&collection)?;
         let bytes = serde_json::to_vec_pretty(&collection).expect("collection serializes");
-        atomic_write(&self.collection_path(), &bytes)?;
-        Ok((
-            Loaded {
-                collection,
-                revision: revision_of(&bytes),
-            },
-            outcome,
-        ))
-    }
-
-    fn current_revision(&self) -> Result<String> {
-        let path = self.collection_path();
-        match fs::read(&path) {
-            Ok(bytes) => Ok(revision_of(&bytes)),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(EMPTY_REVISION.to_string()),
-            Err(error) => Err(io_err("could not read", &path)(error)),
-        }
+        Ok((self.write_collection(collection, &bytes)?, outcome))
     }
 }
 
-/// Holds the storage lock until dropped.
-pub struct StorageLock {
-    file: File,
-}
-
-impl Drop for StorageLock {
-    fn drop(&mut self) {
-        let _ = self.file.unlock();
+/// Locks `.inkubator.lock` in `root` without waiting, so a second program
+/// can't open the same folder. The lock lasts as long as the returned file.
+fn claim(root: &Path) -> Result<File> {
+    let path = root.join(LOCK_FILE);
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&path)
+        .map_err(io_err("could not open", &path))?;
+    match file.try_lock() {
+        Ok(()) => Ok(file),
+        Err(TryLockError::WouldBlock) => Err(StoreError::InUse {
+            path: root.to_path_buf(),
+        }),
+        Err(TryLockError::Error(error)) => Err(io_err("could not lock", &path)(error)),
     }
 }
 

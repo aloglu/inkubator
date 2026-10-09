@@ -188,6 +188,30 @@ fn other_data_formats_are_refused() {
     ));
 }
 
+#[test]
+fn one_program_at_a_time_uses_a_data_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let clone = store.clone();
+    drop(store);
+    assert!(matches!(
+        Store::open(dir.path()),
+        Err(StoreError::InUse { .. })
+    ));
+    drop(clone);
+    Store::open(dir.path()).unwrap();
+}
+
+#[test]
+fn reads_come_from_memory_once_loaded() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let revision = store.save(&sample(), EMPTY_REVISION).unwrap();
+    std::fs::write(store.collection_path(), b"not read again").unwrap();
+    let loaded = store.clone().load().unwrap();
+    assert_eq!((loaded.collection, loaded.revision), (sample(), revision));
+}
+
 #[cfg(unix)]
 #[test]
 fn symlinked_folders_are_refused() {

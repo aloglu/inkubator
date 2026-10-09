@@ -156,7 +156,7 @@ impl Store {
         let photo = encode_webp(bytes, PHOTO_MAX_EDGE)?;
         let thumb = encode_webp(&photo, THUMB_MAX_EDGE)?;
 
-        let _lock = self.lock()?;
+        let _lock = self.lock();
         let stem = slug(name);
         let relative = (1..)
             .map(|n| match n {
@@ -200,7 +200,7 @@ impl Store {
         }
         let bytes = fs::read(&original).map_err(io_error("could not read", &original))?;
         let thumb = encode_webp(&bytes, THUMB_MAX_EDGE)?;
-        let _lock = self.lock()?;
+        let _lock = self.lock();
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(io_error("could not create", parent))?;
         }
@@ -213,7 +213,7 @@ impl Store {
     /// (for example re-attached by a later edit) are left alone. Returns the
     /// paths actually retired.
     pub fn retire_photos(&self, paths: &[String], keep: bool) -> Result<Vec<String>> {
-        let _lock = self.lock()?;
+        let _lock = self.lock();
         let collection = self.load_unlocked()?.collection;
         let referenced: std::collections::HashSet<&str> = collection
             .pens

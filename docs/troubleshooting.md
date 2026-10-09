@@ -30,6 +30,12 @@ The data folder belongs to another user. With Docker, check `PUID`/`PGID`:
 Inkubator gives the folder to that user when it starts. Without Docker, make
 sure your user may write to the folder, or choose another with `--data-dir`.
 
+**"…another Inkubator is already using…"**
+Only one Inkubator may use a data folder at a time. Stop the other one (an
+older container, a second copy of the program, or a test setup pointed at the
+same folder) and start again. The same message from `import-v2` means
+Inkubator is running: stop it, run the import, then start it.
+
 **macOS: "cannot be opened" / "is damaged"**
 See [Without Docker, step 3](without-docker.md#step-3-set-your-password-once).
 

@@ -1,6 +1,6 @@
 [package]
 name = "inkubator-server"
-version = "3.0.0"
+version = "3.0.1"
 description = "Self-hosted Inkubator: admin API, public showcase and scheduled backups."
 edition.workspace = true
 license.workspace = true

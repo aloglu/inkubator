@@ -23,7 +23,7 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 use crate::model::{BackupFrequency, Collection, Timestamp, SCHEMA_VERSION};
 use crate::photos::{self, section_of};
-use crate::storage::{parse_collection, revision_of, Loaded, Store, StoreError, COLLECTION_FILE};
+use crate::storage::{parse_collection, Loaded, Store, StoreError, COLLECTION_FILE};
 
 pub const MAX_BACKUP_BYTES: u64 = 1024 * 1024 * 1024;
 pub const MAX_EXPANDED_BYTES: u64 = 2 * 1024 * 1024 * 1024;
@@ -141,7 +141,7 @@ impl Store {
         app_version: &str,
         now: Timestamp,
     ) -> Result<Manifest> {
-        let _lock = self.lock()?;
+        let _lock = self.lock();
         self.write_backup_unlocked(destination, reason, app_version, now)
     }
 
@@ -264,7 +264,7 @@ impl Store {
         app_version: &str,
         now: Timestamp,
     ) -> Result<Option<BackupFile>> {
-        let _lock = self.lock()?;
+        let _lock = self.lock();
         let settings = self.load_unlocked()?.collection.settings.backups;
         let Some(interval) = frequency_ms(settings.frequency) else {
             return Ok(None);
@@ -336,7 +336,7 @@ impl Store {
             })?;
         }
 
-        let _lock = self.lock()?;
+        let _lock = self.lock();
         let current = self.load_unlocked()?;
         if current.revision != expected_revision {
             return Err(StoreError::Conflict {
@@ -362,12 +362,14 @@ impl Store {
             let _ = fs::rename(&old_images, &images);
             return Err(io_error("could not move", &staged_images)(error));
         }
-        if let Err(error) = crate::storage::atomic_write(&self.collection_path(), &collection_bytes)
-        {
-            let _ = fs::remove_dir_all(&images);
-            let _ = fs::rename(&old_images, &images);
-            return Err(error.into());
-        }
+        let loaded = match self.write_collection(collection, &collection_bytes) {
+            Ok(loaded) => loaded,
+            Err(error) => {
+                let _ = fs::remove_dir_all(&images);
+                let _ = fs::rename(&old_images, &images);
+                return Err(error.into());
+            }
+        };
         let _ = fs::remove_dir_all(&old_images);
 
         let staged_replaced = stage.join(REPLACED_DIR);
@@ -377,12 +379,9 @@ impl Store {
             let _ = fs::rename(&staged_replaced, &replaced);
         }
         // Recreate the thumbnail folders; thumbnails are rebuilt on demand.
-        Store::open(self.root())?;
+        self.ensure_tree()?;
 
-        Ok(Loaded {
-            collection,
-            revision: revision_of(&collection_bytes),
-        })
+        Ok(loaded)
     }
 }
 

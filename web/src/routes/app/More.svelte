@@ -4,6 +4,7 @@
   import Icon from '../../lib/components/Icon.svelte';
   import { formatDate } from '../../lib/format';
   import type { IconName } from '../../lib/icons';
+  import { updates } from '../../lib/stores/updates.svelte';
   import type { BackupFile } from '../../lib/types/BackupFile';
   import type { Collection } from '../../lib/types/Collection';
 
@@ -22,9 +23,18 @@
     signInHref: string;
   } = $props();
 
-  const links: { href: string; label: string; icon: IconName; count?: number }[] = $derived([
+  const links: { href: string; label: string; icon: IconName; count?: number; note?: string }[] = $derived([
     ...sections.map((section) => ({ href: section.path, label: section.label, icon: section.icon })),
-    ...(owner ? [{ href: '/settings', label: 'Settings', icon: 'sliders-horizontal' as const }] : []),
+    ...(owner
+      ? [
+          {
+            href: '/settings',
+            label: 'Settings',
+            icon: 'sliders-horizontal' as const,
+            note: updates.status?.available ? 'Update available' : undefined,
+          },
+        ]
+      : []),
   ]);
 
   let last = $state<BackupFile | null | undefined>(undefined);
@@ -46,6 +56,7 @@
           <Icon name={link.icon} size={18} />
           <span class="grow">{link.label}</span>
           {#if link.count !== undefined}<span class="count">{link.count}</span>{/if}
+          {#if link.note}<span class="note">{link.note}</span>{/if}
           <Icon name="caret-right" size={14} />
         </a>
       </li>
@@ -122,6 +133,11 @@
   }
   .grow {
     flex: 1;
+  }
+  .note {
+    color: var(--accent);
+    font-size: 12.5px;
+    font-weight: 500;
   }
   .count {
     color: var(--muted);

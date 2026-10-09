@@ -11,6 +11,7 @@ pub mod public;
 pub mod remote;
 pub mod retention;
 pub mod storage;
+pub mod updates;
 pub mod validate;
 
 pub use commands::{apply, Command, CommandError, Outcome};

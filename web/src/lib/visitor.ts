@@ -66,6 +66,7 @@ export function visitorCollection(p: PublicCollection): Collection {
         swatch_sort: p.swatch_sort,
       },
       stats: { default_range: p.stats_range },
+      check_for_updates: false,
     },
   };
 }

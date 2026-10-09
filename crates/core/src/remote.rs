@@ -16,7 +16,7 @@ use url::Url;
 use crate::photos::MAX_UPLOAD_BYTES;
 
 /// Chooses the `ring` crypto backend for HTTPS, once per process.
-fn use_ring_crypto() {
+pub(crate) fn use_ring_crypto() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {
         // Fails only if a backend was already chosen, which is fine.
@@ -25,8 +25,8 @@ fn use_ring_crypto() {
 }
 
 const MAX_REDIRECTS: usize = 5;
-const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(15);
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+pub(crate) const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(15);
+pub(crate) const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, thiserror::Error)]
 pub enum RemoteError {

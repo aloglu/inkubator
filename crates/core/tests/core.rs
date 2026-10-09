@@ -252,3 +252,11 @@ fn settings_saved_before_a_stats_range_existed_still_load() {
     let settings: Settings = serde_json::from_value(value).unwrap();
     assert_eq!(settings.stats.default_range, StatsRange::Last90Days);
 }
+
+#[test]
+fn settings_saved_before_update_checks_existed_check_for_updates() {
+    let mut value = serde_json::to_value(Settings::default()).unwrap();
+    value.as_object_mut().unwrap().remove("check_for_updates");
+    let settings: Settings = serde_json::from_value(value).unwrap();
+    assert!(settings.check_for_updates);
+}

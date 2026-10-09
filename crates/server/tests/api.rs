@@ -528,3 +528,35 @@ async fn unknown_api_paths_answer_in_json() {
     assert_eq!(reply.json()["code"], "not_found");
     assert_eq!(reply.headers[header::X_FRAME_OPTIONS], "DENY");
 }
+
+#[tokio::test]
+async fn update_checks_need_a_sign_in_and_can_be_turned_off() {
+    let s = server();
+    assert_eq!(
+        s.send(get("/api/update", None)).await.status,
+        StatusCode::UNAUTHORIZED
+    );
+
+    let cookie = s.login().await;
+    let mut settings = s.collection(&cookie).await["collection"]["settings"].clone();
+    assert_eq!(settings["check_for_updates"], true, "on by default");
+    settings["check_for_updates"] = json!(false);
+    s.command(
+        &cookie,
+        json!({ "type": "update_settings", "settings": settings }),
+    )
+    .await;
+
+    // Off, nothing is asked of GitHub.
+    let status = s.send(get("/api/update", Some(&cookie))).await.json();
+    assert_eq!(
+        status,
+        json!({
+            "current": env!("CARGO_PKG_VERSION"),
+            "checking": false,
+            "latest": null,
+            "checked_at": null,
+            "available": false,
+        })
+    );
+}

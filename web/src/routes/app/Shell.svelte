@@ -11,6 +11,7 @@
   import Notices from '../../lib/components/Notices.svelte';
   import { collection } from '../../lib/stores/collection.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
+  import { updates } from '../../lib/stores/updates.svelte';
   import Activity from './activity/Activity.svelte';
   import Desk from './Desk.svelte';
   import InkFlow from './InkFlow.svelte';
@@ -24,7 +25,14 @@
 
   let { onsignout }: { onsignout: () => void } = $props();
 
-  type Section = { path: string; label: string; icon: IconName; count?: () => number | undefined };
+  type Section = {
+    path: string;
+    label: string;
+    icon: IconName;
+    count?: () => number | undefined;
+    /** A dot that asks for attention, such as a newer version. */
+    dot?: () => boolean;
+  };
   const main: Section[] = [
     { path: '/', label: 'Desk', icon: 'lamp' },
     { path: '/pens', label: 'Pens', icon: 'pen-nib', count: () => collection.data?.pens.length },
@@ -40,7 +48,8 @@
     { path: '/stats', label: 'Stats', icon: 'chart-line-up' },
     { path: '/activity', label: 'Activity', icon: 'clock-counter-clockwise' },
   ];
-  const settings: Section = { path: '/settings', label: 'Settings', icon: 'sliders-horizontal' };
+  const updateAvailable = () => updates.status?.available ?? false;
+  const settings: Section = { path: '/settings', label: 'Settings', icon: 'sliders-horizontal', dot: updateAvailable };
   const all = [...main, ...more, settings];
 
   const owner = $derived(collection.canEdit);
@@ -75,7 +84,11 @@
   const current = $derived(all.find((section) => section.path === router.path));
   /** On phones these live under More: its tab stays lit and they get a back link. */
   const underMore = ['/stats', '/activity', '/settings'];
-  const moreTab: Section = { path: '/more', label: 'More', icon: 'dots-three-outline' };
+  const moreTab: Section = { path: '/more', label: 'More', icon: 'dots-three-outline', dot: updateAvailable };
+
+  $effect(() => {
+    if (owner) void updates.check();
+  });
   const title = $derived(owner ? 'Inkubator' : showcase?.title || 'Inkubator');
   const signInHref = $derived(`/sign-in?next=${encodeURIComponent(router.path + location.search)}`);
 
@@ -114,6 +127,7 @@
     <Icon name={section.icon} size={17} />
     {section.label}
     {#if count !== undefined}<b>{count}</b>{/if}
+    {#if section.dot?.()}<span class="dot" title="A new version is available"></span>{/if}
   </a>
 {/snippet}
 
@@ -183,7 +197,10 @@
   {@const active =
     section === moreTab ? router.path === moreTab.path || underMore.includes(router.path) : current === section}
   <a href={section.path} aria-current={active ? 'page' : undefined}>
-    <Icon name={section.icon} size={20} />
+    <span class="tab-icon">
+      <Icon name={section.icon} size={20} />
+      {#if section.dot?.()}<span class="dot" title="A new version is available"></span>{/if}
+    </span>
     {section.label}
   </a>
 {/snippet}
@@ -245,6 +262,13 @@
     font-weight: 500;
     font-variant-numeric: tabular-nums;
     opacity: 0.7;
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    margin-left: auto;
+    border-radius: 50%;
+    background: var(--accent);
   }
   .nav[aria-current='page'] {
     color: var(--fg);
@@ -315,6 +339,16 @@
     }
     .tabbar a[aria-current='page'] {
       color: var(--accent);
+    }
+    .tab-icon {
+      position: relative;
+      display: grid;
+    }
+    .tab-icon .dot {
+      position: absolute;
+      top: -1px;
+      right: -4px;
+      margin: 0;
     }
   }
 </style>

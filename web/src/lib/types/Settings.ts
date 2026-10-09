@@ -6,4 +6,8 @@ import type { ShowcaseSettings } from "./ShowcaseSettings";
 import type { StatsSettings } from "./StatsSettings";
 import type { Theme } from "./Theme";
 
-export type Settings = { theme: Theme, open_items_in_edit_mode: boolean, confirm_destructive_actions: boolean, activity: ActivitySettings, defaults: Defaults, backups: BackupSettings, showcase: ShowcaseSettings, stats: StatsSettings, };
+export type Settings = { theme: Theme, open_items_in_edit_mode: boolean, confirm_destructive_actions: boolean, activity: ActivitySettings, defaults: Defaults, backups: BackupSettings, showcase: ShowcaseSettings, stats: StatsSettings, 
+/**
+ * Whether the server asks GitHub now and then for a newer release.
+ */
+check_for_updates: boolean, };

@@ -1002,6 +1002,7 @@ fn settings(prefs: &Map<String, Value>, _data: &Map<String, Value>) -> Settings 
             },
         },
         stats: StatsSettings::default(),
+        check_for_updates: base.check_for_updates,
     }
 }
 

@@ -18,6 +18,7 @@
   import { inkSorts, penSorts, swatchSorts } from '../../../lib/sorting';
   import { collection } from '../../../lib/stores/collection.svelte';
   import { ui } from '../../../lib/stores/ui.svelte';
+  import { updateGuide, updates } from '../../../lib/stores/updates.svelte';
   import type { BackupFile } from '../../../lib/types/BackupFile';
   import type { Collection } from '../../../lib/types/Collection';
   import type { Retention } from '../../../lib/types/Retention';
@@ -61,7 +62,23 @@
       (info) => (version = info.version),
       () => {},
     );
+    void updates.check();
   });
+
+  // ---------- about ----------
+
+  const status = $derived(updates.status);
+  const aboutHelp = $derived.by(() => {
+    if (!status?.checking) return 'Your collection, on your own computer or server.';
+    if (status.available && status.latest) return `Inkubator ${status.latest.version} is available.`;
+    if (status.checked_at) return `Up to date. Last checked ${formatDate(status.checked_at, s.defaults.date_format)}.`;
+    return 'Could not check for updates just now.';
+  });
+
+  function setUpdateChecks(on: boolean) {
+    update((next) => (next.check_for_updates = on));
+    queue = queue.then(() => updates.check(true));
+  }
 
   const lastBackup = $derived(backups?.reduce<BackupFile | null>((a, b) => (!a || b.created_at > a.created_at ? b : a), null));
   const size = (bytes: number) =>
@@ -572,8 +589,25 @@
 
       <section id="about">
         <h3>About</h3>
-        {#snippet nothing()}{/snippet}
-        {@render row(version ? `Inkubator ${version}` : 'Inkubator', 'Your collection, on your own computer or server.', nothing)}
+        {#snippet updateLinks()}
+          <div class="buttons">
+            {#if status?.available && status.latest}
+              <a class="link" href={status.latest.url} target="_blank" rel="noopener noreferrer">What's new</a>
+              <a class="download" href={updateGuide} target="_blank" rel="noopener noreferrer">How to update</a>
+            {:else}
+              <a class="link" href={updateGuide} target="_blank" rel="noopener noreferrer">How to update</a>
+            {/if}
+          </div>
+        {/snippet}
+        {@render row(version ? `Inkubator ${version}` : 'Inkubator', aboutHelp, updateLinks)}
+        {#snippet updateChecks()}
+          <Switch label="Check for updates" checked={s.check_for_updates} onchange={setUpdateChecks} />
+        {/snippet}
+        {@render row(
+          'Check for updates',
+          'Asks GitHub at most twice a day whether a newer version is out. Nothing about your collection is sent.',
+          updateChecks,
+        )}
       </section>
     </div>
   </div>
@@ -710,6 +744,20 @@
     font-size: 12.5px;
     font-weight: 500;
     text-decoration: none;
+  }
+  .link {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    color: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .link:hover {
+    background: var(--accent-soft);
   }
   .text,
   .number {

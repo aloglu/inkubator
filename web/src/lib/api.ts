@@ -8,6 +8,7 @@ import type { BackupSettings } from './types/BackupSettings';
 import type { Collection } from './types/Collection';
 import type { Command } from './types/Command';
 import type { PublicCollection } from './types/PublicCollection';
+import type { UpdateStatus } from './types/UpdateStatus';
 
 export type Loaded = { collection: Collection; revision: string };
 export type PhotoSection = 'pens' | 'inks' | 'swatches';
@@ -94,6 +95,11 @@ export async function logout(): Promise<void> {
 
 export async function getAppInfo(): Promise<{ version: string }> {
   return request('/api/app-info');
+}
+
+/** The running version and whether a newer release is out. Signed in only. */
+export async function getUpdateStatus(): Promise<UpdateStatus> {
+  return request('/api/update');
 }
 
 // ---------- collection ----------

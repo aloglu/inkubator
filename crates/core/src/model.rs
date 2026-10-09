@@ -450,6 +450,13 @@ pub struct Settings {
     pub showcase: ShowcaseSettings,
     #[serde(default)]
     pub stats: StatsSettings,
+    /// Whether the server asks GitHub now and then for a newer release.
+    #[serde(default = "check_for_updates_by_default")]
+    pub check_for_updates: bool,
+}
+
+fn check_for_updates_by_default() -> bool {
+    true
 }
 
 impl Default for Settings {
@@ -463,6 +470,7 @@ impl Default for Settings {
             backups: BackupSettings::default(),
             showcase: ShowcaseSettings::default(),
             stats: StatsSettings::default(),
+            check_for_updates: true,
         }
     }
 }

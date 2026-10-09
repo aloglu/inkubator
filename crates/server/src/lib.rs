@@ -22,7 +22,8 @@ use inkubator_core::images::ImageSection;
 use inkubator_core::photos::{PhotoError, MAX_UPLOAD_BYTES};
 use inkubator_core::public::project;
 use inkubator_core::remote::{self, RemoteError};
-use inkubator_core::{now, Command, CommandError, Loaded, Store, StoreError};
+use inkubator_core::updates::{self, Release, UpdateStatus};
+use inkubator_core::{now, Command, CommandError, Loaded, Store, StoreError, Timestamp};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tower_http::services::{ServeDir, ServeFile};
@@ -34,12 +35,17 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// How often to check whether a scheduled backup is due.
 pub const BACKUP_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
 const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
+/// How long a successful update check is reused.
+const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(12 * 60 * 60);
+/// How long to wait after a failed update check before trying again.
+const UPDATE_RETRY_INTERVAL: Duration = Duration::from_secs(60 * 60);
 
 #[derive(Clone)]
 pub struct AppState {
     pub store: Store,
     pub config: Arc<Config>,
     pub sessions: Arc<auth::Sessions>,
+    updates: Arc<UpdateCheck>,
 }
 
 impl AppState {
@@ -48,7 +54,53 @@ impl AppState {
             store: Store::open(&config.data_dir)?,
             config: Arc::new(config),
             sessions: Arc::default(),
+            updates: Arc::default(),
         })
+    }
+}
+
+/// The latest release, asked of GitHub only when Settings wants it and at
+/// most twice a day.
+#[derive(Default)]
+struct UpdateCheck {
+    /// Held while asking, so requests that arrive meanwhile wait for that
+    /// answer instead of asking again.
+    last: tokio::sync::Mutex<Option<Asked>>,
+}
+
+/// When GitHub was last asked, and the release the last successful check
+/// found, with that check's time.
+struct Asked {
+    at: std::time::Instant,
+    found: Option<(Release, Timestamp)>,
+}
+
+impl UpdateCheck {
+    async fn latest(&self) -> Option<(Release, Timestamp)> {
+        let mut last = self.last.lock().await;
+        if let Some(asked) = last.as_ref() {
+            let wait = if asked.found.is_some() {
+                UPDATE_CHECK_INTERVAL
+            } else {
+                UPDATE_RETRY_INTERVAL
+            };
+            if asked.at.elapsed() < wait {
+                return asked.found.clone();
+            }
+        }
+        let found = match updates::latest_release(VERSION).await {
+            Ok(release) => Some((release, now())),
+            Err(error) => {
+                eprintln!("Could not check for updates: {error}");
+                // Keep showing what an earlier check found.
+                last.take().and_then(|asked| asked.found)
+            }
+        };
+        *last = Some(Asked {
+            at: std::time::Instant::now(),
+            found: found.clone(),
+        });
+        found
     }
 }
 
@@ -204,6 +256,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/thumbs/{*path}", get(admin_thumb))
         .route("/api/backups", get(list_backups))
         .route("/api/backups/export", get(export_backup))
+        .route("/api/update", get(update_status))
         .route(
             "/api/backups/restore",
             post(restore_backup).layer(DefaultBodyLimit::disable()),
@@ -312,6 +365,30 @@ async fn run_command(
     let mut body = state_json(&loaded);
     body["retired_photos"] = json!(retired);
     Ok(Json(body))
+}
+
+// ---------- updates ----------
+
+async fn update_status(State(state): State<AppState>) -> ApiResult<Json<UpdateStatus>> {
+    let store = state.store.clone();
+    let checking =
+        blocking(move || Ok(store.load()?.collection.settings.check_for_updates)).await?;
+    let found = if checking {
+        state.updates.latest().await
+    } else {
+        None
+    };
+    let available = found
+        .as_ref()
+        .is_some_and(|(release, _)| updates::is_newer(&release.version, VERSION));
+    let (latest, checked_at) = found.unzip();
+    Ok(Json(UpdateStatus {
+        current: VERSION.to_string(),
+        checking,
+        latest,
+        checked_at,
+        available,
+    }))
 }
 
 // ---------- photos ----------

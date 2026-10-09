@@ -225,6 +225,8 @@ The day after installing 3.0.0, the owner's Unraid server froze twice: the web i
 
 Fix (3.0.1): `Store::open` locks `.inkubator.lock` once without waiting and keeps it for the life of the store (a second server or `import-v2` on the same folder is refused with "another Inkubator is already using…"); changes take turns on an in-memory mutex; the collection is kept in memory (`Store::write_collection` updates it after each atomic write and forgets it if a write fails), so reads touch no files. Tests: one program per folder; reads come from memory. Checked with a release build on a scratch import of the owner's 2.x data with the showcase on: 1,800 public photo/thumbnail requests 200 at a time plus 100 signed-in collection reads all answered 200, and the process held exactly one file lock throughout. Not reproduced on a real `shfs` mount. Consequence to know: a hand edit of `inkubator.json` while Inkubator runs is not seen until it restarts (restore a backup instead).
 
+Released 2026-10-09: tag run 37928514693 passed (checks, Docker amd64/arm64 with smoke and upgrade-from-3.0.0 tests, all five programs); `3.0.1`, `3` and `latest` published; release notes are the changelog's 3.0.1 section. The `v3.0.1` tag came out unsigned although `tag.gpgsign` is on. Next: the owner updates on Unraid with the built-in "update ready" and confirms `/mnt/user` stays responsive.
+
 ## Follow-ups (do not lose)
 
 - **CI:** `.github/workflows/release.yml` builds, tests and publishes (see phase 7, step 4). The macOS Intel program is cross-built on an Apple Silicon runner and is not started in CI.
